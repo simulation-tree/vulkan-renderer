@@ -83,12 +83,7 @@ namespace Vulkan
             }
         }
 
-        public Instance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<FixedString> extensions) : 
-            this(applicationName, engineName, new List<FixedString>(extensions.ToArray()))
-        {
-        }
-
-        public Instance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<FixedString>? extensions = null)
+        internal Instance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<FixedString>? extensions = null)
         {
             uint count = 0;
             VkResult result = vkEnumerateInstanceLayerProperties(&count, null);
@@ -254,7 +249,9 @@ namespace Vulkan
                 int length = instanceExtension.CopyTo(nameBuffer);
                 fixed (byte* bytes = nameBuffer)
                 {
-                    vkInstanceExtensions.Add(new(bytes));
+                    byte* pointer = (byte*)NativeMemory.Alloc((nuint)length);
+                    System.Runtime.CompilerServices.Unsafe.CopyBlock(pointer, bytes, (uint)length);
+                    vkInstanceExtensions.Add(new(pointer));
                 }
             }
 

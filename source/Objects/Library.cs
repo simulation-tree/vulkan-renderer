@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using Unmanaged;
 using Unmanaged.Collections;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
@@ -37,6 +39,16 @@ namespace Vulkan
         public readonly void Dispose()
         {
             name.Dispose();
+        }
+
+        public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<FixedString>? extensions = null)
+        {
+            return new(applicationName, engineName, extensions);
+        }
+
+        public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<FixedString> extensions)
+        {
+            return CreateInstance(applicationName, engineName, new List<FixedString>(extensions.ToArray()));
         }
     }
 }
