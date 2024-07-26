@@ -1,0 +1,209 @@
+﻿using System;
+using System.Diagnostics;
+using Unmanaged.Collections;
+using Vortice.Vulkan;
+using static Vortice.Vulkan.Vulkan;
+
+namespace Vulkan
+{
+    /// <summary>
+    /// Maintains a pool of descriptors, from which <see cref="DescriptorSet"/>
+    /// instances are allocated.
+    /// </summary>
+    public unsafe struct DescriptorPool : IDisposable, IEquatable<DescriptorPool>
+    {
+        public readonly LogicalDevice logicalDevice;
+
+        private readonly VkDescriptorPool value;
+        private bool valid;
+
+        public readonly VkDescriptorPool Value
+        {
+            get
+            {
+                ThrowIfDisposed();
+                return value;
+            }
+        }
+
+        public readonly bool IsDisposed => !valid;
+
+        /// <summary>
+        /// Creates a descriptor pool object that can allocate descriptor sets.
+        /// </summary>
+        public DescriptorPool(LogicalDevice logicalDevice, uint maxAllocations, VkDescriptorType type)
+        {
+            if (maxAllocations == 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxAllocations));
+            }
+
+            this.logicalDevice = logicalDevice;
+            VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[1] { new(type, maxAllocations) };
+            VkDescriptorPoolCreateInfo createInfo = new()
+            {
+                poolSizeCount = 1,
+                pPoolSizes = poolSizes,
+                maxSets = maxAllocations,
+                flags = VkDescriptorPoolCreateFlags.FreeDescriptorSet
+            };
+
+            VkResult result = vkCreateDescriptorPool(logicalDevice.Value, &createInfo, null, out value);
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Failed to create descriptor pool");
+            }
+
+            valid = true;
+        }
+
+        public DescriptorPool(LogicalDevice logicalDevice, ReadOnlySpan<(VkDescriptorType type, uint count)> pools, uint extraMaxAllocations = 0)
+        {
+            if (pools.Length == 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(pools));
+            }
+
+            this.logicalDevice = logicalDevice;
+            VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[pools.Length];
+            uint maxAllocations = 0;
+            for (int i = 0; i < pools.Length; i++)
+            {
+                (VkDescriptorType type, uint count) = pools[i];
+                poolSizes[i] = new(type, count);
+                maxAllocations += count;
+            }
+
+            VkDescriptorPoolCreateInfo createInfo = new()
+            {
+                poolSizeCount = (uint)pools.Length,
+                pPoolSizes = poolSizes,
+                maxSets = maxAllocations + extraMaxAllocations,
+                flags = VkDescriptorPoolCreateFlags.FreeDescriptorSet
+            };
+
+            VkResult result = vkCreateDescriptorPool(logicalDevice.Value, &createInfo, null, out value);
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Failed to create descriptor pool");
+            }
+
+            valid = true;
+        }
+
+        public void Dispose()
+        {
+            ThrowIfDisposed();
+            vkDestroyDescriptorPool(logicalDevice.Value, value);
+            valid = false;
+        }
+
+        [Conditional("DEBUG")]
+        private readonly void ThrowIfDisposed()
+        {
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(DescriptorPool));
+            }
+        }
+
+        /// <summary>
+        /// Allocates as many new descriptor sets from the pool, as there are layouts given.
+        /// </summary>
+        public readonly UnmanagedArray<DescriptorSet> Allocate(ReadOnlySpan<DescriptorSetLayout> layouts)
+        {
+            ThrowIfDisposed();
+            VkDescriptorSetLayout* layoutPointers = stackalloc VkDescriptorSetLayout[layouts.Length];
+            for (int i = 0; i < layouts.Length; i++)
+            {
+                layoutPointers[i] = layouts[i].Value;
+            }
+
+            VkDescriptorSetAllocateInfo allocateInfo = new()
+            {
+                descriptorPool = value,
+                descriptorSetCount = (uint)layouts.Length,
+                pSetLayouts = layoutPointers
+            };
+
+            VkDescriptorSet* descriptorSet = stackalloc VkDescriptorSet[layouts.Length];
+            VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, descriptorSet);
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Failed to allocate descriptor sets");
+            }
+
+            UnmanagedArray<DescriptorSet> sets = new((uint)layouts.Length);
+            for (uint i = 0; i < layouts.Length; i++)
+            {
+                sets[i] = new(this, descriptorSet[i]);
+            }
+
+            return sets;
+        }
+
+        /// <summary>
+        /// Attempts to allocate a new instance from the pool, assuming the given layout
+        /// is one that the pool can support.
+        /// </summary>
+        /// <returns><c>true</c> when successful, otherwise the pool is out of memory.</returns>
+        public readonly bool TryAllocate(DescriptorSetLayout layout, out DescriptorSet set)
+        {
+            ThrowIfDisposed();
+            VkDescriptorSetLayout vkValue = layout.Value;
+            VkDescriptorSetAllocateInfo allocateInfo = new()
+            {
+                descriptorPool = value,
+                descriptorSetCount = 1,
+                pSetLayouts = &vkValue
+            };
+
+            VkDescriptorSet descriptorSet;
+            VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, &descriptorSet);
+            if (result == VkResult.Success)
+            {
+                set = new(this, descriptorSet);
+                return true;
+            }
+            else if (result == VkResult.ErrorOutOfPoolMemory)
+            {
+                set = default;
+                return false;
+            }
+            else
+            {
+                throw new InvalidOperationException("Failed to allocate descriptor set");
+            }
+        }
+
+        public readonly override bool Equals(object? obj)
+        {
+            return obj is DescriptorPool pool && Equals(pool);
+        }
+
+        public readonly bool Equals(DescriptorPool other)
+        {
+            if (IsDisposed && other.IsDisposed)
+            {
+                return true;
+            }
+
+            return value.Equals(other.value);
+        }
+
+        public readonly override int GetHashCode()
+        {
+            return HashCode.Combine(value, IsDisposed);
+        }
+
+        public static bool operator ==(DescriptorPool left, DescriptorPool right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(DescriptorPool left, DescriptorPool right)
+        {
+            return !(left == right);
+        }
+    }
+}
