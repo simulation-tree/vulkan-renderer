@@ -6,7 +6,7 @@ using Vulkan;
 
 namespace Rendering.Systems
 {
-    public class VulkanRenderer : IRenderSystem
+    public class VulkanRenderer : IRenderSystem, IDisposable
     {
         private Library library;
         private readonly Dictionary<eint, Instance> instances;

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unmanaged;
 using Unmanaged.Collections;
@@ -186,6 +187,7 @@ namespace Vulkan
                 foreach (FixedString extension in extensions)
                 {
                     instanceExtensions.Add(extension);
+                    Debug.WriteLine($"Added extension: `{extension}`");
                 }
             }
 
@@ -201,6 +203,8 @@ namespace Vulkan
                 for (int i = 0; i < extensionCount; i++)
                 {
                     FixedString extensionName = new(extensionProperties[i].extensionName);
+                    Debug.WriteLine($"Found extension: `{extensionName}`");
+
                     if (extensionName == new FixedString(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
                     {
                         instanceExtensions.Add(extensionName);
@@ -232,14 +236,22 @@ namespace Vulkan
             appInfo.apiVersion = VkVersion.Version_1_3;
 
             using UnmanagedList<VkUtf8String> vkInstanceLayers = new(instanceLayers.Count);
+            using UnmanagedList<nint> tempAllocations = new();
             Span<byte> nameBuffer = stackalloc byte[FixedString.MaxLength];
             foreach (FixedString instanceLayer in instanceLayers)
             {
                 int length = instanceLayer.CopyTo(nameBuffer);
+                length++;
+                Debug.WriteLine($"Added layer: `{instanceLayer}` {length}");
                 fixed (byte* bytes = nameBuffer)
                 {
-                    vkInstanceLayers.Add(new(bytes));
+                    byte* newAllocation = (byte*)Allocations.Allocate((uint)length);
+                    Unsafe.CopyBlock(newAllocation, bytes, (uint)length);
+                    vkInstanceLayers.Add(new(newAllocation));
+                    tempAllocations.Add((nint)newAllocation);
                 }
+
+                nameBuffer.Clear();
             }
 
             using VkStringArray layerNames = new(vkInstanceLayers);
@@ -247,12 +259,17 @@ namespace Vulkan
             foreach (FixedString instanceExtension in instanceExtensions)
             {
                 int length = instanceExtension.CopyTo(nameBuffer);
+                Debug.WriteLine($"Added extension: `{instanceExtension}` {length}");
+                length++;
                 fixed (byte* bytes = nameBuffer)
                 {
-                    byte* pointer = (byte*)NativeMemory.Alloc((nuint)length);
-                    System.Runtime.CompilerServices.Unsafe.CopyBlock(pointer, bytes, (uint)length);
-                    vkInstanceExtensions.Add(new(pointer));
+                    byte* newAllocation = (byte*)Allocations.Allocate((uint)length);
+                    Unsafe.CopyBlock(newAllocation, bytes, (uint)length);
+                    vkInstanceExtensions.Add(new(newAllocation));
+                    tempAllocations.Add((nint)newAllocation);
                 }
+
+                nameBuffer.Clear();
             }
 
             using VkStringArray extensionNames = new(vkInstanceExtensions);
@@ -278,6 +295,12 @@ namespace Vulkan
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to create instance: {result}");
+            }
+
+            foreach (nint allocation in tempAllocations)
+            {
+                void* pointer = (void*)allocation;
+                Allocations.Free(ref pointer);
             }
 
             this.applicationName = new(applicationName);
