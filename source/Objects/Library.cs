@@ -48,7 +48,78 @@ namespace Vulkan
 
         public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<FixedString> extensions)
         {
-            return CreateInstance(applicationName, engineName, new List<FixedString>(extensions.ToArray()));
+            List<FixedString> throwaway = [..extensions];
+            return CreateInstance(applicationName, engineName, throwaway);
+        }
+
+        /// <summary>
+        /// Retrieves a new list containing names of all available global layers.
+        /// </summary>
+        public static UnmanagedArray<FixedString> GetGlobalLayers()
+        {
+            uint count = 0;
+            VkResult result = vkEnumerateInstanceLayerProperties(&count, null);
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to enumerate instance layer properties: {result}");
+            }
+
+            if (count > 0)
+            {
+                VkLayerProperties* properties = stackalloc VkLayerProperties[(int)count];
+                result = vkEnumerateInstanceLayerProperties(&count, properties);
+                if (result != VkResult.Success)
+                {
+                    throw new Exception($"Failed to enumerate instance layer properties: {result}");
+                }
+
+                UnmanagedArray<FixedString> availableInstanceLayers = new(count);
+                for (uint i = 0; i < count; i++)
+                {
+                    availableInstanceLayers[i] = new(properties[i].layerName);
+                }
+
+                return availableInstanceLayers;
+            }
+            else
+            {
+                return new();
+            }
+        }
+
+        /// <summary>
+        /// Retrieves a new list containing names of all available global extensions.
+        /// </summary>
+        public static UnmanagedArray<FixedString> GetGlobalExtensions()
+        {
+            uint count = 0;
+            VkResult result = vkEnumerateInstanceExtensionProperties(&count, null);
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to enumerate instance extension properties: {result}");
+            }
+
+            if (count > 0)
+            {
+                VkExtensionProperties* extensionProperties = stackalloc VkExtensionProperties[(int)count];
+                result = vkEnumerateInstanceExtensionProperties(&count, extensionProperties);
+                if (result != VkResult.Success)
+                {
+                    throw new Exception($"Failed to enumerate instance extension properties: {result}");
+                }
+
+                UnmanagedArray<FixedString> availableInstanceExtensions = new(count);
+                for (uint i = 0; i < count; i++)
+                {
+                    availableInstanceExtensions[i] = new(extensionProperties[i].extensionName);
+                }
+
+                return availableInstanceExtensions;
+            }
+            else
+            {
+                return new();
+            }
         }
     }
 }

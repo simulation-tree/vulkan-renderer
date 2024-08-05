@@ -1,39 +1,32 @@
-﻿using Simulation;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using Unmanaged;
 using Vulkan;
 
 namespace Rendering.Systems
 {
-    public class VulkanRenderer : IRenderSystem, IDisposable
+    public class VulkanRenderer : IRenderSystem
     {
-        private Library library;
-        private readonly Dictionary<eint, Instance> instances;
+        private Instance instance;
 
         static FixedString IRenderSystem.Label => "vulkan";
 
         public VulkanRenderer()
         {
-            library = new();
-            instances = new();
         }
 
-        public void Dispose()
+        void IDisposable.Dispose()
         {
-            foreach (Instance instance in instances.Values)
-            {
-                instance.Dispose();
-            }
-
-            instances.Clear();
-            library.Dispose();
+            instance.Dispose();
         }
 
-        void IRenderSystem.Initialize(eint entity, ReadOnlySpan<FixedString> extensionNames)
+        void IRenderSystem.Initialize(ReadOnlySpan<FixedString> extensionNames)
         {
-            Instance instance = new("Game", "Engine", extensionNames.ToArray());
-            instances.Add(entity, instance);
+            instance = Shared.library.CreateInstance("Game", "Engine", extensionNames);
+        }
+
+        void IRenderSystem.Render(Destination destination, Camera camera, ReadOnlySpan<Renderer> entities)
+        {
+
         }
     }
 }

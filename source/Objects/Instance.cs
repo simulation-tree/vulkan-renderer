@@ -86,133 +86,82 @@ namespace Vulkan
 
         internal Instance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<FixedString>? extensions = null)
         {
-            uint count = 0;
-            VkResult result = vkEnumerateInstanceLayerProperties(&count, null);
-            if (result != VkResult.Success)
+            using UnmanagedList<FixedString> inputLayers = new();
+            using UnmanagedArray<FixedString> globalLayers = Library.GetGlobalLayers();
+
+            if (ContainsAll(globalLayers, preferredValidationLayers))
             {
-                throw new Exception($"Failed to enumerate instance layer properties: {result}");
+                inputLayers.AddRange(preferredValidationLayers);
             }
-
-            //gather instance layers
-            using UnmanagedList<FixedString> instanceLayers = UnmanagedList<FixedString>.Create();
-            if (count > 0)
+            else if (ContainsAll(globalLayers, fallbackValidationLayers))
             {
-                VkLayerProperties* properties = stackalloc VkLayerProperties[(int)count];
-                result = vkEnumerateInstanceLayerProperties(&count, properties);
-                if (result != VkResult.Success)
+                inputLayers.AddRange(fallbackValidationLayers);
+            }
+            else if (ContainsAll(globalLayers, fallbackIndividualLayers))
+            {
+                inputLayers.AddRange(fallbackIndividualLayers);
+            }
+            else if (ContainsAll(globalLayers, fallbackFallbackLayers))
+            {
+                inputLayers.AddRange(fallbackFallbackLayers);
+            }
+            else
+            {
+                if (globalLayers.Length > 0)
                 {
-                    throw new Exception($"Failed to enumerate instance layer properties: {result}");
-                }
+                    using UnmanagedList<char> remaining = UnmanagedList<char>.Create();
+                    Span<char> buffer = stackalloc char[FixedString.MaxLength];
+                    foreach (FixedString layer in globalLayers)
+                    {
+                        int length = layer.CopyTo(buffer);
+                        remaining.AddRange(buffer[..length]);
+                        remaining.AddRange(", ");
+                    }
 
-                using UnmanagedArray<FixedString> availableInstanceLayers = new(count);
-                for (uint i = 0; i < count; i++)
-                {
-                    availableInstanceLayers[i] = new(properties[i].layerName);
-                }
-
-                if (ContainsAll(availableInstanceLayers, preferredValidationLayers))
-                {
-                    instanceLayers.AddRange(preferredValidationLayers);
-                }
-                else if (ContainsAll(availableInstanceLayers, fallbackValidationLayers))
-                {
-                    instanceLayers.AddRange(fallbackValidationLayers);
-                }
-                else if (ContainsAll(availableInstanceLayers, fallbackIndividualLayers))
-                {
-                    instanceLayers.AddRange(fallbackIndividualLayers);
-                }
-                else if (ContainsAll(availableInstanceLayers, fallbackFallbackLayers))
-                {
-                    instanceLayers.AddRange(fallbackFallbackLayers);
+                    remaining.RemoveAt(remaining.Count - 1);
+                    remaining.RemoveAt(remaining.Count - 1);
+                    Debug.WriteLine("No suitable validation layers found, there were instead:\n" + remaining);
                 }
                 else
                 {
-                    if (availableInstanceLayers.Length > 0)
-                    {
-                        using UnmanagedList<char> remaining = UnmanagedList<char>.Create();
-                        Span<char> buffer = stackalloc char[FixedString.MaxLength];
-                        foreach (FixedString layer in availableInstanceLayers)
-                        {
-                            int length = layer.CopyTo(buffer);
-                            remaining.AddRange(buffer[..length]);
-                            remaining.AddRange(", ");
-                        }
-
-                        remaining.RemoveAt(remaining.Count - 1);
-                        remaining.RemoveAt(remaining.Count - 1);
-                        Debug.WriteLine("No suitable validation layers found, there were instead:\n" + remaining);
-                    }
-                    else
-                    {
-                        Debug.WriteLine("No validation layers found");
-                    }
-                }
-
-                static bool ContainsAll(IReadOnlyList<FixedString> a, IReadOnlyList<FixedString> b)
-                {
-                    foreach (FixedString layer in b)
-                    {
-                        bool contains = false;
-                        foreach (FixedString availableLayer in a)
-                        {
-                            if (availableLayer == layer)
-                            {
-                                contains = true;
-                                break;
-                            }
-                        }
-
-                        if (!contains)
-                        {
-                            return false;
-                        }
-                    }
-
-                    return true;
+                    Debug.WriteLine("No global layers found");
                 }
             }
 
-            //find vk_ext_debug_utils
-            uint extensionCount = 0;
-            result = vkEnumerateInstanceExtensionProperties(&extensionCount, null);
-            if (result != VkResult.Success)
+            static bool ContainsAll(IReadOnlyList<FixedString> a, IReadOnlyList<FixedString> b)
             {
-                throw new Exception($"Failed to enumerate instance extension properties: {result}");
-            }
-
-            using UnmanagedList<FixedString> instanceExtensions = UnmanagedList<FixedString>.Create();
-            if (extensions is not null)
-            {
-                foreach (FixedString extension in extensions)
+                foreach (FixedString layer in b)
                 {
-                    instanceExtensions.Add(extension);
-                    Debug.WriteLine($"Added extension: `{extension}`");
-                }
-            }
+                    bool contains = false;
+                    foreach (FixedString availableLayer in a)
+                    {
+                        if (availableLayer == layer)
+                        {
+                            contains = true;
+                            break;
+                        }
+                    }
 
-            if (extensionCount > 0)
-            {
-                VkExtensionProperties* extensionProperties = stackalloc VkExtensionProperties[(int)extensionCount];
-                result = vkEnumerateInstanceExtensionProperties(&extensionCount, extensionProperties);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception($"Failed to enumerate instance extension properties: {result}");
+                    if (!contains)
+                    {
+                        return false;
+                    }
                 }
 
-                for (int i = 0; i < extensionCount; i++)
-                {
-                    FixedString extensionName = new(extensionProperties[i].extensionName);
-                    Debug.WriteLine($"Found extension: `{extensionName}`");
+                return true;
+            }
 
-                    if (extensionName == new FixedString(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
-                    {
-                        instanceExtensions.Add(extensionName);
-                    }
-                    else if (extensionName == new FixedString(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME))
-                    {
-                        instanceExtensions.Add(extensionName);
-                    }
+            using UnmanagedArray<FixedString> globalExtensions = Library.GetGlobalExtensions();
+            using UnmanagedList<FixedString> inputExtensions = new(extensions ?? []);
+            foreach (FixedString extensionName in globalExtensions)
+            {
+                if (extensionName == new FixedString(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
+                {
+                    inputExtensions.Add(extensionName);
+                }
+                else if (extensionName == new FixedString(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME))
+                {
+                    inputExtensions.Add(extensionName);
                 }
             }
 
@@ -235,14 +184,12 @@ namespace Vulkan
             appInfo.engineVersion = VkVersion.Version_1_0;
             appInfo.apiVersion = VkVersion.Version_1_3;
 
-            using UnmanagedList<VkUtf8String> vkInstanceLayers = new(instanceLayers.Count);
+            using UnmanagedList<VkUtf8String> vkInstanceLayers = new(inputLayers.Count);
             using UnmanagedList<nint> tempAllocations = new();
             Span<byte> nameBuffer = stackalloc byte[FixedString.MaxLength];
-            foreach (FixedString instanceLayer in instanceLayers)
+            foreach (FixedString instanceLayer in inputLayers)
             {
-                int length = instanceLayer.CopyTo(nameBuffer);
-                length++;
-                Debug.WriteLine($"Added layer: `{instanceLayer}` {length}");
+                int length = instanceLayer.CopyTo(nameBuffer) + 1;
                 fixed (byte* bytes = nameBuffer)
                 {
                     byte* newAllocation = (byte*)Allocations.Allocate((uint)length);
@@ -254,13 +201,10 @@ namespace Vulkan
                 nameBuffer.Clear();
             }
 
-            using VkStringArray layerNames = new(vkInstanceLayers);
-            using UnmanagedList<VkUtf8String> vkInstanceExtensions = new(instanceExtensions.Count);
-            foreach (FixedString instanceExtension in instanceExtensions)
+            using UnmanagedList<VkUtf8String> vkInstanceExtensions = new(inputExtensions.Count);
+            foreach (FixedString instanceExtension in inputExtensions)
             {
-                int length = instanceExtension.CopyTo(nameBuffer);
-                Debug.WriteLine($"Added extension: `{instanceExtension}` {length}");
-                length++;
+                int length = instanceExtension.CopyTo(nameBuffer) + 1;
                 fixed (byte* bytes = nameBuffer)
                 {
                     byte* newAllocation = (byte*)Allocations.Allocate((uint)length);
@@ -272,6 +216,7 @@ namespace Vulkan
                 nameBuffer.Clear();
             }
 
+            using VkStringArray layerNames = new(vkInstanceLayers);
             using VkStringArray extensionNames = new(vkInstanceExtensions);
 
             VkInstanceCreateInfo createInfo = new();
@@ -282,7 +227,7 @@ namespace Vulkan
             createInfo.ppEnabledExtensionNames = extensionNames;
 
             VkDebugUtilsMessengerCreateInfoEXT debugUtilsCreateInfo = new();
-            if (instanceLayers.Count > 0)
+            if (inputLayers.Count > 0)
             {
                 createInfo.pNext = &debugUtilsCreateInfo;
                 debugUtilsCreateInfo.messageSeverity = VkDebugUtilsMessageSeverityFlagsEXT.Error | VkDebugUtilsMessageSeverityFlagsEXT.Warning;
@@ -291,7 +236,7 @@ namespace Vulkan
             }
 
             //create vulkan instance
-            result = vkCreateInstance(&createInfo, null, out value);
+            VkResult result = vkCreateInstance(&createInfo, null, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to create instance: {result}");
@@ -308,7 +253,7 @@ namespace Vulkan
             vkLoadInstanceOnly(value);
             valid = true;
 
-            if (instanceLayers.Count > 0)
+            if (inputLayers.Count > 0)
             {
                 result = vkCreateDebugUtilsMessengerEXT(value, &debugUtilsCreateInfo, null, out debugMessenger);
                 if (result != VkResult.Success)
