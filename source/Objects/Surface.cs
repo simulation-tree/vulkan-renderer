@@ -55,67 +55,40 @@ namespace Vulkan
             return new(capabilities, formats, presentModes);
         }
 
-        public readonly SwapchainCapabilities GetSwapchainInfo(LogicalDevice device)
-        {
-            return GetSwapchainInfo(device.physicalDevice);
-        }
-
-        /// <summary>
-        /// Returns the queue family indices for the graphics and present queues.
-        /// </summary>
-        public readonly (uint graphics, uint present) GetQueueFamily(LogicalDevice device)
-        {
-            return GetQueueFamily(device.physicalDevice);
-        }
-
-        /// <summary>
-        /// Returns the queue family indices for the graphics and present queues.
-        /// </summary>
-        public readonly (uint graphics, uint present) GetQueueFamily(PhysicalDevice physicalDevice)
+        public readonly bool TryGetBestSize(PhysicalDevice device, out uint width, out uint height)
         {
             ThrowIfDisposed();
-            ReadOnlySpan<VkQueueFamilyProperties> queueFamilies = vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice.Value);
-            uint graphicsFamily = VK_QUEUE_FAMILY_IGNORED;
-            uint presentFamily = VK_QUEUE_FAMILY_IGNORED;
-            for (uint i = 0; i < queueFamilies.Length; i++)
-            {
-                VkQueueFamilyProperties queueFamily = queueFamilies[(int)i];
-                if ((queueFamily.queueFlags & VkQueueFlags.Graphics) != VkQueueFlags.None)
-                {
-                    graphicsFamily = i;
-                    continue;
-                }
 
-                vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice.Value, i, value, out VkBool32 supportsPresenting);
-                if (supportsPresenting)
-                {
-                    presentFamily = i;
-                }
-
-                if (graphicsFamily != VK_QUEUE_FAMILY_IGNORED && presentFamily != VK_QUEUE_FAMILY_IGNORED)
-                {
-                    break;
-                }
-            }
-
-            return (graphicsFamily, presentFamily);
-        }
-
-        public readonly bool TryGetBestSize(LogicalDevice device, out uint width, out uint height)
-        {
-            ThrowIfDisposed();
             SwapchainCapabilities swapchainInfo = GetSwapchainInfo(device);
             VkSurfaceCapabilitiesKHR capabilities = swapchainInfo.capabilities;
-            if (capabilities.currentExtent.width > 0)
+            if (capabilities.currentExtent.width == uint.MaxValue)
             {
-                width = capabilities.currentExtent.width;
-                height = capabilities.currentExtent.height;
-                return true;
+                width = default;
+                height = default;
+                return false;
             }
 
-            width = default;
-            height = default;
-            return false;
+            width = capabilities.currentExtent.width;
+            height = capabilities.currentExtent.height;
+            return true;
+        }
+
+        public readonly (uint minWidth, uint maxWidth, uint minHeight, uint maxHeight) GetSizeRange(PhysicalDevice device)
+        {
+            ThrowIfDisposed();
+
+            SwapchainCapabilities swapchainInfo = GetSwapchainInfo(device);
+            VkSurfaceCapabilitiesKHR capabilities = swapchainInfo.capabilities;
+            return (capabilities.minImageExtent.width, capabilities.maxImageExtent.width, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+        }
+
+        public readonly (uint min, uint max) GetImageCountRange(PhysicalDevice device)
+        {
+            ThrowIfDisposed();
+
+            SwapchainCapabilities swapchainInfo = GetSwapchainInfo(device);
+            VkSurfaceCapabilitiesKHR capabilities = swapchainInfo.capabilities;
+            return (capabilities.minImageCount, capabilities.maxImageCount);
         }
 
         public readonly override bool Equals(object? obj)

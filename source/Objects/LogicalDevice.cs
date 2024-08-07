@@ -9,11 +9,6 @@ namespace Vulkan
 {
     public unsafe struct LogicalDevice : IDisposable, IEquatable<LogicalDevice>
     {
-        private static readonly FixedString[] deviceExtensions =
-        {
-            new(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
-        };
-
 #if DEBUG
         private static readonly string[] deviceLayers =
         {
@@ -37,12 +32,9 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public LogicalDevice(PhysicalDevice physicalDevice, ReadOnlySpan<uint> queueFamilies)
+        public LogicalDevice(PhysicalDevice physicalDevice, ReadOnlySpan<uint> queueFamilies, ReadOnlySpan<FixedString> deviceExtensions)
         {
             this.physicalDevice = physicalDevice;
-            VkPhysicalDeviceProperties properties = physicalDevice.GetProperties();
-            ReadOnlySpan<VkExtensionProperties> availableDeviceExtensions = physicalDevice.GetExtensionProperties();
-
             float priority = 1f;
             uint queueCount = 0;
             VkDeviceQueueCreateInfo* queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[queueFamilies.Length];
@@ -58,14 +50,15 @@ namespace Vulkan
             VkPhysicalDeviceFeatures features = new();
             features.samplerAnisotropy = true;
 
-            using UnmanagedList<VkUtf8String> vkDeviceExtensions = UnmanagedList<VkUtf8String>.Create();
+            using UnmanagedArray<VkUtf8String> vkDeviceExtensions = new((uint)deviceExtensions.Length);
             Span<byte> nameBuffer = stackalloc byte[FixedString.MaxLength];
-            foreach (FixedString extension in deviceExtensions)
+            for (int i = 0; i < deviceExtensions.Length; i++)
             {
+                FixedString extension = deviceExtensions[i];
                 int length = extension.CopyTo(nameBuffer);
                 fixed (byte* ptr = nameBuffer)
                 {
-                    vkDeviceExtensions.Add(new(ptr, length));
+                    vkDeviceExtensions[(uint)i] = new(ptr, length);
                 }
             }
 

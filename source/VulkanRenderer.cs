@@ -30,17 +30,17 @@ namespace Rendering.Vulkan
         [UnmanagedCallersOnly]
         private unsafe static void Dispose(Allocation allocation)
         {
-            RendererSystem renderer = allocation.AsRef<RendererSystem>();
+            ref RendererSystem renderer = ref allocation.AsRef<RendererSystem>();
             renderer.Dispose();
             allocation.Dispose();
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static void Render(Allocation allocation, nint entities, int entityCount, eint material, eint mesh, eint camera)
+        private unsafe static void Render(Allocation allocation, nint surface, nint entities, int entityCount, eint material, eint mesh, eint camera)
         {
             ReadOnlySpan<eint> entitiesSpan = new((void*)entities, entityCount);
-            RendererSystem renderer = allocation.AsRef<RendererSystem>();
-            renderer.Render(entitiesSpan, material, mesh, camera);
+            ref RendererSystem renderer = ref allocation.AsRef<RendererSystem>();
+            renderer.Render(surface, entitiesSpan, material, mesh, camera);
         }
 
         [UnmanagedCallersOnly]

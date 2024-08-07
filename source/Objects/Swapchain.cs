@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using Unmanaged.Collections;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -32,7 +31,7 @@ namespace Vulkan
             this.device = device;
             this.width = width;
             this.height = height;
-            SwapchainCapabilities swapchainInfo = surface.GetSwapchainInfo(device);
+            SwapchainCapabilities swapchainInfo = surface.GetSwapchainInfo(device.physicalDevice);
             VkSurfaceFormatKHR surfaceFormat = swapchainInfo.ChooseSwapSurfaceFormat();
             VkPresentModeKHR presentMode = swapchainInfo.ChooseSwapPresentMode();
             format = surfaceFormat.format;
@@ -53,7 +52,7 @@ namespace Vulkan
                 imageUsage = VkImageUsageFlags.ColorAttachment
             };
 
-            (uint graphics, uint present) = surface.GetQueueFamily(device);
+            (uint graphics, uint present) = device.physicalDevice.GetQueueFamilies(surface);
             if (graphics != present)
             {
                 uint* queueFamilies = stackalloc uint[2] { graphics, present };
@@ -96,17 +95,17 @@ namespace Vulkan
             }
         }
 
-        public readonly UnmanagedArray<Image> GetImages()
+        public readonly int CopyImagesTo(Span<Image> buffer)
         {
             ThrowIfDisposed();
             ReadOnlySpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(device.Value, value);
-            UnmanagedArray<Image> images = new((uint)imageSpan.Length);
             for (int i = 0; i < imageSpan.Length; i++)
             {
-                images[(uint)i] = new(device, imageSpan[i], width, height, format);
+                Image image = new(device, imageSpan[i], width, height, format);
+                buffer[i] = image;
             }
 
-            return images;
+            return imageSpan.Length;
         }
     }
 }

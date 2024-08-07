@@ -314,41 +314,6 @@ namespace Vulkan
             }
         }
 
-        public readonly bool TryPickDevice(Surface surface, out PhysicalDevice chosenPhysicalDevice)
-        {
-            ThrowIfDisposed();
-            chosenPhysicalDevice = default;
-            bool found = false;
-            foreach (PhysicalDevice physicalDevice in physicalDevices)
-            {
-                (uint graphics, uint present) = surface.GetQueueFamily(physicalDevice);
-                if (graphics == VK_QUEUE_FAMILY_IGNORED) continue;
-                if (present == VK_QUEUE_FAMILY_IGNORED) continue;
-
-                SwapchainCapabilities swapchainInfo = surface.GetSwapchainInfo(physicalDevice);
-                if (swapchainInfo.formats.Length == 0) continue;
-                if (swapchainInfo.presentModes.Length == 0) continue;
-
-                VkPhysicalDeviceFeatures features = physicalDevice.GetFeatures();
-                if (!features.samplerAnisotropy) continue;
-
-                VkPhysicalDeviceProperties properties = physicalDevice.GetProperties();
-                if (properties.deviceType == VkPhysicalDeviceType.DiscreteGpu)
-                {
-                    chosenPhysicalDevice = physicalDevice;
-                    found = true;
-                    break;
-                }
-                else if (!found)
-                {
-                    chosenPhysicalDevice = physicalDevice;
-                    found = true;
-                }
-            }
-
-            return found;
-        }
-
         public readonly override bool Equals(object? obj)
         {
             return obj is Instance instance && Equals(instance);

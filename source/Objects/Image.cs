@@ -33,6 +33,7 @@ namespace Vulkan
             this.width = width;
             this.height = height;
             value = existingImage;
+            valid = true;
         }
 
         public Image(LogicalDevice logicalDevice, uint width, uint height, uint depth, VkFormat format, VkImageUsageFlags usage)

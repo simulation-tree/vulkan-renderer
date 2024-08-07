@@ -30,7 +30,7 @@ namespace Vulkan
         public RenderPass(LogicalDevice logicalDevice, Surface surface)
         {
             this.logicalDevice = logicalDevice;
-            SwapchainCapabilities swapchainInfo = surface.GetSwapchainInfo(logicalDevice);
+            SwapchainCapabilities swapchainInfo = surface.GetSwapchainInfo(logicalDevice.physicalDevice);
             VkSurfaceFormatKHR surfaceFormat = swapchainInfo.ChooseSwapSurfaceFormat();
             VkFormat colorFormat = surfaceFormat.format;
             VkAttachmentDescription* attachment = stackalloc VkAttachmentDescription[2];
