@@ -342,19 +342,19 @@ namespace Vulkan
         [UnmanagedCallersOnly]
         private static uint DebugMessengerCallback(VkDebugUtilsMessageSeverityFlagsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* userData)
         {
-            FixedString message = new(pCallbackData->pMessage);
+            string str = new((sbyte*)pCallbackData->pMessage);
             if (messageSeverity == VkDebugUtilsMessageSeverityFlagsEXT.Error)
             {
-                throw new Exception(message.ToString());
+                throw new Exception(str);
             }
 
             if (messageTypes == VkDebugUtilsMessageTypeFlagsEXT.Validation)
             {
-                Debug.WriteLine($"[Vulkan]: Validation: {messageSeverity} - {message}");
+                Debug.WriteLine($"[Vulkan]: Validation: {messageSeverity} - {str}");
             }
             else
             {
-                Debug.WriteLine($"[Vulkan]: {messageSeverity} - {message}");
+                Debug.WriteLine($"[Vulkan]: {messageSeverity} - {str}");
             }
 
             return VK_FALSE;

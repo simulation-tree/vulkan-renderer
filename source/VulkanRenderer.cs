@@ -12,9 +12,9 @@ namespace Rendering.Vulkan
 
         static FixedString IRenderSystem.Label => "vulkan";
 
-        static unsafe (CreateFunction, DestroyFunction, RenderFunction, FinishFunction) IRenderSystem.GetFunctions()
+        static unsafe (CreateFunction, DestroyFunction, RenderFunction, FinishFunction, SurfaceCreatedFunction) IRenderSystem.GetFunctions()
         {
-            return (new(&Create), new(&Dispose), new(&Render), new(&Finish));
+            return (new(&Create), new(&Dispose), new(&Render), new(&Finish), new(&SurfaceCreated));
         }
 
         [UnmanagedCallersOnly]
@@ -36,17 +36,24 @@ namespace Rendering.Vulkan
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static void Render(Allocation allocation, nint surface, nint entities, int entityCount, eint material, eint mesh, eint camera)
+        private unsafe static void Render(Allocation allocation, nint entities, int entityCount, eint material, eint mesh, eint camera)
         {
             ReadOnlySpan<eint> entitiesSpan = new((void*)entities, entityCount);
             ref RendererSystem renderer = ref allocation.AsRef<RendererSystem>();
-            renderer.Render(surface, entitiesSpan, material, mesh, camera);
+            renderer.Render(entitiesSpan, material, mesh, camera);
         }
 
         [UnmanagedCallersOnly]
         private static void Finish()
         {
             library.Dispose();
+        }
+
+        [UnmanagedCallersOnly]
+        private static void SurfaceCreated(Allocation allocation, nint surface)
+        {
+            ref RendererSystem renderer = ref allocation.AsRef<RendererSystem>();
+            renderer.SurfaceCreated(surface);
         }
     }
 }

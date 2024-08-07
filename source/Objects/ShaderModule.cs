@@ -23,6 +23,9 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
+        /// <summary>
+        /// Creates a shader module from the given SPV bytecode.
+        /// </summary>
         public ShaderModule(LogicalDevice device, ReadOnlySpan<byte> code)
         {
             this.logicalDevice = device;

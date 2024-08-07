@@ -40,15 +40,19 @@ namespace Vulkan
         {
             this.logicalDevice = device;
 
-            VkDescriptorSetLayout* layouts = stackalloc VkDescriptorSetLayout[setLayouts.Length];
-            for (int i = 0; i < setLayouts.Length; i++)
+            VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new();
+            if (!setLayouts.IsEmpty)
             {
-                layouts[i] = setLayouts[i].Value;
+                VkDescriptorSetLayout* layouts = stackalloc VkDescriptorSetLayout[setLayouts.Length];
+                for (int i = 0; i < setLayouts.Length; i++)
+                {
+                    layouts[i] = setLayouts[i].Value;
+                }
+
+                pipelineLayoutCreateInfo.pSetLayouts = layouts;
+                pipelineLayoutCreateInfo.setLayoutCount = (uint)setLayouts.Length;
             }
 
-            VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new();
-            pipelineLayoutCreateInfo.pSetLayouts = layouts;
-            pipelineLayoutCreateInfo.setLayoutCount = (uint)setLayouts.Length;
             VkResult result = vkCreatePipelineLayout(device.Value, &pipelineLayoutCreateInfo, null, out value);
             if (result != VkResult.Success)
             {

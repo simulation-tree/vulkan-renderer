@@ -2,19 +2,20 @@
 
 namespace Vulkan
 {
-    public ref struct PipelineCreateInput
+    public readonly ref struct PipelineCreateInput
     {
-        public uint viewportCount;
-        public uint scissorCount;
-        public ReadOnlySpan<DescriptorSetLayout> setLayouts;
-        public RenderPass renderPass;
-        public uint vertexBinding;
-        public ShaderModule vertex;
-        public ShaderModule fragment;
-        public ReadOnlySpan<VertexInputAttribute> vertexAttributes;
+        public readonly uint viewportCount;
+        public readonly uint scissorCount;
+        public readonly ReadOnlySpan<DescriptorSetLayout> setLayouts;
+        public readonly RenderPass renderPass;
+        public readonly uint vertexBinding;
+        public readonly ShaderModule vertex;
+        public readonly ShaderModule fragment;
+        public readonly ReadOnlySpan<VertexInputAttribute> vertexAttributes;
 
         public readonly LogicalDevice LogicalDevice => renderPass.logicalDevice;
 
+        [Obsolete("Default constructor not supported", true)]
         public PipelineCreateInput()
         {
             throw new NotImplementedException();
