@@ -1,19 +1,37 @@
-﻿using Unmanaged;
-using Vulkan;
+﻿using Vulkan;
 
 namespace Rendering.Systems
 {
     public static class Shared
     {
-        public static readonly Library library;
+        private static readonly Library library;
+        private static int count;
 
         static Shared()
         {
             library = new();
-            Allocations.Finish += () =>
+        }
+
+        public static Library TakeLibrary()
+        {
+            count++;
+            return library;
+        }
+
+        public static void ReturnLibrary()
+        {
+#if DEBUG
+            if (count == 0)
+            {
+                throw new System.Exception("Library can't exist to return");
+            }
+#endif
+
+            count--;
+            if (count == 0)
             {
                 library.Dispose();
-            };
+            }
         }
     }
 }

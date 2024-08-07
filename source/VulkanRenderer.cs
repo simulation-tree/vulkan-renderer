@@ -1,32 +1,54 @@
-﻿using System;
+﻿using Meshes;
+using Simulation;
+using System;
+using System.Runtime.InteropServices;
 using Unmanaged;
 using Vulkan;
 
 namespace Rendering.Systems
 {
-    public class VulkanRenderer : IRenderSystem
+    public readonly struct VulkanRenderer : IRenderSystem
     {
-        private Instance instance;
+        private static Library library;
 
         static FixedString IRenderSystem.Label => "vulkan";
 
-        public VulkanRenderer()
+        static unsafe (SetupFunction setup, DisposeFunction tearDown, RenderFunction render) IRenderSystem.GetFunctions()
         {
+            SetupFunction setup = new(&Setup);
+            DisposeFunction tearDown = new(&TearDown);
+            RenderFunction render = new(&Render);
+            return (setup, tearDown, render);
         }
 
-        void IDisposable.Dispose()
+        [UnmanagedCallersOnly]
+        private unsafe static void TearDown(nint address)
         {
+            Allocation allocation = new((void*)address);
+            Instance instance = allocation.AsRef<Instance>();
             instance.Dispose();
+
+            Shared.ReturnLibrary();
         }
 
-        void IRenderSystem.Initialize(ReadOnlySpan<FixedString> extensionNames)
+        [UnmanagedCallersOnly]
+        private unsafe static nint Setup(nint names, int nameCount)
         {
-            instance = Shared.library.CreateInstance("Game", "Engine", extensionNames);
+            ReadOnlySpan<FixedString> namesSpan = new((void*)names, nameCount);
+            library = Shared.TakeLibrary();
+            
+            Instance instance = library.CreateInstance("Game", "Engine", namesSpan);
+            Allocation allocation = Allocation.Create(instance);
+            return allocation.Address;
         }
 
-        void IRenderSystem.Render(Destination destination, Camera camera, ReadOnlySpan<Renderer> entities)
+        [UnmanagedCallersOnly]
+        private unsafe static void Render(World world, nint address, nint entities, int entityCount, Material material, Mesh mesh, Camera camera, eint destination)
         {
-
+            Allocation allocation = new((void*)address);
+            Instance instance = allocation.AsRef<Instance>();
+            ReadOnlySpan<eint> entitiesSpan = new((void*)entities, entityCount);
+            Console.WriteLine($"Rendering {entitiesSpan.Length} entities with camera {camera}");
         }
     }
 }
