@@ -84,10 +84,10 @@ namespace Vulkan
             }
         }
 
-        internal Instance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<FixedString>? extensions = null)
+        internal Instance(Library library, ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<FixedString>? extensions = null)
         {
             using UnmanagedList<FixedString> inputLayers = new();
-            using UnmanagedArray<FixedString> globalLayers = Library.GetGlobalLayers();
+            using UnmanagedArray<FixedString> globalLayers = library.GetGlobalLayers();
 
             if (ContainsAll(globalLayers, preferredValidationLayers))
             {
@@ -151,7 +151,7 @@ namespace Vulkan
                 return true;
             }
 
-            using UnmanagedArray<FixedString> globalExtensions = Library.GetGlobalExtensions();
+            using UnmanagedArray<FixedString> globalExtensions = library.GetGlobalExtensions();
             using UnmanagedList<FixedString> inputExtensions = new(extensions ?? []);
             foreach (FixedString extensionName in globalExtensions)
             {
@@ -294,11 +294,6 @@ namespace Vulkan
             ThrowIfDisposed();
             applicationName.Dispose();
             engineName.Dispose();
-            foreach (PhysicalDevice physicalDevice in physicalDevices)
-            {
-                physicalDevice.Dispose();
-            }
-
             physicalDevices.Dispose();
 
             if (debugMessenger != default(VkDebugUtilsMessengerEXT))

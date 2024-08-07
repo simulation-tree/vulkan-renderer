@@ -43,7 +43,7 @@ namespace Vulkan
 
         public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<FixedString>? extensions = null)
         {
-            return new(applicationName, engineName, extensions);
+            return new(this, applicationName, engineName, extensions);
         }
 
         public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<FixedString> extensions)
@@ -55,7 +55,7 @@ namespace Vulkan
         /// <summary>
         /// Retrieves a new list containing names of all available global layers.
         /// </summary>
-        public static UnmanagedArray<FixedString> GetGlobalLayers()
+        public readonly UnmanagedArray<FixedString> GetGlobalLayers()
         {
             uint count = 0;
             VkResult result = vkEnumerateInstanceLayerProperties(&count, null);
@@ -90,7 +90,7 @@ namespace Vulkan
         /// <summary>
         /// Retrieves a new list containing names of all available global extensions.
         /// </summary>
-        public static UnmanagedArray<FixedString> GetGlobalExtensions()
+        public readonly UnmanagedArray<FixedString> GetGlobalExtensions()
         {
             uint count = 0;
             VkResult result = vkEnumerateInstanceExtensionProperties(&count, null);
