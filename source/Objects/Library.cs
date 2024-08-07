@@ -16,10 +16,16 @@ namespace Vulkan
         public readonly bool IsDisposed => name.IsDisposed;
         public readonly ReadOnlySpan<char> Name => name.AsSpan();
 
+        /// <summary>
+        /// Initializes the vulkan library.
+        /// </summary>
         public Library() : this(default)
         {
         }
 
+        /// <summary>
+        /// Initializes the vulkan library.
+        /// </summary>
         public Library(ReadOnlySpan<char> libraryName)
         {
             name = new(libraryName);
