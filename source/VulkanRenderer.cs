@@ -27,6 +27,7 @@ namespace Rendering.Systems
             Allocation allocation = new((void*)address);
             Instance instance = allocation.AsRef<Instance>();
             instance.Dispose();
+            allocation.Dispose();
 
             Shared.ReturnLibrary();
         }
