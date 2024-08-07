@@ -7,6 +7,7 @@ using Vulkan;
 
 namespace Rendering.Systems
 {
+    //todo: find a way to make image buffers and swapchains tied to destinations, while the vulkan `Instance` to any `vulkan` destination
     public readonly struct VulkanRenderer : IRenderSystem, IDisposable
     {
         private readonly World world;
@@ -65,6 +66,9 @@ namespace Rendering.Systems
             ReadOnlySpan<FixedString> namesSpan = new((void*)names, nameCount);
             Instance instance = library.CreateInstance("Game", "Engine", namesSpan);
             VulkanRenderer renderer = new(world, instance, library);
+
+            //todo: make the returned allocation be `Instance`, then the window system can use that address to create a KHR surface,
+            //or a `GetInstance` function can be made, so that systems have to be able to return that raw pointer
             Allocation allocation = Allocation.Create(renderer);
             return allocation;
         }
