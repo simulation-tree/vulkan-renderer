@@ -12,9 +12,9 @@ namespace Rendering.Systems
         private readonly World world;
         private readonly Library library;
         private readonly Instance instance;
-        private readonly uint graphicsQueue;
         private readonly PhysicalDevice physicalDevice;
         private readonly LogicalDevice logicalDevice;
+        private readonly Queue graphicsQueue;
 
         public VulkanRenderer(World world, Instance instance, Library library)
         {
@@ -28,8 +28,9 @@ namespace Rendering.Systems
             }
 
             physicalDevice = FindBestPhysicalDevice(instance.PhysicalDevices);
-            graphicsQueue = physicalDevice.GetGraphicsQueueFamily();
-            logicalDevice = new(physicalDevice, [graphicsQueue]);
+            uint graphicsFamily = physicalDevice.GetGraphicsQueueFamily();
+            logicalDevice = new(physicalDevice, [graphicsFamily]);
+            graphicsQueue = logicalDevice.GetQueue(graphicsFamily, 0);
         }
 
         public void Dispose()
