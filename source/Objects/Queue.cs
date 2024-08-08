@@ -4,6 +4,9 @@ using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
+    /// <summary>
+    /// References to a <see cref="LogicalDevice"/> queue.
+    /// </summary>
     public readonly unsafe struct Queue
     {
         public readonly uint familyIndex;
@@ -20,7 +23,7 @@ namespace Vulkan
             vkGetDeviceQueue(logicalDevice.Value, familyIndex, index, out value);
         }
 
-        public readonly void Submit(Semaphore waitSemaphore, VkPipelineStageFlags waitStage, Semaphore signalSemaphore, CommandBuffer commandBuffer, Fence submitFence = default)
+        public readonly void Submit(CommandBuffer commandBuffer, Semaphore waitSemaphore, VkPipelineStageFlags waitStage, Semaphore signalSemaphore, Fence submitFence = default)
         {
             if (waitSemaphore == default)
             {

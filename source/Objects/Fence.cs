@@ -23,16 +23,16 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
+        [Obsolete("Default constructor not supported", true)]
         public Fence()
         {
             throw new NotImplementedException();
         }
 
-        public Fence(LogicalDevice device, VkFenceCreateFlags flags = VkFenceCreateFlags.None)
+        public Fence(LogicalDevice device, bool isSignaled = true)
         {
             this.device = device;
-
-            VkResult result = vkCreateFence(device.Value, flags, out value);
+            VkResult result = vkCreateFence(device.Value, isSignaled ? VkFenceCreateFlags.Signaled : VkFenceCreateFlags.None, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception(result.ToString());

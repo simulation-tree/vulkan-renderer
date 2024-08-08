@@ -23,6 +23,12 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
+        [Obsolete("Default constructor not supported", true)]
+        public Semaphore()
+        { 
+            throw new NotImplementedException();
+        }
+
         public Semaphore(LogicalDevice device)
         {
             this.device = device;

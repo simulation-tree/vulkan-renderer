@@ -6,6 +6,9 @@ using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
+    /// <summary>
+    /// For recording commands that eventually get submitted to a <see cref="Queue"/>.
+    /// </summary>
     public unsafe struct CommandBuffer : IDisposable, IEquatable<CommandBuffer>
     {
         public readonly CommandPool commandPool;
@@ -24,22 +27,10 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public CommandBuffer(CommandPool commandPool)
+        internal CommandBuffer(CommandPool commandPool, VkCommandBuffer value)
         {
-            VkCommandBufferAllocateInfo commandBufferAllocateInfo = new()
-            {
-                commandPool = commandPool.Value,
-                level = VkCommandBufferLevel.Primary,
-                commandBufferCount = 1
-            };
-
             this.commandPool = commandPool;
-            VkResult result = vkAllocateCommandBuffer(commandPool.logicalDevice.Value, &commandBufferAllocateInfo, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to allocate command buffer: {result}");
-            }
-
+            this.value = value;
             valid = true;
         }
 
@@ -59,6 +50,9 @@ namespace Vulkan
             valid = false;
         }
 
+        /// <summary>
+        /// Resets the command buffer back to its initial state.
+        /// </summary>
         public readonly void Reset()
         {
             ThrowIfDisposed();
@@ -69,12 +63,29 @@ namespace Vulkan
             }
         }
 
-        public readonly void Begin(VkCommandBufferUsageFlags usage)
+        public readonly void Begin(bool oneTimeSubmit = true, bool renderPassContinue = false, bool simultaneous = false)
         {
             ThrowIfDisposed();
+
+            VkCommandBufferUsageFlags flags = default;
+            if (oneTimeSubmit)
+            {
+                flags |= VkCommandBufferUsageFlags.OneTimeSubmit;
+            }
+
+            if (renderPassContinue)
+            {
+                flags |= VkCommandBufferUsageFlags.RenderPassContinue;
+            }
+
+            if (simultaneous)
+            {
+                flags |= VkCommandBufferUsageFlags.SimultaneousUse;
+            }
+
             VkCommandBufferBeginInfo commandBufferBeginInfo = new()
             {
-                flags = usage
+                flags = flags
             };
 
             VkResult result = vkBeginCommandBuffer(value, &commandBufferBeginInfo);
@@ -154,6 +165,33 @@ namespace Vulkan
             }
 
             vkCmdPipelineBarrier(value, sourceStage, destinationStage, 0, 0, null, 0, null, 1, &barrier);
+        }
+
+        /// <summary>
+        /// Begins rendering into the given frame buffer.
+        /// </summary>
+        public readonly void BeginRenderPass(RenderPass renderPass, Framebuffer framebuffer, Vector4 area, Vector4 clearColor, bool withPrimary = true)
+        {
+            ThrowIfDisposed();
+            VkClearValue* clearValue = stackalloc VkClearValue[2];
+            clearValue[0].color = new VkClearColorValue(clearColor.X, clearColor.Y, clearColor.Z, clearColor.W);
+            clearValue[1].depthStencil = new VkClearDepthStencilValue(1.0f, 0);
+            VkRenderPassBeginInfo renderPassBeginInfo = new()
+            {
+                renderPass = renderPass.Value,
+                framebuffer = framebuffer.Value,
+                renderArea = new VkRect2D((int)area.X, (int)area.Y, (uint)area.Z, (uint)area.W),
+                clearValueCount = 2,
+                pClearValues = clearValue
+            };
+
+            vkCmdBeginRenderPass(value, &renderPassBeginInfo, withPrimary ? VkSubpassContents.Inline : VkSubpassContents.SecondaryCommandBuffers);
+        }
+
+        public readonly void EndRenderPass()
+        {
+            ThrowIfDisposed();
+            vkCmdEndRenderPass(value);
         }
 
         public readonly void BindPipeline(Pipeline pipeline, VkPipelineBindPoint point)

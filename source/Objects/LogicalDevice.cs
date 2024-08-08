@@ -160,6 +160,11 @@ namespace Vulkan
             return new Queue(this, family, index);
         }
 
+        public readonly VkResult TryAcquireNextImage(Swapchain swapchain, Semaphore pullSemaphore, Fence fence, out uint imageIndex)
+        {
+            return TryAcquireNextImage(swapchain, ulong.MaxValue, pullSemaphore, fence, out imageIndex);
+        }
+
         public readonly VkResult TryAcquireNextImage(Swapchain swapchain, ulong timeout, Semaphore pullSemaphore, Fence fence, out uint imageIndex)
         {
             ThrowIfDisposed();

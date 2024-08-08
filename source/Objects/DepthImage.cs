@@ -19,9 +19,9 @@ namespace Vulkan
             imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
             imageView = new(image, VkImageAspectFlags.Depth);
 
-            using CommandPool tempPool = new(graphics);
-            using CommandBuffer tempBuffer = new(tempPool);
-            tempBuffer.Begin(VkCommandBufferUsageFlags.OneTimeSubmit);
+            using CommandPool tempPool = new(graphics, false);
+            using CommandBuffer tempBuffer = tempPool.CreateCommandBuffer();
+            tempBuffer.Begin();
             tempBuffer.TransitionImageLayout(image, VkImageLayout.Undefined, VkImageLayout.DepthStencilAttachmentOptimal, VkImageAspectFlags.Depth);
             tempBuffer.End();
             graphics.Submit(tempBuffer);

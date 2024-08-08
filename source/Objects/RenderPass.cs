@@ -27,17 +27,25 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public RenderPass(LogicalDevice logicalDevice, Surface surface)
+        public RenderPass(LogicalDevice logicalDevice, ReadOnlySpan<Attachment> attachments)
         {
             this.logicalDevice = logicalDevice;
-            SwapchainCapabilities swapchainInfo = surface.GetSwapchainInfo(logicalDevice.physicalDevice);
-            VkSurfaceFormatKHR surfaceFormat = swapchainInfo.ChooseSwapSurfaceFormat();
-            VkFormat colorFormat = surfaceFormat.format;
-            VkAttachmentDescription* attachment = stackalloc VkAttachmentDescription[2];
-            attachment[0] = new(colorFormat, VkSampleCountFlags.Count1, VkAttachmentLoadOp.Clear, VkAttachmentStoreOp.Store,
-                VkAttachmentLoadOp.DontCare, VkAttachmentStoreOp.DontCare, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR);
-            attachment[1] = new(logicalDevice.GetDepthFormat(), VkSampleCountFlags.Count1, VkAttachmentLoadOp.Clear, VkAttachmentStoreOp.DontCare,
-                VkAttachmentLoadOp.DontCare, VkAttachmentStoreOp.DontCare, VkImageLayout.Undefined, VkImageLayout.DepthStencilAttachmentOptimal);
+            VkAttachmentDescription* attachmentsPointer = stackalloc VkAttachmentDescription[attachments.Length];
+            for (int i = 0; i < attachments.Length; i++)
+            {
+                Attachment attachment = attachments[i];
+                VkFormat format = attachment.format;
+                VkSampleCountFlags samples = attachment.samples;
+                VkAttachmentLoadOp load = attachment.load;
+                VkAttachmentStoreOp store = attachment.store;
+                VkAttachmentLoadOp stencilLoad = attachment.stencilLoad;
+                VkAttachmentStoreOp stencilStore = attachment.stencilStore;
+                VkImageLayout initialLayout = attachment.initialLayout;
+                VkImageLayout finalLayout = attachment.finalLayout;
+                VkAttachmentDescriptionFlags flags = attachment.flags;
+                attachmentsPointer[i] = new(format, samples, load, store, stencilLoad, stencilStore, initialLayout, finalLayout, flags);
+            }
+
             VkAttachmentReference attachmentReference = new(0, VkImageLayout.ColorAttachmentOptimal);
             VkAttachmentReference depthReference = new(1, VkImageLayout.DepthStencilAttachmentOptimal);
             VkSubpassDescription subPass = new()
@@ -66,8 +74,8 @@ namespace Vulkan
             {
                 VkRenderPassCreateInfo renderPassCreateInfo = new()
                 {
-                    attachmentCount = 2,
-                    pAttachments = attachment,
+                    attachmentCount = (uint)attachments.Length,
+                    pAttachments = attachmentsPointer,
                     subpassCount = 1,
                     pSubpasses = &subPass,
                     dependencyCount = (uint)dependencies.Length,
@@ -100,31 +108,31 @@ namespace Vulkan
             }
         }
 
-        /// <summary>
-        /// Begins rendering into the given frame buffer.
-        /// </summary>
-        public readonly void Begin(CommandBuffer commandBuffer, Framebuffer framebuffer, Vector4 area, Vector4 clearColor)
+        public readonly struct Attachment
         {
-            ThrowIfDisposed();
-            VkClearValue* clearValue = stackalloc VkClearValue[2];
-            clearValue[0].color = new VkClearColorValue(clearColor.X, clearColor.Y, clearColor.Z, clearColor.W);
-            clearValue[1].depthStencil = new VkClearDepthStencilValue(1.0f, 0);
-            VkRenderPassBeginInfo renderPassBeginInfo = new()
+            public readonly VkFormat format;
+            public readonly VkSampleCountFlags samples;
+            public readonly VkAttachmentLoadOp load;
+            public readonly VkAttachmentStoreOp store;
+            public readonly VkAttachmentLoadOp stencilLoad;
+            public readonly VkAttachmentStoreOp stencilStore;
+            public readonly VkImageLayout initialLayout;
+            public readonly VkImageLayout finalLayout;
+            public readonly VkAttachmentDescriptionFlags flags;
+
+            public Attachment(VkFormat format, VkSampleCountFlags samples, VkAttachmentLoadOp load, VkAttachmentStoreOp store,
+                VkAttachmentLoadOp stencilLoad, VkAttachmentStoreOp stencilStore, VkImageLayout initialLayout, VkImageLayout finalLayout, VkAttachmentDescriptionFlags flags = VkAttachmentDescriptionFlags.None)
             {
-                renderPass = value,
-                framebuffer = framebuffer.Value,
-                renderArea = new VkRect2D((int)area.X, (int)area.Y, (uint)area.Z, (uint)area.W),
-                clearValueCount = 2,
-                pClearValues = clearValue
-            };
-
-            vkCmdBeginRenderPass(commandBuffer.Value, &renderPassBeginInfo, VkSubpassContents.Inline);
-        }
-
-        public readonly void End(CommandBuffer commandBuffer)
-        {
-            ThrowIfDisposed();
-            vkCmdEndRenderPass(commandBuffer.Value);
+                this.format = format;
+                this.samples = samples;
+                this.load = load;
+                this.store = store;
+                this.stencilLoad = stencilLoad;
+                this.stencilStore = stencilStore;
+                this.initialLayout = initialLayout;
+                this.finalLayout = finalLayout;
+                this.flags = flags;
+            }
         }
     }
 }

@@ -22,8 +22,8 @@ namespace Vulkan
 
             bufferDeviceMemory = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, VkMemoryPropertyFlags.DeviceLocal);
 
-            using CommandBuffer tempCommandBuffer = new(commandPool);
-            tempCommandBuffer.Begin(VkCommandBufferUsageFlags.OneTimeSubmit);
+            using CommandBuffer tempCommandBuffer = commandPool.CreateCommandBuffer();
+            tempCommandBuffer.Begin();
             tempCommandBuffer.CopyBufferTo(stagingBuffer, bufferDeviceMemory);
             tempCommandBuffer.End();
             graphicsQueue.Submit(tempCommandBuffer);

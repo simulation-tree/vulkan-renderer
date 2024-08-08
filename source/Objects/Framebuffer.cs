@@ -11,6 +11,8 @@ namespace Vulkan
     public unsafe struct Framebuffer : IDisposable
     {
         public readonly LogicalDevice logicalDevice;
+        public readonly uint width;
+        public readonly uint height;
 
         private readonly VkFramebuffer value;
         private bool valid;
@@ -26,9 +28,16 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
+        public Framebuffer(RenderPass renderPass, ImageView imageView, uint width, uint height) : this(renderPass, [imageView], width, height)
+        {
+
+        }
+
         public Framebuffer(RenderPass renderPass, ReadOnlySpan<ImageView> imageViews, uint width, uint height)
         {
             this.logicalDevice = renderPass.logicalDevice;
+            this.width = width;
+            this.height = height;
 
             VkImageView* images = stackalloc VkImageView[imageViews.Length];
             for (int i = 0; i < imageViews.Length; i++)

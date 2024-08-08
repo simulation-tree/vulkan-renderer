@@ -5,6 +5,10 @@ using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
+    /// <summary>
+    /// A command buffers are allocated from.
+    /// <para>Not thread safe.</para>
+    /// </summary>
     public unsafe struct CommandPool : IDisposable, IEquatable<CommandPool>
     {
         public readonly LogicalDevice logicalDevice;
@@ -24,13 +28,24 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public CommandPool(Queue queue)
+        public CommandPool(Queue queue, bool allowsOverwrites, bool autoDisposed = false)
         {
             this.logicalDevice = queue.logicalDevice;
+            VkCommandPoolCreateFlags flags = default;
+            if (!autoDisposed)
+            {
+                flags |= VkCommandPoolCreateFlags.Transient;
+            }
+
+            if (allowsOverwrites)
+            {
+                flags |= VkCommandPoolCreateFlags.ResetCommandBuffer;
+            }
+
             VkCommandPoolCreateInfo commandPoolCreateInfo = new()
             {
                 queueFamilyIndex = queue.familyIndex,
-                flags = VkCommandPoolCreateFlags.Transient | VkCommandPoolCreateFlags.ResetCommandBuffer
+                flags = flags
             };
 
             VkResult result = vkCreateCommandPool(logicalDevice.Value, &commandPoolCreateInfo, null, out value);
@@ -58,10 +73,46 @@ namespace Vulkan
             valid = false;
         }
 
-        public readonly CommandBuffer CreateCommandBuffer()
+        public readonly CommandBuffer CreateCommandBuffer(bool isPrimary = true)
         {
             ThrowIfDisposed();
-            return new CommandBuffer(this);
+            VkCommandBufferAllocateInfo commandBufferAllocateInfo = new()
+            {
+                commandPool = value,
+                level = isPrimary ? VkCommandBufferLevel.Primary : VkCommandBufferLevel.Secondary,
+                commandBufferCount = 1
+            };
+
+            VkResult result = vkAllocateCommandBuffer(logicalDevice.Value, &commandBufferAllocateInfo, out VkCommandBuffer newBuffer);
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to allocate command buffer: {result}");
+            }
+
+            return new CommandBuffer(this, newBuffer);
+        }
+
+        public readonly void CreateCommandBuffers(Span<CommandBuffer> buffer, bool isPrimary = true)
+        {
+            ThrowIfDisposed();
+            VkCommandBuffer* newBuffers = stackalloc VkCommandBuffer[buffer.Length];
+            VkCommandBufferAllocateInfo allocateInfo = new()
+            {
+                commandPool = value,
+                level = isPrimary ? VkCommandBufferLevel.Primary : VkCommandBufferLevel.Secondary,
+                commandBufferCount = (uint)buffer.Length
+            };
+
+            VkResult result = vkAllocateCommandBuffers(logicalDevice.Value, &allocateInfo, newBuffers);
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to allocate command buffers: {result}");
+            }
+
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                buffer[i] = new CommandBuffer(this, newBuffers[i]);
+            }
         }
 
         public readonly void Reset()
