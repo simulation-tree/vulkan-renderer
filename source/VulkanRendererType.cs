@@ -24,8 +24,7 @@ namespace Rendering.Vulkan
             ReadOnlySpan<FixedString> namesSpan = new((void*)names, nameCount);
             Instance instance = library.CreateInstance("Game", "Engine", namesSpan);
             VulkanRenderer renderer = new(destination, instance);
-            Allocation buffer = new(8, true);
-            return CreateResult.Create(renderer, buffer, renderer.Library);
+            return CreateResult.Create(renderer, renderer.Library);
         }
 
         [UnmanagedCallersOnly]
@@ -37,10 +36,10 @@ namespace Rendering.Vulkan
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static void BeginRender(Allocation system, Allocation buffer)
+        private unsafe static uint BeginRender(Allocation system)
         {
             ref VulkanRenderer renderer = ref system.Read<VulkanRenderer>();
-            renderer.BeginRender(buffer);
+            return renderer.BeginRender() ? (uint)0 : 1;
         }
 
         [UnmanagedCallersOnly]
@@ -52,10 +51,11 @@ namespace Rendering.Vulkan
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static void EndRender(Allocation system, Allocation buffer)
+        private unsafe static uint EndRender(Allocation system)
         {
             ref VulkanRenderer renderer = ref system.Read<VulkanRenderer>();
-            renderer.EndRender(buffer);
+            renderer.EndRender();
+            return 0;
         }
 
         [UnmanagedCallersOnly]

@@ -17,14 +17,14 @@ namespace Rendering.Vulkan
         private readonly Destination destination;
         private readonly Instance instance;
         private readonly PhysicalDevice physicalDevice;
-        private readonly UnmanagedArray<ImageView> surfaceImageViews;
-        private readonly UnmanagedArray<Framebuffer> surfaceFramebuffers;
         private readonly UnmanagedDictionary<eint, ShaderModule> shaderModules;
         private readonly UnmanagedDictionary<int, Pipeline> pipelines;
         private readonly UnmanagedArray<CommandBuffer> commandBuffers;
         private readonly UnmanagedArray<Fence> submitFences;
         private readonly UnmanagedArray<Semaphore> pullSemaphores;
         private readonly UnmanagedArray<Semaphore> pushSemaphores;
+        private UnmanagedArray<ImageView> surfaceImageViews;
+        private UnmanagedArray<Framebuffer> surfaceFramebuffers;
         private LogicalDevice logicalDevice;
         private Surface surface;
         private Swapchain swapchain;
@@ -33,6 +33,10 @@ namespace Rendering.Vulkan
         private RenderPass renderPass;
         private CommandPool commandPool;
         private DepthImage depthImage;
+        private uint frameIndex;
+        private uint imageIndex;
+        private uint width;
+        private uint height;
 
         public readonly nint Library => instance.Value.Handle;
 
@@ -56,8 +60,6 @@ namespace Rendering.Vulkan
                 throw new InvalidOperationException("No suitable physical device found");
             }
 
-            surfaceImageViews = new();
-            surfaceFramebuffers = new();
             shaderModules = new();
             pipelines = new();
             commandBuffers = new();
@@ -71,35 +73,24 @@ namespace Rendering.Vulkan
             if (surface != default)
             {
                 logicalDevice.Wait();
-                depthImage.Dispose();
+                DisposeSwapchain();
+                DisposePipelines();
+                DisposeShaderModules();
+                renderPass.Dispose();
                 for (uint i = 0; i < MaxFramesInFlight; i++)
                 {
                     commandBuffers[i].Dispose();
-                }
-
-                commandBuffers.Dispose();
-                commandPool.Dispose();
-            }
-
-            DisposeSurfaceFramebuffers();
-            DisposePipelines();
-            DisposeShaderModules();
-            DisposeSurfaceImageViews();
-
-            if (surface != default)
-            {
-                renderPass.Dispose();
-                swapchain.Dispose();
-                for (uint i = 0; i < MaxFramesInFlight; i++)
-                {
                     submitFences[i].Dispose();
                     pullSemaphores[i].Dispose();
                     pushSemaphores[i].Dispose();
                 }
 
+                commandBuffers.Dispose();
                 submitFences.Dispose();
                 pullSemaphores.Dispose();
                 pushSemaphores.Dispose();
+
+                commandPool.Dispose();
                 logicalDevice.Dispose();
                 surface.Dispose();
             }
@@ -119,26 +110,6 @@ namespace Rendering.Vulkan
             pipelines.Dispose();
         }
 
-        private readonly void DisposeSurfaceFramebuffers()
-        {
-            foreach (Framebuffer framebuffer in surfaceFramebuffers)
-            {
-                framebuffer.Dispose();
-            }
-
-            surfaceFramebuffers.Dispose();
-        }
-
-        private readonly void DisposeSurfaceImageViews()
-        {
-            foreach (ImageView imageView in surfaceImageViews)
-            {
-                imageView.Dispose();
-            }
-
-            surfaceImageViews.Dispose();
-        }
-
         private readonly void DisposeShaderModules()
         {
             foreach (eint shaderEntity in shaderModules.Keys)
@@ -150,6 +121,38 @@ namespace Rendering.Vulkan
             shaderModules.Dispose();
         }
 
+        private readonly void DisposeSwapchain()
+        {
+            foreach (Framebuffer framebuffer in surfaceFramebuffers)
+            {
+                framebuffer.Dispose();
+            }
+
+            surfaceFramebuffers.Dispose();
+
+            foreach (ImageView imageView in surfaceImageViews)
+            {
+                imageView.Dispose();
+            }
+
+            surfaceImageViews.Dispose();
+
+            if (swapchain != default)
+            {
+                swapchain.Dispose();
+                depthImage.Dispose();
+            }
+        }
+
+        private void RebuildSwapchain()
+        {
+            //todo: can also rebuild the render pass when moving a window to hdr from sdr monitors
+            logicalDevice.Wait();
+            DisposeSwapchain();
+            CreateSwapchain(out width, out height);
+            CreateImageViewsAndBuffers(width, height);
+        }
+
         public void SurfaceCreated(nint surfaceAddress)
         {
             surface = new(instance, surfaceAddress);
@@ -157,8 +160,37 @@ namespace Rendering.Vulkan
             logicalDevice = new(physicalDevice, [graphicsFamily, presentationFamily], ["VK_KHR_swapchain"]);
             graphicsQueue = new(logicalDevice, graphicsFamily, 0);
             presentationQueue = new(logicalDevice, presentationFamily, 0);
+            CreateSwapchain(out uint width, out uint height);
+            Span<RenderPass.Attachment> attachments =
+            [
+                new(swapchain.format, VkSampleCountFlags.Count1, VkAttachmentLoadOp.Clear, VkAttachmentStoreOp.Store, VkAttachmentLoadOp.DontCare,
+                    VkAttachmentStoreOp.DontCare, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR),
+                new(logicalDevice.GetDepthFormat(), VkSampleCountFlags.Count1, VkAttachmentLoadOp.Clear, VkAttachmentStoreOp.DontCare, VkAttachmentLoadOp.DontCare,
+                    VkAttachmentStoreOp.DontCare, VkImageLayout.Undefined, VkImageLayout.DepthStencilAttachmentOptimal),
+            ];
 
-            if (surface.TryGetBestSize(physicalDevice, out uint width, out uint height))
+            renderPass = new(logicalDevice, attachments);
+            CreateImageViewsAndBuffers(width, height);
+            commandPool = new(graphicsQueue, true);
+
+            //create multiples of these, 1 for each concurrent frame
+            commandBuffers.Resize(MaxFramesInFlight);
+            submitFences.Resize(MaxFramesInFlight);
+            pullSemaphores.Resize(MaxFramesInFlight);
+            pushSemaphores.Resize(MaxFramesInFlight);
+            commandPool.CreateCommandBuffers(commandBuffers.AsSpan());
+
+            for (uint i = 0; i < MaxFramesInFlight; i++)
+            {
+                submitFences[i] = new(logicalDevice);
+                pullSemaphores[i] = new(logicalDevice);
+                pushSemaphores[i] = new(logicalDevice);
+            }
+        }
+
+        private void CreateSwapchain(out uint width, out uint height)
+        {
+            if (surface.TryGetBestSize(physicalDevice, out width, out height))
             {
                 swapchain = new(logicalDevice, surface, width, height);
             }
@@ -172,20 +204,14 @@ namespace Rendering.Vulkan
             }
 
             depthImage = new(swapchain, graphicsQueue);
-            Span<RenderPass.Attachment> attachments =
-            [
-                new(swapchain.format, VkSampleCountFlags.Count1, VkAttachmentLoadOp.Clear, VkAttachmentStoreOp.Store, VkAttachmentLoadOp.DontCare,
-                    VkAttachmentStoreOp.DontCare, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR),
-                new(logicalDevice.GetDepthFormat(), VkSampleCountFlags.Count1, VkAttachmentLoadOp.Clear, VkAttachmentStoreOp.DontCare, VkAttachmentLoadOp.DontCare,
-                    VkAttachmentStoreOp.DontCare, VkImageLayout.Undefined, VkImageLayout.DepthStencilAttachmentOptimal),
-            ];
+        }
 
-            renderPass = new(logicalDevice, attachments);
-
+        private void CreateImageViewsAndBuffers(uint width, uint height)
+        {
             Span<Image> images = stackalloc Image[8];
             int imageCount = swapchain.CopyImagesTo(images);
-            surfaceImageViews.Resize((uint)imageCount);
-            surfaceFramebuffers.Resize((uint)imageCount);
+            surfaceImageViews = new((uint)imageCount);
+            surfaceFramebuffers = new((uint)imageCount);
             for (int i = 0; i < imageCount; i++)
             {
                 ImageView imageView = new(images[i]);
@@ -193,40 +219,29 @@ namespace Rendering.Vulkan
                 surfaceImageViews[(uint)i] = imageView;
                 surfaceFramebuffers[(uint)i] = framebuffer;
             }
-
-            commandPool = new(graphicsQueue, true);
-
-            //create multiples of these, 1 for each concurrent frame
-            commandBuffers.Resize(MaxFramesInFlight);
-            submitFences.Resize(MaxFramesInFlight);
-            pullSemaphores.Resize(MaxFramesInFlight);
-            pushSemaphores.Resize(MaxFramesInFlight);
-            commandPool.CreateCommandBuffers(commandBuffers.AsSpan());
-
-            for (int i = 0; i < MaxFramesInFlight; i++)
-            {
-                submitFences[(uint)i] = new(logicalDevice);
-                pullSemaphores[(uint)i] = new(logicalDevice);
-                pushSemaphores[(uint)i] = new(logicalDevice);
-            }
-
-            Console.WriteLine($"Vulkan surface initialized for {destination.entity.value} with resolution {width}x{height}, with {imageCount} image(s)");
         }
 
-        public readonly void BeginRender(Allocation buffer)
+        public bool BeginRender()
         {
-            (uint imageIndex, uint frameIndex) = buffer.Read<(uint, uint)>();
             Fence submitFence = submitFences[frameIndex];
             Semaphore pullSemaphore = pullSemaphores[frameIndex];
             Semaphore pushSemaphore = pushSemaphores[frameIndex];
             CommandBuffer commandBuffer = commandBuffers[frameIndex];
 
             submitFence.Wait();
-            submitFence.Reset();
 
             VkResult result = logicalDevice.TryAcquireNextImage(swapchain, pullSemaphore, default, out imageIndex);
-            buffer.Write(imageIndex, 0 * sizeof(uint));
+            if (result == VkResult.ErrorOutOfDateKHR)
+            {
+                RebuildSwapchain();
+                return false;
+            }
+            else if (result != VkResult.Success && result != VkResult.SuboptimalKHR)
+            {
+                throw new InvalidOperationException($"Failed to acquire next image: {result}");
+            }
 
+            submitFence.Reset();
             commandBuffer.Reset();
             commandBuffer.Begin();
 
@@ -240,6 +255,13 @@ namespace Rendering.Vulkan
 
             Vector4 scissor = new(0, 0, framebuffer.width, framebuffer.height);
             commandBuffer.SetScissor(scissor);
+            return true;
+        }
+
+        private readonly bool IsDestinationResized()
+        {
+            (uint width, uint height) = destination.GetDestinationSize();
+            return width != this.width || height != this.height;
         }
 
         public readonly void Render(ReadOnlySpan<eint> entities, eint material, eint mesh, eint camera)
@@ -264,6 +286,7 @@ namespace Rendering.Vulkan
                 shaderModules.Add(shaderComponent.fragment, fragmentShader);
             }
 
+            CommandBuffer commandBuffer = commandBuffers[frameIndex];
             //todo: mesh hash isnt as good as the vertex/fragment, if mesh is actually a compiled object then it can work
             //int hash = HashCode.Combine(vertexShader, fragmentShader, mesh);
             //if (!pipelines.TryGetValue(hash, out Pipeline pipeline))
@@ -278,9 +301,8 @@ namespace Rendering.Vulkan
             //commandBuffer.BindPipeline(pipeline, VkPipelineBindPoint.Graphics);
         }
 
-        public readonly void EndRender(Allocation buffer)
+        public void EndRender()
         {
-            (uint imageIndex, uint frameIndex) = buffer.Read<(uint, uint)>();
             Fence submitFence = submitFences[frameIndex];
             Semaphore pullSemaphore = pullSemaphores[frameIndex];
             Semaphore pushSemaphore = pushSemaphores[frameIndex];
@@ -291,9 +313,16 @@ namespace Rendering.Vulkan
 
             graphicsQueue.Submit(commandBuffer, pullSemaphore, VkPipelineStageFlags.ColorAttachmentOutput, pushSemaphore, submitFence);
             VkResult result = presentationQueue.TryPresent(pushSemaphore, swapchain, imageIndex);
+            if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR || IsDestinationResized())
+            {
+                RebuildSwapchain();
+            }
+            else if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException($"Failed to present image: {result}");
+            }
 
             frameIndex = (frameIndex + 1) % MaxFramesInFlight;
-            buffer.Write(frameIndex, 1 * sizeof(uint));
         }
 
         private static bool TryGetBestPhysicalDevice(ReadOnlySpan<PhysicalDevice> physicalDevices, ReadOnlySpan<FixedString> requiredExtensions, out uint index)

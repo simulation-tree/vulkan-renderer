@@ -5,7 +5,7 @@ using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
-    public unsafe struct Swapchain : IDisposable
+    public unsafe struct Swapchain : IDisposable, IEquatable<Swapchain>
     {
         public readonly LogicalDevice device;
         public readonly uint width;
@@ -106,6 +106,36 @@ namespace Vulkan
             }
 
             return imageSpan.Length;
+        }
+
+        public readonly override bool Equals(object? obj)
+        {
+            return obj is Swapchain swapchain && Equals(swapchain);
+        }
+
+        public readonly bool Equals(Swapchain other)
+        {
+            if (!other.valid && !valid)
+            {
+                return true;
+            }
+
+            return value.Equals(other.value);
+        }
+
+        public readonly override int GetHashCode()
+        {
+            return HashCode.Combine(value);
+        }
+
+        public static bool operator ==(Swapchain left, Swapchain right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(Swapchain left, Swapchain right)
+        {
+            return !(left == right);
         }
     }
 }
