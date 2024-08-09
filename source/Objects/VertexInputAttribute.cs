@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using Shaders;
+using System.Numerics;
 using Unmanaged;
 using Vortice.Vulkan;
 
@@ -31,19 +32,27 @@ namespace Vulkan
             this.size = (byte)type.Size;
         }
 
+        public VertexInputAttribute(ShaderVertexInputAttribute shaderVertexAttribute)
+        {
+            location = shaderVertexAttribute.location;
+            binding = shaderVertexAttribute.binding;
+            format = GetFormat(shaderVertexAttribute.type);
+            size = (byte)shaderVertexAttribute.type.Size;
+        }
+
         public static VkFormat GetFormat(RuntimeType type)
         {
-            if (type == RuntimeType.Get<Vector3>())
+            if (type.Is<Vector2>())
+            {
+                return VkFormat.R32G32Sfloat;
+            }
+            else if (type.Is<Vector3>())
             {
                 return VkFormat.R32G32B32Sfloat;
             }
-            else if (type == RuntimeType.Get<Vector4>())
+            else if (type.Is<Vector4>())
             {
                 return VkFormat.R32G32B32A32Sfloat;
-            }
-            else if (type == RuntimeType.Get<Vector2>())
-            {
-                return VkFormat.R32G32Sfloat;
             }
             else
             {

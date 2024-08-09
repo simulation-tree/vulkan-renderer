@@ -1,4 +1,7 @@
-﻿using Rendering.Components;
+﻿using Materials;
+using Meshes;
+using Meshes.Components;
+using Shaders;
 using Shaders.Components;
 using Simulation;
 using System;
@@ -17,8 +20,9 @@ namespace Rendering.Vulkan
         private readonly Destination destination;
         private readonly Instance instance;
         private readonly PhysicalDevice physicalDevice;
-        private readonly UnmanagedDictionary<eint, ShaderModule> shaderModules;
-        private readonly UnmanagedDictionary<int, Pipeline> pipelines;
+        private readonly UnmanagedDictionary<eint, CompiledShader> shaders;
+        private readonly UnmanagedDictionary<int, CompiledPipeline> pipelines;
+        private readonly UnmanagedDictionary<int, CompiledMesh> meshes;
         private readonly UnmanagedArray<CommandBuffer> commandBuffers;
         private readonly UnmanagedArray<Fence> submitFences;
         private readonly UnmanagedArray<Semaphore> pullSemaphores;
@@ -60,16 +64,18 @@ namespace Rendering.Vulkan
                 throw new InvalidOperationException("No suitable physical device found");
             }
 
-            shaderModules = new();
+            shaders = new();
             pipelines = new();
             commandBuffers = new();
             submitFences = new();
             pullSemaphores = new();
             pushSemaphores = new();
+            meshes = new();
         }
 
         public readonly void Dispose()
         {
+            DisposeMeshes();
             if (surface != default)
             {
                 logicalDevice.Wait();
@@ -103,7 +109,7 @@ namespace Rendering.Vulkan
         {
             foreach (int hash in pipelines.Keys)
             {
-                Pipeline pipeline = pipelines[hash];
+                CompiledPipeline pipeline = pipelines[hash];
                 pipeline.Dispose();
             }
 
@@ -112,13 +118,23 @@ namespace Rendering.Vulkan
 
         private readonly void DisposeShaderModules()
         {
-            foreach (eint shaderEntity in shaderModules.Keys)
+            foreach (eint shaderEntity in shaders.Keys)
             {
-                ShaderModule shaderModule = shaderModules[shaderEntity];
+                CompiledShader shaderModule = shaders[shaderEntity];
                 shaderModule.Dispose();
             }
 
-            shaderModules.Dispose();
+            shaders.Dispose();
+        }
+
+        private readonly void DisposeMeshes()
+        {
+            foreach (CompiledMesh compiledMesh in meshes.Values)
+            {
+                compiledMesh.Dispose();
+            }
+
+            meshes.Dispose();
         }
 
         private readonly void DisposeSwapchain()
@@ -264,41 +280,181 @@ namespace Rendering.Vulkan
             return width != this.width || height != this.height;
         }
 
-        public readonly void Render(ReadOnlySpan<eint> entities, eint material, eint mesh, eint camera)
+        public readonly void Render(ReadOnlySpan<eint> entities, eint material, eint shader, eint mesh, eint camera)
         {
             World world = destination.entity.world;
-            IsMaterial materialComponent = world.GetComponent<IsMaterial>(material);
-            eint shader = materialComponent.shader;
             IsShader shaderComponent = world.GetComponent<IsShader>(shader);
 
-            //todo: detect when shader has been modified, could use a version number instead of a boolean
-            if (!shaderModules.TryGetValue(shaderComponent.vertex, out ShaderModule vertexShader))
+            //make sure a shader exists for this shader entity, also rebuild it when version changes
+            if (!shaders.TryGetValue(shader, out CompiledShader compiledShader))
             {
-                UnmanagedList<byte> bytecode = world.GetList<byte>(shaderComponent.vertex);
-                vertexShader = new(logicalDevice, bytecode.AsSpan());
-                shaderModules.Add(shaderComponent.vertex, vertexShader);
+                compiledShader = CompileShader(world, shader);
+                shaders.Add(shader, compiledShader);
             }
 
-            if (!shaderModules.TryGetValue(shaderComponent.fragment, out ShaderModule fragmentShader))
+            bool shaderChanged = compiledShader.version != shaderComponent.version;
+            if (shaderChanged)
             {
-                UnmanagedList<byte> bytecode = world.GetList<byte>(shaderComponent.fragment);
-                fragmentShader = new(logicalDevice, bytecode.AsSpan());
-                shaderModules.Add(shaderComponent.fragment, fragmentShader);
+                compiledShader.Dispose();
+                compiledShader = CompileShader(world, shader);
+                shaders[shader] = compiledShader;
+                //todo: efficiency: could use TryGetRef and AddRef instead to minimize instructions
+            }
+
+            //make sure a processed mesh exists for this combination of shader entity and mesh entity, also rebuild it when it changes
+            int instanceHash = HashCode.Combine(shader, mesh);
+            uint meshVersion = world.GetComponent<IsMesh>(mesh).version;
+            if (!meshes.TryGetValue(instanceHash, out CompiledMesh compiledMesh))
+            {
+                compiledMesh = CompileMesh(world, shader, mesh);
+                meshes.Add(instanceHash, compiledMesh);
+            }
+
+            bool meshChanged = compiledMesh.version != meshVersion;
+            if (meshChanged || shaderChanged)
+            {
+                compiledMesh.Dispose();
+                compiledMesh = CompileMesh(world, shader, mesh);
+                meshes[instanceHash] = compiledMesh;
+            }
+
+            //make sure a pipeline exists, the same way a compiled mesh is
+            if (!pipelines.TryGetValue(instanceHash, out CompiledPipeline pipeline))
+            {
+                pipeline = CompilePipeline(material, shader, world, compiledShader, compiledMesh);
+                pipelines.Add(instanceHash, pipeline);
+            }
+
+            if (meshChanged || shaderChanged)
+            {
+                pipeline.Dispose();
+                pipeline = CompilePipeline(material, shader, world, compiledShader, compiledMesh);
+                pipelines[instanceHash] = pipeline;
             }
 
             CommandBuffer commandBuffer = commandBuffers[frameIndex];
-            //todo: mesh hash isnt as good as the vertex/fragment, if mesh is actually a compiled object then it can work
-            //int hash = HashCode.Combine(vertexShader, fragmentShader, mesh);
-            //if (!pipelines.TryGetValue(hash, out Pipeline pipeline))
-            //{
-            //    ReadOnlySpan<DescriptorSetLayout> setLayouts = stackalloc DescriptorSetLayout[0];
-            //    ReadOnlySpan<VertexInputAttribute> vertexAttributes = stackalloc VertexInputAttribute[0];
-            //    PipelineCreateInput pipelineCreation = new(setLayouts, renderPass, vertexShader, fragmentShader, vertexAttributes);
-            //    pipeline = new(pipelineCreation, "main");
-            //    pipelines.Add(hash, pipeline);
-            //}
-            //
-            //commandBuffer.BindPipeline(pipeline, VkPipelineBindPoint.Graphics);
+            //commandBuffer.BindPipeline(pipeline.pipeline, VkPipelineBindPoint.Graphics);
+        }
+
+        private readonly CompiledPipeline CompilePipeline(eint material, eint shader, World world, CompiledShader compiledShader, CompiledMesh compiledMesh)
+        {
+            Material materialEntity = new(world, material);
+            ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = compiledMesh.VertexAttributes;
+            Span<VertexInputAttribute> vertexAttributes = stackalloc VertexInputAttribute[shaderVertexAttributes.Length];
+            for (int i = 0; i < shaderVertexAttributes.Length; i++)
+            {
+                ShaderVertexInputAttribute shaderVertexAttribute = shaderVertexAttributes[i];
+                vertexAttributes[i] = new(shaderVertexAttribute);
+            }
+
+            ReadOnlySpan<MaterialComponentBinding> uniformBindings = materialEntity.GetComponentBindings();
+            ReadOnlySpan<MaterialTextureBinding> textureBindings = materialEntity.GetTextureBindings();
+            ReadOnlySpan<ShaderUniformProperty> uniformProperties = world.GetList<ShaderUniformProperty>(shader).AsSpan();
+            ReadOnlySpan<ShaderSamplerProperty> samplerProperties = world.GetList<ShaderSamplerProperty>(shader).AsSpan();
+
+            //todo: qol: when theres missing bindings, reference an empty default one so shaders can assume empty data at the least
+            Span<(uint, VkDescriptorType, VkShaderStageFlags)> setLayoutBindings = stackalloc (uint, VkDescriptorType, VkShaderStageFlags)[uniformBindings.Length + textureBindings.Length];
+            int bindingCount = 0;
+            foreach (ShaderUniformProperty uniformProperty in uniformProperties)
+            {
+                bool containsBinding = false;
+                foreach (MaterialComponentBinding uniformBinding in uniformBindings)
+                {
+                    if (uniformBinding.key == uniformProperty.key)
+                    {
+                        containsBinding = true;
+                        VkDescriptorType descriptorType = VkDescriptorType.UniformBuffer;
+                        VkShaderStageFlags shaderStage = GetShaderStage(uniformBinding.stage);
+                        setLayoutBindings[bindingCount++] = (uniformBinding.Binding, descriptorType, shaderStage);
+                        break;
+                    }
+                }
+
+                if (!containsBinding)
+                {
+                    throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(MaterialComponentBinding)}` to bind an entity component to uniform named `{uniformProperty.name}`");
+                }
+            }
+
+            foreach (ShaderSamplerProperty samplerProperty in samplerProperties)
+            {
+                bool containsBinding = false;
+                foreach (MaterialTextureBinding textureBinding in textureBindings)
+                {
+                    if (textureBinding.key == samplerProperty.key)
+                    {
+                        containsBinding = true;
+                        VkDescriptorType descriptorType = VkDescriptorType.CombinedImageSampler;
+                        VkShaderStageFlags shaderStage = VkShaderStageFlags.Fragment;
+                        setLayoutBindings[bindingCount++] = (textureBinding.Binding, descriptorType, shaderStage);
+                        break;
+                    }
+                }
+
+                if (!containsBinding)
+                {
+                    throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(MaterialTextureBinding)}` to bind a texture entity to sampler named `{samplerProperty.name}`");
+                }
+            }
+
+            DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings);
+            PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader, vertexAttributes);
+
+            Pipeline pipeline = new(pipelineCreation, setLayout, "main");
+            Span<(VkDescriptorType, uint)> poolTypes = stackalloc (VkDescriptorType, uint)[2];
+            int poolCount = 0;
+            if (uniformProperties.Length > 0)
+            {
+                poolTypes[poolCount++] = (VkDescriptorType.UniformBuffer, (uint)uniformProperties.Length);
+            }
+
+            if (samplerProperties.Length > 0)
+            {
+                poolTypes[poolCount++] = (VkDescriptorType.CombinedImageSampler, (uint)samplerProperties.Length);
+            }
+
+            DescriptorPool descriptorPool = new(logicalDevice, poolTypes[..poolCount]);
+            CompiledPipeline compiledPipeline = new(pipeline, descriptorPool);
+            return compiledPipeline;
+        }
+
+        private readonly CompiledShader CompileShader(World world, eint shader)
+        {
+            Shader shaderEntity = new(world, shader);
+            ShaderModule vertexShader = new(logicalDevice, shaderEntity.GetVertexBytes());
+            ShaderModule fragmentShader = new(logicalDevice, shaderEntity.GetFragmentBytes());
+            return new(shaderEntity.GetVersion(), vertexShader, fragmentShader);
+        }
+
+        private readonly CompiledMesh CompileMesh(World world, eint shader, eint mesh)
+        {
+            Mesh.ChannelMask mask = default;
+            Mesh meshEntity = new(world, mesh);
+            ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetList<ShaderVertexInputAttribute>(shader).AsSpan();
+            foreach (ShaderVertexInputAttribute vertexAttribute in shaderVertexAttributes)
+            {
+                if (TryGetMeshChannel(vertexAttribute, out Mesh.Channel channel))
+                {
+                    if (meshEntity.ContainsChannel(channel))
+                    {
+                        mask.AddChannel(channel);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Mesh does not contain channel `{channel}` but shader `{shader}` expects it");
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Unable to map attribute `{vertexAttribute.name}` to a mesh channel");
+                }
+            }
+
+            using UnmanagedList<float> vertexData = new();
+            uint vertexCount = meshEntity.Assemble(vertexData, mask);
+            VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
+            IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.GetIndices().AsSpan());
+            return new(meshEntity.GetVersion(), vertexBuffer, indexBuffer, shaderVertexAttributes);
         }
 
         public void EndRender()
@@ -395,6 +551,64 @@ namespace Rendering.Vulkan
 
                 return score;
             }
+        }
+
+        private static bool TryGetMeshChannel(ShaderVertexInputAttribute attribute, out Mesh.Channel channel)
+        {
+            if (attribute.type == RuntimeType.Get<Vector2>())
+            {
+                if (attribute.name.Contains("uv", StringComparison.OrdinalIgnoreCase))
+                {
+                    channel = Mesh.Channel.UV;
+                    return true;
+                }
+            }
+            else if (attribute.type == RuntimeType.Get<Vector3>())
+            {
+                if (attribute.name.Contains("normal", StringComparison.OrdinalIgnoreCase))
+                {
+                    channel = Mesh.Channel.Normal;
+                    return true;
+                }
+                else if (attribute.name.Contains("tangent", StringComparison.OrdinalIgnoreCase))
+                {
+                    channel = Mesh.Channel.Tangent;
+                    return true;
+                }
+                else if (attribute.name.Contains("position", StringComparison.OrdinalIgnoreCase))
+                {
+                    channel = Mesh.Channel.Position;
+                    return true;
+                }
+                else if (attribute.name.Contains("bitangent", StringComparison.OrdinalIgnoreCase))
+                {
+                    channel = Mesh.Channel.BiTangent;
+                    return true;
+                }
+            }
+            else if (attribute.type == RuntimeType.Get<Vector4>())
+            {
+                if (attribute.name.Contains("color", StringComparison.OrdinalIgnoreCase))
+                {
+                    channel = Mesh.Channel.Color;
+                    return true;
+                }
+            }
+
+            channel = default;
+            return false;
+        }
+
+        private static VkShaderStageFlags GetShaderStage(ShaderStage shaderStage)
+        {
+            return shaderStage switch
+            {
+                ShaderStage.Vertex => VkShaderStageFlags.Vertex,
+                ShaderStage.Fragment => VkShaderStageFlags.Fragment,
+                ShaderStage.Geometry => VkShaderStageFlags.Geometry,
+                ShaderStage.Compute => VkShaderStageFlags.Compute,
+                _ => throw new ArgumentOutOfRangeException(nameof(shaderStage), shaderStage, null),
+            };
         }
     }
 }

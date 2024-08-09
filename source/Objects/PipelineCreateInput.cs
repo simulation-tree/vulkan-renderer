@@ -6,7 +6,6 @@ namespace Vulkan
     {
         public readonly uint viewportCount;
         public readonly uint scissorCount;
-        public readonly ReadOnlySpan<DescriptorSetLayout> setLayouts;
         public readonly RenderPass renderPass;
         public readonly uint vertexBinding;
         public readonly ShaderModule vertex;
@@ -21,9 +20,8 @@ namespace Vulkan
             throw new NotImplementedException();
         }
 
-        public PipelineCreateInput(ReadOnlySpan<DescriptorSetLayout> setLayouts, RenderPass renderPass, ShaderModule vertex, ShaderModule fragment, ReadOnlySpan<VertexInputAttribute> vertexAttributes)
+        public PipelineCreateInput(RenderPass renderPass, ShaderModule vertex, ShaderModule fragment, ReadOnlySpan<VertexInputAttribute> vertexAttributes)
         {
-            this.setLayouts = setLayouts;
             this.renderPass = renderPass;
             this.vertex = vertex;
             this.fragment = fragment;

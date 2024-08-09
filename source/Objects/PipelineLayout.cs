@@ -23,17 +23,21 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public PipelineLayout(LogicalDevice logicalDevice)
+        public PipelineLayout(LogicalDevice device)
         {
-            this.logicalDevice = logicalDevice;
+            this.logicalDevice = device;
             VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new();
-            VkResult result = vkCreatePipelineLayout(logicalDevice.Value, &pipelineLayoutCreateInfo, null, out value);
+            VkResult result = vkCreatePipelineLayout(device.Value, &pipelineLayoutCreateInfo, null, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to create pipeline layout: {result}");
             }
 
             valid = true;
+        }
+
+        public PipelineLayout(LogicalDevice device, DescriptorSetLayout setLayout) : this(device, [setLayout])
+        {
         }
 
         public PipelineLayout(LogicalDevice device, ReadOnlySpan<DescriptorSetLayout> setLayouts)

@@ -31,7 +31,7 @@ namespace Vulkan
         /// <summary>
         /// Creates a descriptor pool object that can allocate descriptor sets.
         /// </summary>
-        public DescriptorPool(LogicalDevice logicalDevice, uint maxAllocations, VkDescriptorType type)
+        public DescriptorPool(LogicalDevice logicalDevice, uint maxAllocations, uint poolSizeCount, VkDescriptorType type)
         {
             if (maxAllocations == 0)
             {
@@ -42,7 +42,7 @@ namespace Vulkan
             VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[1] { new(type, maxAllocations) };
             VkDescriptorPoolCreateInfo createInfo = new()
             {
-                poolSizeCount = 1,
+                poolSizeCount = poolSizeCount,
                 pPoolSizes = poolSizes,
                 maxSets = maxAllocations,
                 flags = VkDescriptorPoolCreateFlags.FreeDescriptorSet
@@ -57,7 +57,7 @@ namespace Vulkan
             valid = true;
         }
 
-        public DescriptorPool(LogicalDevice logicalDevice, ReadOnlySpan<(VkDescriptorType type, uint count)> pools, uint extraMaxAllocations = 0)
+        public DescriptorPool(LogicalDevice logicalDevice, ReadOnlySpan<(VkDescriptorType type, uint descriptorCount)> pools, uint extraMaxAllocations = 0)
         {
             if (pools.Length == 0)
             {
@@ -69,9 +69,9 @@ namespace Vulkan
             uint maxAllocations = 0;
             for (int i = 0; i < pools.Length; i++)
             {
-                (VkDescriptorType type, uint count) = pools[i];
-                poolSizes[i] = new(type, count);
-                maxAllocations += count;
+                (VkDescriptorType type, uint descriptorCount) = pools[i];
+                poolSizes[i] = new(type, descriptorCount);
+                maxAllocations += descriptorCount;
             }
 
             VkDescriptorPoolCreateInfo createInfo = new()

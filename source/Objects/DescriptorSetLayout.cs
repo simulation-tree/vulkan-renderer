@@ -53,6 +53,31 @@ namespace Vulkan
             valid = true;
         }
 
+        public DescriptorSetLayout(LogicalDevice device, uint binding, VkDescriptorType type, VkShaderStageFlags stageFlags)
+        {
+            this.device = device;
+
+            VkDescriptorSetLayoutBinding layoutBinding = new()
+            {
+                binding = binding,
+                descriptorType = type,
+                descriptorCount = 1,
+                stageFlags = stageFlags
+            };
+
+            VkDescriptorSetLayoutCreateInfo createInfo = new();
+            createInfo.bindingCount = 1;
+            createInfo.pBindings = &layoutBinding;
+
+            VkResult result = vkCreateDescriptorSetLayout(device.Value, &createInfo, null, out value);
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Failed to create descriptor set layout");
+            }
+
+            valid = true;
+        }
+
         [Conditional("DEBUG")]
         private readonly void ThrowIfDisposed()
         {
