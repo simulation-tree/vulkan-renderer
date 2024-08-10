@@ -23,7 +23,7 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public Sampler(LogicalDevice device, SamplerCreateInfo createInfo)
+        public Sampler(LogicalDevice device, SamplerCreateParameters createInfo)
         {
             VkSamplerCreateInfo vkCreateInfo = new();
             vkCreateInfo.magFilter = createInfo.magFilter;

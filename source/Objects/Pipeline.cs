@@ -7,10 +7,8 @@ namespace Vulkan
 {
     public unsafe struct Pipeline : IDisposable, IEquatable<Pipeline>
     {
-        public readonly DescriptorSetLayout setLayout;
-        public readonly PipelineLayout pipelineLayout;
-
         private readonly VkPipeline value;
+        private readonly LogicalDevice logicalDevice;
         private bool valid;
 
         public readonly VkPipeline Value
@@ -22,15 +20,11 @@ namespace Vulkan
             }
         }
 
-        public readonly LogicalDevice LogicalDevice => pipelineLayout.logicalDevice;
         public readonly bool IsDisposed => !valid;
 
-        public Pipeline(PipelineCreateInput input, DescriptorSetLayout setLayout, ReadOnlySpan<char> entryPoint)
+        public Pipeline(PipelineCreateInput input, PipelineLayout layout, ReadOnlySpan<char> entryPoint)
         {
-            LogicalDevice logicalDevice = input.LogicalDevice;
-            this.setLayout = setLayout;
-            pipelineLayout = new(logicalDevice, setLayout);
-
+            logicalDevice = input.LogicalDevice;
             byte* nameBuffer = stackalloc byte[entryPoint.Length];
             for (int i = 0; i < entryPoint.Length; i++)
             {
@@ -114,7 +108,7 @@ namespace Vulkan
                 pDepthStencilState = &depthStencilState,
                 pColorBlendState = &colorBlendState,
                 pDynamicState = &dynamicState,
-                layout = pipelineLayout.Value,
+                layout = layout.Value,
                 renderPass = input.renderPass.Value
             };
 
@@ -139,9 +133,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
-            vkDestroyPipeline(LogicalDevice.Value, value);
-            pipelineLayout.Dispose();
-            setLayout.Dispose();
+            vkDestroyPipeline(logicalDevice.Value, value);
             valid = false;
         }
 

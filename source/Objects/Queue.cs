@@ -94,6 +94,9 @@ namespace Vulkan
             return vkQueuePresentKHR(value, signalSemaphore.Value, swapchain.Value, imageIndex);
         }
 
+        /// <summary>
+        /// Waits on the host for any submitted work on the queue to finish.
+        /// </summary>
         public readonly void Wait()
         {
             vkQueueWaitIdle(value);

@@ -57,7 +57,7 @@ namespace Vulkan
             valid = true;
         }
 
-        public DescriptorPool(LogicalDevice logicalDevice, ReadOnlySpan<(VkDescriptorType type, uint descriptorCount)> pools, uint extraMaxAllocations = 0)
+        public DescriptorPool(LogicalDevice logicalDevice, ReadOnlySpan<(VkDescriptorType type, uint descriptorCount)> pools, uint maxSets)
         {
             if (pools.Length == 0)
             {
@@ -66,19 +66,17 @@ namespace Vulkan
 
             this.logicalDevice = logicalDevice;
             VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[pools.Length];
-            uint maxAllocations = 0;
             for (int i = 0; i < pools.Length; i++)
             {
                 (VkDescriptorType type, uint descriptorCount) = pools[i];
                 poolSizes[i] = new(type, descriptorCount);
-                maxAllocations += descriptorCount;
             }
 
             VkDescriptorPoolCreateInfo createInfo = new()
             {
                 poolSizeCount = (uint)pools.Length,
                 pPoolSizes = poolSizes,
-                maxSets = maxAllocations + extraMaxAllocations,
+                maxSets = maxSets,
                 flags = VkDescriptorPoolCreateFlags.FreeDescriptorSet
             };
 

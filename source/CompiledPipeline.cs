@@ -1,4 +1,6 @@
 ﻿using System;
+using Unmanaged.Collections;
+using Vortice.Vulkan;
 using Vulkan;
 
 namespace Rendering.Vulkan
@@ -6,18 +8,30 @@ namespace Rendering.Vulkan
     public readonly struct CompiledPipeline : IDisposable
     {
         public readonly Pipeline pipeline;
+        public readonly PipelineLayout pipelineLayout;
         public readonly DescriptorPool descriptorPool;
+        public readonly DescriptorSetLayout setLayout;
 
-        public CompiledPipeline(Pipeline pipeline, DescriptorPool descriptorPool)
+        private readonly UnmanagedArray<(byte, VkDescriptorType, VkShaderStageFlags)> bindings;
+
+        public readonly ReadOnlySpan<(byte, VkDescriptorType, VkShaderStageFlags)> Bindings => bindings.AsSpan();
+
+        public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, DescriptorPool descriptorPool, DescriptorSetLayout setLayout, Span<(byte, VkDescriptorType, VkShaderStageFlags)> bindings)
         {
             this.pipeline = pipeline;
+            this.pipelineLayout = pipelineLayout;
             this.descriptorPool = descriptorPool;
+            this.setLayout = setLayout;
+            this.bindings = new(bindings);
         }
 
         public readonly void Dispose()
         {
+            bindings.Dispose();
+            setLayout.Dispose();
             descriptorPool.Dispose();
             pipeline.Dispose();
+            pipelineLayout.Dispose();
         }
     }
 }

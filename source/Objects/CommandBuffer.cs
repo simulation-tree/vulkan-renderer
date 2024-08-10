@@ -212,7 +212,7 @@ namespace Vulkan
             vkCmdBindIndexBuffer(value, indexBuffer.bufferDeviceMemory.buffer.Value, offset, VkIndexType.Uint32);
         }
 
-        public readonly void BindDescriptorSets(PipelineLayout layout, ReadOnlySpan<DescriptorSet> descriptorSets, uint set)
+        public readonly void BindDescriptorSets(PipelineLayout layout, ReadOnlySpan<DescriptorSet> descriptorSets, uint set = 0)
         {
             ThrowIfDisposed();
             VkDescriptorSet* descriptorSetValue = stackalloc VkDescriptorSet[descriptorSets.Length];
@@ -222,6 +222,23 @@ namespace Vulkan
             }
 
             vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, descriptorSets.Length));
+        }
+
+        public readonly void BindDescriptorSet(PipelineLayout layout, DescriptorSet descriptorSet, uint set = 0)
+        {
+            ThrowIfDisposed();
+            VkDescriptorSet* descriptorSetValue = stackalloc VkDescriptorSet[1];
+            descriptorSetValue[0] = descriptorSet.Value;
+            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, 1));
+        }
+
+        public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags stage, ReadOnlySpan<byte> data, uint offset = 0)
+        {
+            ThrowIfDisposed();
+            fixed (byte* dataPtr = data)
+            {
+                vkCmdPushConstants(value, layout.Value, stage, offset, (uint)data.Length, dataPtr);
+            }
         }
 
         public readonly void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)

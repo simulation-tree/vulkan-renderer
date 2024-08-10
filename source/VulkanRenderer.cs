@@ -6,6 +6,8 @@ using Shaders.Components;
 using Simulation;
 using System;
 using System.Numerics;
+using Textures;
+using Textures.Components;
 using Unmanaged;
 using Unmanaged.Collections;
 using Vortice.Vulkan;
@@ -17,12 +19,17 @@ namespace Rendering.Vulkan
     {
         private const uint MaxFramesInFlight = 2;
 
+        private readonly World world;
         private readonly Destination destination;
         private readonly Instance instance;
         private readonly PhysicalDevice physicalDevice;
         private readonly UnmanagedDictionary<eint, CompiledShader> shaders;
+        private readonly UnmanagedDictionary<eint, UnmanagedArray<CompiledPushConstant>> knownPushConstants;
+        private readonly UnmanagedDictionary<eint, CompiledRenderer> renderers;
         private readonly UnmanagedDictionary<int, CompiledPipeline> pipelines;
         private readonly UnmanagedDictionary<int, CompiledMesh> meshes;
+        private readonly UnmanagedDictionary<MaterialComponentBinding, CompiledComponentBuffer> components;
+        private readonly UnmanagedDictionary<int, CompiledImage> images;
         private readonly UnmanagedArray<CommandBuffer> commandBuffers;
         private readonly UnmanagedArray<Fence> submitFences;
         private readonly UnmanagedArray<Semaphore> pullSemaphores;
@@ -39,8 +46,8 @@ namespace Rendering.Vulkan
         private DepthImage depthImage;
         private uint frameIndex;
         private uint imageIndex;
-        private uint width;
-        private uint height;
+        private uint destinationWidth;
+        private uint destinationHeight;
 
         public readonly nint Library => instance.Value.Handle;
 
@@ -48,6 +55,7 @@ namespace Rendering.Vulkan
         {
             this.destination = destination;
             this.instance = instance;
+            this.world = destination.GetWorld();
 
             if (instance.PhysicalDevices.Length == 0)
             {
@@ -57,28 +65,36 @@ namespace Rendering.Vulkan
             if (TryGetBestPhysicalDevice(instance.PhysicalDevices, ["VK_KHR_swapchain"], out uint index))
             {
                 physicalDevice = instance.PhysicalDevices[(int)index];
-                Console.WriteLine($"Vulkan instance created for {destination.entity.value}");
+                Console.WriteLine($"Vulkan instance created for `{destination}`");
             }
             else
             {
                 throw new InvalidOperationException("No suitable physical device found");
             }
 
+            images = new();
             shaders = new();
+            knownPushConstants = new();
+            renderers = new();
             pipelines = new();
             commandBuffers = new();
             submitFences = new();
             pullSemaphores = new();
             pushSemaphores = new();
             meshes = new();
+            components = new();
         }
 
         public readonly void Dispose()
         {
-            DisposeMeshes();
             if (surface != default)
             {
                 logicalDevice.Wait();
+                DisposeComponentBuffers();
+                DisposeTextureBuffers();
+                DisposePushConstants();
+                DisposeRenderers();
+                DisposeMeshes();
                 DisposeSwapchain();
                 DisposePipelines();
                 DisposeShaderModules();
@@ -102,7 +118,29 @@ namespace Rendering.Vulkan
             }
 
             instance.Dispose();
-            Console.WriteLine($"Vulkan instance finished for {destination.entity.value}");
+            Console.WriteLine($"Vulkan instance finished for `{destination}`");
+        }
+
+        private readonly void DisposeRenderers()
+        {
+            foreach (eint rendererEntity in renderers.Keys)
+            {
+                CompiledRenderer renderer = renderers[rendererEntity];
+                renderer.Dispose();
+            }
+
+            renderers.Dispose();
+        }
+
+        private readonly void DisposePushConstants()
+        {
+            foreach (eint materialEntity in knownPushConstants.Keys)
+            {
+                UnmanagedArray<CompiledPushConstant> pushConstantArray = knownPushConstants[materialEntity];
+                pushConstantArray.Dispose();
+            }
+
+            knownPushConstants.Dispose();
         }
 
         private readonly void DisposePipelines()
@@ -125,6 +163,28 @@ namespace Rendering.Vulkan
             }
 
             shaders.Dispose();
+        }
+
+        private readonly void DisposeComponentBuffers()
+        {
+            foreach (MaterialComponentBinding binding in components.Keys)
+            {
+                CompiledComponentBuffer componentBuffer = components[binding];
+                componentBuffer.Dispose();
+            }
+
+            components.Dispose();
+        }
+
+        private readonly void DisposeTextureBuffers()
+        {
+            foreach (int imageHash in images.Keys)
+            {
+                CompiledImage image = images[imageHash];
+                image.Dispose();
+            }
+
+            images.Dispose();
         }
 
         private readonly void DisposeMeshes()
@@ -162,11 +222,11 @@ namespace Rendering.Vulkan
 
         private void RebuildSwapchain()
         {
-            //todo: can also rebuild the render pass when moving a window to hdr from sdr monitors
+            //todo: fault: should also rebuild the render pass when moving a window to hdr from sdr monitors
             logicalDevice.Wait();
             DisposeSwapchain();
-            CreateSwapchain(out width, out height);
-            CreateImageViewsAndBuffers(width, height);
+            CreateSwapchain(out destinationWidth, out destinationHeight);
+            CreateImageViewsAndBuffers(destinationWidth, destinationHeight);
         }
 
         public void SurfaceCreated(nint surfaceAddress)
@@ -237,185 +297,10 @@ namespace Rendering.Vulkan
             }
         }
 
-        public bool BeginRender()
-        {
-            Fence submitFence = submitFences[frameIndex];
-            Semaphore pullSemaphore = pullSemaphores[frameIndex];
-            Semaphore pushSemaphore = pushSemaphores[frameIndex];
-            CommandBuffer commandBuffer = commandBuffers[frameIndex];
-
-            submitFence.Wait();
-
-            VkResult result = logicalDevice.TryAcquireNextImage(swapchain, pullSemaphore, default, out imageIndex);
-            if (result == VkResult.ErrorOutOfDateKHR)
-            {
-                RebuildSwapchain();
-                return false;
-            }
-            else if (result != VkResult.Success && result != VkResult.SuboptimalKHR)
-            {
-                throw new InvalidOperationException($"Failed to acquire next image: {result}");
-            }
-
-            submitFence.Reset();
-            commandBuffer.Reset();
-            commandBuffer.Begin();
-
-            Framebuffer framebuffer = surfaceFramebuffers[imageIndex];
-            Vector4 area = new(0, 0, 1, 1);
-            Vector4 clearColor = new(0, 0, 0, 1);
-            commandBuffer.BeginRenderPass(renderPass, framebuffer, area, clearColor);
-
-            Vector4 viewport = new(0, 0, framebuffer.width, framebuffer.height);
-            commandBuffer.SetViewport(viewport);
-
-            Vector4 scissor = new(0, 0, framebuffer.width, framebuffer.height);
-            commandBuffer.SetScissor(scissor);
-            return true;
-        }
-
         private readonly bool IsDestinationResized()
         {
             (uint width, uint height) = destination.GetDestinationSize();
-            return width != this.width || height != this.height;
-        }
-
-        public readonly void Render(ReadOnlySpan<eint> entities, eint material, eint shader, eint mesh, eint camera)
-        {
-            World world = destination.entity.world;
-            IsShader shaderComponent = world.GetComponent<IsShader>(shader);
-
-            //make sure a shader exists for this shader entity, also rebuild it when version changes
-            if (!shaders.TryGetValue(shader, out CompiledShader compiledShader))
-            {
-                compiledShader = CompileShader(world, shader);
-                shaders.Add(shader, compiledShader);
-            }
-
-            bool shaderChanged = compiledShader.version != shaderComponent.version;
-            if (shaderChanged)
-            {
-                compiledShader.Dispose();
-                compiledShader = CompileShader(world, shader);
-                shaders[shader] = compiledShader;
-                //todo: efficiency: could use TryGetRef and AddRef instead to minimize instructions
-            }
-
-            //make sure a processed mesh exists for this combination of shader entity and mesh entity, also rebuild it when it changes
-            int instanceHash = HashCode.Combine(shader, mesh);
-            uint meshVersion = world.GetComponent<IsMesh>(mesh).version;
-            if (!meshes.TryGetValue(instanceHash, out CompiledMesh compiledMesh))
-            {
-                compiledMesh = CompileMesh(world, shader, mesh);
-                meshes.Add(instanceHash, compiledMesh);
-            }
-
-            bool meshChanged = compiledMesh.version != meshVersion;
-            if (meshChanged || shaderChanged)
-            {
-                compiledMesh.Dispose();
-                compiledMesh = CompileMesh(world, shader, mesh);
-                meshes[instanceHash] = compiledMesh;
-            }
-
-            //make sure a pipeline exists, the same way a compiled mesh is
-            if (!pipelines.TryGetValue(instanceHash, out CompiledPipeline pipeline))
-            {
-                pipeline = CompilePipeline(material, shader, world, compiledShader, compiledMesh);
-                pipelines.Add(instanceHash, pipeline);
-            }
-
-            if (meshChanged || shaderChanged)
-            {
-                pipeline.Dispose();
-                pipeline = CompilePipeline(material, shader, world, compiledShader, compiledMesh);
-                pipelines[instanceHash] = pipeline;
-            }
-
-            CommandBuffer commandBuffer = commandBuffers[frameIndex];
-            //commandBuffer.BindPipeline(pipeline.pipeline, VkPipelineBindPoint.Graphics);
-        }
-
-        private readonly CompiledPipeline CompilePipeline(eint material, eint shader, World world, CompiledShader compiledShader, CompiledMesh compiledMesh)
-        {
-            Material materialEntity = new(world, material);
-            ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = compiledMesh.VertexAttributes;
-            Span<VertexInputAttribute> vertexAttributes = stackalloc VertexInputAttribute[shaderVertexAttributes.Length];
-            for (int i = 0; i < shaderVertexAttributes.Length; i++)
-            {
-                ShaderVertexInputAttribute shaderVertexAttribute = shaderVertexAttributes[i];
-                vertexAttributes[i] = new(shaderVertexAttribute);
-            }
-
-            ReadOnlySpan<MaterialComponentBinding> uniformBindings = materialEntity.GetComponentBindings();
-            ReadOnlySpan<MaterialTextureBinding> textureBindings = materialEntity.GetTextureBindings();
-            ReadOnlySpan<ShaderUniformProperty> uniformProperties = world.GetList<ShaderUniformProperty>(shader).AsSpan();
-            ReadOnlySpan<ShaderSamplerProperty> samplerProperties = world.GetList<ShaderSamplerProperty>(shader).AsSpan();
-
-            //todo: qol: when theres missing bindings, reference an empty default one so shaders can assume empty data at the least
-            Span<(uint, VkDescriptorType, VkShaderStageFlags)> setLayoutBindings = stackalloc (uint, VkDescriptorType, VkShaderStageFlags)[uniformBindings.Length + textureBindings.Length];
-            int bindingCount = 0;
-            foreach (ShaderUniformProperty uniformProperty in uniformProperties)
-            {
-                bool containsBinding = false;
-                foreach (MaterialComponentBinding uniformBinding in uniformBindings)
-                {
-                    if (uniformBinding.key == uniformProperty.key)
-                    {
-                        containsBinding = true;
-                        VkDescriptorType descriptorType = VkDescriptorType.UniformBuffer;
-                        VkShaderStageFlags shaderStage = GetShaderStage(uniformBinding.stage);
-                        setLayoutBindings[bindingCount++] = (uniformBinding.Binding, descriptorType, shaderStage);
-                        break;
-                    }
-                }
-
-                if (!containsBinding)
-                {
-                    throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(MaterialComponentBinding)}` to bind an entity component to uniform named `{uniformProperty.name}`");
-                }
-            }
-
-            foreach (ShaderSamplerProperty samplerProperty in samplerProperties)
-            {
-                bool containsBinding = false;
-                foreach (MaterialTextureBinding textureBinding in textureBindings)
-                {
-                    if (textureBinding.key == samplerProperty.key)
-                    {
-                        containsBinding = true;
-                        VkDescriptorType descriptorType = VkDescriptorType.CombinedImageSampler;
-                        VkShaderStageFlags shaderStage = VkShaderStageFlags.Fragment;
-                        setLayoutBindings[bindingCount++] = (textureBinding.Binding, descriptorType, shaderStage);
-                        break;
-                    }
-                }
-
-                if (!containsBinding)
-                {
-                    throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(MaterialTextureBinding)}` to bind a texture entity to sampler named `{samplerProperty.name}`");
-                }
-            }
-
-            DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings);
-            PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader, vertexAttributes);
-
-            Pipeline pipeline = new(pipelineCreation, setLayout, "main");
-            Span<(VkDescriptorType, uint)> poolTypes = stackalloc (VkDescriptorType, uint)[2];
-            int poolCount = 0;
-            if (uniformProperties.Length > 0)
-            {
-                poolTypes[poolCount++] = (VkDescriptorType.UniformBuffer, (uint)uniformProperties.Length);
-            }
-
-            if (samplerProperties.Length > 0)
-            {
-                poolTypes[poolCount++] = (VkDescriptorType.CombinedImageSampler, (uint)samplerProperties.Length);
-            }
-
-            DescriptorPool descriptorPool = new(logicalDevice, poolTypes[..poolCount]);
-            CompiledPipeline compiledPipeline = new(pipeline, descriptorPool);
-            return compiledPipeline;
+            return width != this.destinationWidth || height != this.destinationHeight;
         }
 
         private readonly CompiledShader CompileShader(World world, eint shader)
@@ -452,9 +337,427 @@ namespace Rendering.Vulkan
 
             using UnmanagedList<float> vertexData = new();
             uint vertexCount = meshEntity.Assemble(vertexData, mask);
+            uint indexCount = meshEntity.GetIndexCount();
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
             IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.GetIndices().AsSpan());
-            return new(meshEntity.GetVersion(), vertexBuffer, indexBuffer, shaderVertexAttributes);
+            return new(meshEntity.GetVersion(), indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
+        }
+
+        private readonly CompiledPipeline CompilePipeline(eint materialEntity, eint shaderEntity, World world, CompiledShader compiledShader, CompiledMesh compiledMesh)
+        {
+            Material material = new(world, materialEntity);
+            ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = compiledMesh.VertexAttributes;
+            Span<VertexInputAttribute> vertexAttributes = stackalloc VertexInputAttribute[shaderVertexAttributes.Length];
+            for (int i = 0; i < shaderVertexAttributes.Length; i++)
+            {
+                ShaderVertexInputAttribute shaderVertexAttribute = shaderVertexAttributes[i];
+                vertexAttributes[i] = new(shaderVertexAttribute);
+            }
+
+            ReadOnlySpan<MaterialComponentBinding> uniformBindings = material.GetComponentBindings();
+            ReadOnlySpan<MaterialTextureBinding> textureBindings = material.GetTextureBindings();
+            ReadOnlySpan<ShaderPushConstant> pushConstants = world.GetList<ShaderPushConstant>(shaderEntity).AsSpan();
+            ReadOnlySpan<ShaderUniformProperty> uniformProperties = world.GetList<ShaderUniformProperty>(shaderEntity).AsSpan();
+            ReadOnlySpan<ShaderSamplerProperty> samplerProperties = world.GetList<ShaderSamplerProperty>(shaderEntity).AsSpan();
+
+            //collect information to build the set layout
+            Span<(byte, VkDescriptorType, VkShaderStageFlags)> setLayoutBindings = stackalloc (byte, VkDescriptorType, VkShaderStageFlags)[uniformBindings.Length + textureBindings.Length];
+            int bindingCount = 0;
+            Span<PipelineLayout.PushConstant> pushConstantsBuffer = stackalloc PipelineLayout.PushConstant[uniformBindings.Length];
+            int pushConstantsCount = 0;
+
+            //foreach (ShaderPushConstant pushConstant in pushConstants)
+            //{
+            //    pushConstantsBuffer[pushConstantsCount++] = new(pushConstant.offset, pushConstant.size, VkShaderStageFlags.Vertex);
+            //}
+            //cant have more than 1 push constant of the same type, so batch them
+            if (pushConstants.Length > 0)
+            {
+                uint start = 0;
+                uint size = 0;
+                foreach (ShaderPushConstant pushConstant in pushConstants)
+                {
+                    start = Math.Min(start, pushConstant.offset);
+                    size += pushConstant.size;
+                }
+
+                pushConstantsBuffer[pushConstantsCount++] = new(start, size, VkShaderStageFlags.Vertex);
+            }
+
+            foreach (ShaderUniformProperty uniformProperty in uniformProperties)
+            {
+                bool containsBinding = false;
+                foreach (MaterialComponentBinding uniformBinding in uniformBindings)
+                {
+                    VkShaderStageFlags shaderStage = GetShaderStage(uniformBinding.stage);
+                    if (!uniformBinding.IsLocal && uniformBinding.key == uniformProperty.key)
+                    {
+                        containsBinding = true;
+                        VkDescriptorType descriptorType = VkDescriptorType.UniformBuffer;
+                        setLayoutBindings[bindingCount++] = (uniformBinding.Binding, descriptorType, shaderStage);
+                        break;
+                    }
+                }
+
+                if (!containsBinding)
+                {
+                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialComponentBinding)}` to bind an entity component to uniform named `{uniformProperty.name}`");
+                }
+            }
+
+            foreach (ShaderSamplerProperty samplerProperty in samplerProperties)
+            {
+                bool containsBinding = false;
+                foreach (MaterialTextureBinding textureBinding in textureBindings)
+                {
+                    if (textureBinding.key == samplerProperty.key)
+                    {
+                        containsBinding = true;
+                        VkDescriptorType descriptorType = VkDescriptorType.CombinedImageSampler;
+                        VkShaderStageFlags shaderStage = VkShaderStageFlags.Fragment;
+                        setLayoutBindings[bindingCount++] = (textureBinding.Binding, descriptorType, shaderStage);
+                        break;
+                    }
+                }
+
+                if (!containsBinding)
+                {
+                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialTextureBinding)}` to bind a texture entity to sampler named `{samplerProperty.name}`");
+                }
+            }
+
+            ///create pipeline
+            DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings[..bindingCount]);
+            PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader, vertexAttributes);
+            PipelineLayout pipelineLayout = new(logicalDevice, setLayout, pushConstantsBuffer[..pushConstantsCount]);
+            Pipeline pipeline = new(pipelineCreation, pipelineLayout, "main");
+
+            //create descriptor pool
+            Span<(VkDescriptorType, uint)> poolTypes = stackalloc (VkDescriptorType, uint)[2];
+            int poolCount = 0;
+            if (uniformProperties.Length > 0)
+            {
+                poolTypes[poolCount++] = (VkDescriptorType.UniformBuffer, (uint)uniformProperties.Length);
+            }
+
+            if (samplerProperties.Length > 0)
+            {
+                poolTypes[poolCount++] = (VkDescriptorType.CombinedImageSampler, (uint)samplerProperties.Length);
+            }
+
+            //remember which bindings are push constants
+            if (!knownPushConstants.TryGetValue(materialEntity, out UnmanagedArray<CompiledPushConstant> pushConstantArray))
+            {
+                Span<CompiledPushConstant> buffer = stackalloc CompiledPushConstant[uniformBindings.Length];
+                int bufferLength = 0;
+                foreach (MaterialComponentBinding binding in uniformBindings)
+                {
+                    if (binding.IsLocal)
+                    {
+                        buffer[bufferLength++] = new(binding.componentType, binding.stage);
+                    }
+                }
+
+                if (bufferLength > 0)
+                {
+                    pushConstantArray = new(buffer[..bufferLength]);
+                    knownPushConstants.Add(materialEntity, pushConstantArray);
+                }
+            }
+
+            //create buffers for bindings that arent push constants (referring to components on entities)
+            VkPhysicalDeviceLimits limits = logicalDevice.physicalDevice.GetLimits();
+            foreach (MaterialComponentBinding binding in uniformBindings)
+            {
+                eint componentEntity = binding.entity;
+                if (componentEntity == default)
+                {
+                    //this binding is a push constant
+                }
+                else
+                {
+                    RuntimeType componentType = binding.componentType;
+                    if (!world.ContainsEntity(componentEntity))
+                    {
+                        throw new InvalidOperationException($"Material `{materialEntity}` references entity `{componentEntity}` for a component `{componentType}`, which does not exist");
+                    }
+
+                    if (!world.ContainsComponent(componentEntity, componentType))
+                    {
+                        throw new InvalidOperationException($"Material `{materialEntity}` references entity `{componentEntity}` for a component `{componentType}`, but it is missing");
+                    }
+
+                    if (!components.TryGetValue(binding, out CompiledComponentBuffer componentBuffer))
+                    {
+                        uint typeSize = componentType.Size;
+                        uint bufferSize = (uint)(Math.Ceiling(typeSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
+                        VkBufferUsageFlags usage = VkBufferUsageFlags.UniformBuffer;
+                        VkMemoryPropertyFlags flags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
+                        BufferDeviceMemory buffer = new(logicalDevice, bufferSize, usage, flags);
+                        componentBuffer = new(binding.entity, componentType, buffer);
+                        components.Add(binding, componentBuffer);
+                    }
+                }
+            }
+
+            //create buffers for texture bindings
+            foreach (MaterialTextureBinding binding in textureBindings)
+            {
+                eint textureEntity = binding.texture;
+                if (!world.ContainsEntity(textureEntity))
+                {
+                    throw new InvalidOperationException($"Material `{materialEntity}` references texture entity `{textureEntity}`, which does not exist");
+                }
+
+                if (!world.ContainsComponent<IsTexture>(textureEntity))
+                {
+                    throw new InvalidOperationException($"Material `{materialEntity}` references entity `{textureEntity}` that doesn't qualify as a texture");
+                }
+
+                uint textureVersion = world.GetComponent<IsTexture>(textureEntity).version;
+                int textureHash = HashCode.Combine(materialEntity, textureVersion, binding);
+                if (!images.TryGetValue(textureHash, out CompiledImage compiledImage))
+                {
+                    compiledImage = CompileImage(materialEntity, textureVersion, binding);
+                    images.Add(textureHash, compiledImage);
+                }
+            }
+
+            uint maxSets = 32; //todo: fault: after 32 allocations it should fail, where another pool should be created????
+            DescriptorPool descriptorPool = new(logicalDevice, poolTypes[..poolCount], maxSets);
+            return new(pipeline, pipelineLayout, descriptorPool, setLayout, setLayoutBindings[..bindingCount]);
+        }
+
+        private readonly CompiledImage CompileImage(eint materialEntity, uint textureVersion, MaterialTextureBinding binding)
+        {
+            uint depth = 1;
+            VkImageUsageFlags usage = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled;
+            VkFormat format = VkFormat.R8G8B8A8Srgb;
+            eint textureEntity = binding.texture;
+            TextureSize size = world.GetComponent<TextureSize>(textureEntity);
+            Vector4 region = binding.region;
+            uint x = (uint)(region.X * size.width);
+            uint y = (uint)(region.Y * size.height);
+            uint width = (uint)(region.Z * size.width);
+            uint height = (uint)(region.W * size.height);
+            Image image = new(logicalDevice, width, height, depth, format, usage);
+            DeviceMemory imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
+            UnmanagedList<Pixel> pixels = world.GetList<Pixel>(textureEntity);
+
+            //copy pixels from the entity, into the temporary buffer, then temporary buffer copies into the buffer
+            using BufferDeviceMemory tempStagingBuffer = new(logicalDevice, pixels.Count * 4, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostCoherent | VkMemoryPropertyFlags.HostVisible);
+            tempStagingBuffer.CopyFrom(pixels.AsSpan());
+            VkImageLayout imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
+            using CommandPool tempPool = new(graphicsQueue, true);
+            using CommandBuffer tempBuffer = tempPool.CreateCommandBuffer();
+            tempBuffer.Begin();
+            tempBuffer.TransitionImageLayout(image, VkImageLayout.Undefined, VkImageLayout.TransferDstOptimal);
+            tempBuffer.End();
+            graphicsQueue.Submit(tempBuffer);
+            graphicsQueue.Wait();
+            tempBuffer.Begin();
+            tempBuffer.CopyBufferToImage(tempStagingBuffer.buffer, size.width, size.height, x, y, image, depth);
+            tempBuffer.End();
+            graphicsQueue.Submit(tempBuffer);
+            graphicsQueue.Wait();
+            tempBuffer.Begin();
+            tempBuffer.TransitionImageLayout(image, VkImageLayout.TransferDstOptimal, imageLayout);
+            tempBuffer.End();
+            graphicsQueue.Submit(tempBuffer);
+            graphicsQueue.Wait();
+
+            ImageView imageView = new(image);
+            SamplerCreateParameters samplerParameters = new();
+            Sampler sampler = new(logicalDevice, samplerParameters);
+            return new(materialEntity, textureVersion, binding, image, imageView, imageMemory, sampler);
+        }
+
+        /// <summary>
+        /// Copies data from components into the uniform buffers for material bindings.
+        /// </summary>
+        private readonly void UpdateComponentBuffers(World world)
+        {
+            foreach (MaterialComponentBinding binding in components.Keys)
+            {
+                ref CompiledComponentBuffer componentBuffer = ref components.GetRef(binding);
+                eint entity = componentBuffer.entity;
+                RuntimeType componentType = componentBuffer.componentType;
+                if (!world.ContainsEntity(entity))
+                {
+                    throw new InvalidOperationException($"Entity `{entity}` that contained component `{componentType}` with data for a uniform buffer has been lost");
+                }
+
+                if (!world.ContainsComponent(entity, componentType))
+                {
+                    throw new InvalidOperationException($"Component `{componentType}` on entity `{entity}` that used to contained data for a uniform buffer has been lost");
+                }
+
+                Span<byte> componentData = world.GetComponentBytes(entity, componentType);
+                componentBuffer.buffer.CopyFrom(componentData);
+            }
+        }
+
+        /// <summary>
+        /// Rebuilds textures when their binding or source texture updates.
+        /// </summary>
+        private readonly void UpdateTextureBuffers(World world)
+        {
+            foreach (int textureHash in images.Keys)
+            {
+                ref CompiledImage image = ref images.GetRef(textureHash);
+                eint textureEntity = image.binding.texture;
+                Material material = new(world, image.materialEntity);
+                if (material.TryGetTextureBinding(textureEntity, out MaterialTextureBinding binding))
+                {
+                    uint textureVersion = world.GetComponent<IsTexture>(textureEntity).version;
+                    if (image.textureVersion != textureVersion || image.binding != binding)
+                    {
+                        image.Dispose();
+                        image = CompileImage(image.materialEntity, textureVersion, binding);
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Material `{image.materialEntity}` references texture entity `{textureEntity}` that no longer exists");
+                }
+            }
+        }
+
+        public bool BeginRender()
+        {
+            Fence submitFence = submitFences[frameIndex];
+            Semaphore pullSemaphore = pullSemaphores[frameIndex];
+            Semaphore pushSemaphore = pushSemaphores[frameIndex];
+            CommandBuffer commandBuffer = commandBuffers[frameIndex];
+
+            submitFence.Wait();
+
+            VkResult result = logicalDevice.TryAcquireNextImage(swapchain, pullSemaphore, default, out imageIndex);
+            if (result == VkResult.ErrorOutOfDateKHR)
+            {
+                RebuildSwapchain();
+                return false;
+            }
+            else if (result != VkResult.Success && result != VkResult.SuboptimalKHR)
+            {
+                throw new InvalidOperationException($"Failed to acquire next image: {result}");
+            }
+
+            submitFence.Reset();
+            commandBuffer.Reset();
+            commandBuffer.Begin();
+
+            Framebuffer framebuffer = surfaceFramebuffers[imageIndex];
+            Vector4 area = new(0, 0, 1, 1);
+            Vector4 clearColor = new(0, 0, 0, 1);
+            commandBuffer.BeginRenderPass(renderPass, framebuffer, area, clearColor);
+
+            Vector4 viewport = new(0, 0, framebuffer.width, framebuffer.height);
+            commandBuffer.SetViewport(viewport);
+
+            Vector4 scissor = new(0, 0, framebuffer.width, framebuffer.height);
+            commandBuffer.SetScissor(scissor);
+
+            UpdateComponentBuffers(world);
+            UpdateTextureBuffers(world);
+            return true;
+        }
+
+        public readonly void Render(ReadOnlySpan<eint> renderEntities, eint materialEntity, eint shaderEntity, eint meshEntity, eint camera)
+        {
+            IsShader shaderComponent = world.GetComponent<IsShader>(shaderEntity);
+
+            //make sure a shader exists for this shader entity, also rebuild it when version changes
+            if (!shaders.TryGetValue(shaderEntity, out CompiledShader compiledShader))
+            {
+                compiledShader = CompileShader(world, shaderEntity);
+                shaders.Add(shaderEntity, compiledShader);
+            }
+
+            bool shaderChanged = compiledShader.version != shaderComponent.version;
+            if (shaderChanged)
+            {
+                compiledShader.Dispose();
+                compiledShader = CompileShader(world, shaderEntity);
+                shaders[shaderEntity] = compiledShader;
+            }
+
+            //make sure a processed mesh exists for this combination of shader entity and mesh entity, also rebuild it when it changes
+            int groupHash = HashCode.Combine(shaderEntity, meshEntity);
+            uint meshVersion = world.GetComponent<IsMesh>(meshEntity).version;
+            if (!meshes.TryGetValue(groupHash, out CompiledMesh compiledMesh))
+            {
+                compiledMesh = CompileMesh(world, shaderEntity, meshEntity);
+                meshes.Add(groupHash, compiledMesh);
+            }
+
+            bool meshChanged = compiledMesh.version != meshVersion;
+            if (meshChanged || shaderChanged)
+            {
+                compiledMesh.Dispose();
+                compiledMesh = CompileMesh(world, shaderEntity, meshEntity);
+                meshes[groupHash] = compiledMesh;
+            }
+
+            //make sure a pipeline exists, the same way a compiled mesh is
+            if (!pipelines.TryGetValue(groupHash, out CompiledPipeline pipeline))
+            {
+                pipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
+                pipelines.Add(groupHash, pipeline);
+            }
+
+            if (meshChanged || shaderChanged)
+            {
+                pipeline.Dispose();
+                pipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
+                pipelines[groupHash] = pipeline;
+            }
+
+            //update descriptor sets if needed
+            foreach (eint entity in renderEntities)
+            {
+                if (!renderers.TryGetValue(entity, out CompiledRenderer renderer))
+                {
+                    if (!pipeline.descriptorPool.TryAllocate(pipeline.setLayout, out DescriptorSet descriptorSet))
+                    {
+                        throw new InvalidOperationException("Failed to allocate descriptor set");
+                    }
+
+                    renderer = new(descriptorSet);
+                    renderers.Add(entity, renderer);
+
+                    UpdateDescriptorSet(materialEntity, renderer.descriptorSet, pipeline);
+                }
+                else if (shaderChanged || meshChanged)
+                {
+                    UpdateDescriptorSet(materialEntity, renderer.descriptorSet, pipeline);
+                }
+            }
+
+            //finally draw everything
+            CommandBuffer commandBuffer = commandBuffers[frameIndex];
+            commandBuffer.BindPipeline(pipeline.pipeline, VkPipelineBindPoint.Graphics);
+            commandBuffer.BindVertexBuffer(compiledMesh.vertexBuffer);
+            commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
+
+            foreach (eint rendererEntity in renderEntities)
+            {
+                //push constants
+                if (knownPushConstants.TryGetValue(materialEntity, out UnmanagedArray<CompiledPushConstant> pushConstants))
+                {
+                    uint pushOffset = 0;
+                    foreach (CompiledPushConstant pushConstant in pushConstants)
+                    {
+                        Span<byte> componentBytes = world.GetComponentBytes(rendererEntity, pushConstant.componentType);
+                        commandBuffer.PushConstants(pipeline.pipelineLayout, GetShaderStage(pushConstant.stage), componentBytes, pushOffset);
+                        pushOffset += (uint)componentBytes.Length;
+                    }
+                }
+
+                CompiledRenderer renderer = renderers[rendererEntity];
+                commandBuffer.BindDescriptorSet(pipeline.pipelineLayout, renderer.descriptorSet);
+                commandBuffer.DrawIndexed(compiledMesh.indexCount, 1, 0, 0, 0);
+            }
         }
 
         public void EndRender()
@@ -479,6 +782,35 @@ namespace Rendering.Vulkan
             }
 
             frameIndex = (frameIndex + 1) % MaxFramesInFlight;
+        }
+
+        private readonly void UpdateDescriptorSet(eint materialEntity, DescriptorSet descriptorSet, CompiledPipeline pipeline)
+        {
+            Material material = new(world, materialEntity);
+            foreach ((byte binding, VkDescriptorType type, VkShaderStageFlags flags) in pipeline.Bindings)
+            {
+                if (type == VkDescriptorType.CombinedImageSampler)
+                {
+                    MaterialTextureBinding textureBinding = material.GetTextureBinding(binding);
+                    uint textureVersion = world.GetComponent<IsTexture>(textureBinding.texture).version;
+                    int textureHash = HashCode.Combine(materialEntity, textureVersion, textureBinding);
+                    CompiledImage image = images[textureHash];
+                    descriptorSet.Update(image.imageView, image.sampler, binding);
+                }
+                else if (type == VkDescriptorType.UniformBuffer)
+                {
+                    MaterialComponentBinding componentBinding = material.GetComponentBinding(binding);
+                    if (!componentBinding.IsLocal)
+                    {
+                        CompiledComponentBuffer componentBuffer = components[componentBinding];
+                        descriptorSet.Update(componentBuffer.buffer.buffer, binding);
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Unsupported descriptor type `{type}`");
+                }
+            }
         }
 
         private static bool TryGetBestPhysicalDevice(ReadOnlySpan<PhysicalDevice> physicalDevices, ReadOnlySpan<FixedString> requiredExtensions, out uint index)

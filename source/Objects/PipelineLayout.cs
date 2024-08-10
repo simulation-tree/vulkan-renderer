@@ -36,11 +36,11 @@ namespace Vulkan
             valid = true;
         }
 
-        public PipelineLayout(LogicalDevice device, DescriptorSetLayout setLayout) : this(device, [setLayout])
+        public PipelineLayout(LogicalDevice device, DescriptorSetLayout setLayout, ReadOnlySpan<PushConstant> pushConstants) : this(device, [setLayout], pushConstants)
         {
         }
 
-        public PipelineLayout(LogicalDevice device, ReadOnlySpan<DescriptorSetLayout> setLayouts)
+        public PipelineLayout(LogicalDevice device, ReadOnlySpan<DescriptorSetLayout> setLayouts, ReadOnlySpan<PushConstant> pushConstants)
         {
             this.logicalDevice = device;
 
@@ -55,6 +55,24 @@ namespace Vulkan
 
                 pipelineLayoutCreateInfo.pSetLayouts = layouts;
                 pipelineLayoutCreateInfo.setLayoutCount = (uint)setLayouts.Length;
+            }
+
+            if (!pushConstants.IsEmpty)
+            {
+                VkPushConstantRange* constants = stackalloc VkPushConstantRange[pushConstants.Length];
+                for (int i = 0; i < pushConstants.Length; i++)
+                {
+                    PushConstant constant = pushConstants[i];
+                    constants[i] = new()
+                    {
+                        offset = constant.offset,
+                        size = constant.size,
+                        stageFlags = constant.stage
+                    };
+                }
+
+                pipelineLayoutCreateInfo.pPushConstantRanges = constants;
+                pipelineLayoutCreateInfo.pushConstantRangeCount = (uint)pushConstants.Length;
             }
 
             VkResult result = vkCreatePipelineLayout(device.Value, &pipelineLayoutCreateInfo, null, out value);
@@ -80,6 +98,20 @@ namespace Vulkan
             ThrowIfDisposed();
             vkDestroyPipelineLayout(logicalDevice.Value, value);
             valid = false;
+        }
+
+        public readonly struct PushConstant
+        {
+            public readonly uint offset;
+            public readonly uint size;
+            public readonly VkShaderStageFlags stage;
+
+            public PushConstant(uint offset, uint size, VkShaderStageFlags stage)
+            {
+                this.offset = offset;
+                this.size = size;
+                this.stage = stage;
+            }
         }
     }
 }

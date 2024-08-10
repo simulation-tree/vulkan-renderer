@@ -7,7 +7,7 @@ namespace Vulkan
 {
     public unsafe struct DescriptorSetLayout : IDisposable, IEquatable<DescriptorSetLayout>
     {
-        public readonly LogicalDevice device;
+        public readonly LogicalDevice logicalDevice;
 
         private readonly VkDescriptorSetLayout value;
         private bool valid;
@@ -23,17 +23,17 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public DescriptorSetLayout(LogicalDevice device, ReadOnlySpan<(uint binding, VkDescriptorType type, VkShaderStageFlags stage)> bindings)
+        public DescriptorSetLayout(LogicalDevice device, ReadOnlySpan<(byte binding, VkDescriptorType type, VkShaderStageFlags stage)> bindings)
         {
-            this.device = device;
+            this.logicalDevice = device;
 
             VkDescriptorSetLayoutBinding* layoutBindings = stackalloc VkDescriptorSetLayoutBinding[bindings.Length];
             for (int i = 0; i < bindings.Length; i++)
             {
-                (uint binding, VkDescriptorType type, VkShaderStageFlags stage) = bindings[i];
+                (byte binding, VkDescriptorType type, VkShaderStageFlags stage) = bindings[i];
                 layoutBindings[i] = new()
                 {
-                    binding = (uint)i,
+                    binding = binding,
                     descriptorType = type,
                     descriptorCount = 1,
                     stageFlags = stage
@@ -55,7 +55,7 @@ namespace Vulkan
 
         public DescriptorSetLayout(LogicalDevice device, uint binding, VkDescriptorType type, VkShaderStageFlags stageFlags)
         {
-            this.device = device;
+            this.logicalDevice = device;
 
             VkDescriptorSetLayoutBinding layoutBinding = new()
             {
@@ -90,7 +90,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
-            vkDestroyDescriptorSetLayout(device.Value, value);
+            vkDestroyDescriptorSetLayout(logicalDevice.Value, value);
             valid = false;
         }
 
