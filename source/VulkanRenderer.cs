@@ -706,7 +706,7 @@ namespace Rendering.Vulkan
             }
 
             //make sure a processed mesh exists for this combination of shader entity and mesh entity, also rebuild it when it changes
-            int groupHash = GetGroupHash(shaderEntity, meshEntity);
+            int groupHash = GetGroupHash(materialEntity, meshEntity);
             uint meshVersion = world.GetComponent<IsMesh>(meshEntity).version;
             if (!meshes.TryGetValue(groupHash, out CompiledMesh compiledMesh))
             {
@@ -885,7 +885,7 @@ namespace Rendering.Vulkan
                 bool used = false;
                 foreach ((eint materialEntity, eint shaderEntity, eint meshEntity) in previouslyRenderedGroups)
                 {
-                    int usedGroupHash = GetGroupHash(shaderEntity, meshEntity);
+                    int usedGroupHash = GetGroupHash(materialEntity, meshEntity);
                     if (usedGroupHash == groupHash)
                     {
                         used = true;
@@ -907,7 +907,7 @@ namespace Rendering.Vulkan
                 bool used = false;
                 foreach ((eint materialEntity, eint shaderEntity, eint meshEntity) in previouslyRenderedGroups)
                 {
-                    int usedGroupHash = GetGroupHash(shaderEntity, meshEntity);
+                    int usedGroupHash = GetGroupHash(materialEntity, meshEntity);
                     if (usedGroupHash == groupHash)
                     {
                         used = true;
@@ -954,9 +954,9 @@ namespace Rendering.Vulkan
             }
         }
 
-        private static int GetGroupHash(eint shaderEntity, eint meshEntity)
+        private static int GetGroupHash(eint materialEntity, eint meshEntity)
         {
-            return HashCode.Combine(shaderEntity, meshEntity);
+            return HashCode.Combine(materialEntity, meshEntity);
         }
 
         private static int GetTextureHash(eint materialEntity, uint textureVersion, MaterialTextureBinding binding)
