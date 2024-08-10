@@ -526,7 +526,7 @@ namespace Rendering.Vulkan
             //create buffers for texture bindings
             foreach (MaterialTextureBinding binding in textureBindings)
             {
-                eint textureEntity = binding.texture;
+                eint textureEntity = binding.TextureEntity;
                 if (!world.ContainsEntity(textureEntity))
                 {
                     throw new InvalidOperationException($"Material `{materialEntity}` references texture entity `{textureEntity}`, which does not exist");
@@ -537,10 +537,10 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Material `{materialEntity}` references entity `{textureEntity}` that doesn't qualify as a texture");
                 }
 
-                uint textureVersion = world.GetComponent<IsTexture>(textureEntity).version;
-                int textureHash = GetTextureHash(materialEntity, textureVersion, binding);
+                int textureHash = GetTextureHash(materialEntity, binding);
                 if (!images.TryGetValue(textureHash, out CompiledImage compiledImage))
                 {
+                    uint textureVersion = world.GetComponent<IsTexture>(textureEntity).version;
                     compiledImage = CompileImage(materialEntity, textureVersion, binding);
                     images.Add(textureHash, compiledImage);
                 }
@@ -556,9 +556,9 @@ namespace Rendering.Vulkan
             uint depth = 1;
             VkImageUsageFlags usage = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled;
             VkFormat format = VkFormat.R8G8B8A8Srgb;
-            eint textureEntity = binding.texture;
+            eint textureEntity = binding.TextureEntity;
             TextureSize size = world.GetComponent<TextureSize>(textureEntity);
-            Vector4 region = binding.region;
+            Vector4 region = binding.Region;
             uint x = (uint)(region.X * size.width);
             uint y = (uint)(region.Y * size.height);
             uint width = (uint)(region.Z * size.width);
@@ -621,27 +621,24 @@ namespace Rendering.Vulkan
         }
 
         /// <summary>
-        /// Rebuilds textures when their binding or source texture updates.
+        /// Rebuilds textures for still used materials when their source updates.
         /// </summary>
         private readonly void UpdateTextureBuffers(World world)
         {
             foreach (int textureHash in images.Keys)
             {
                 ref CompiledImage image = ref images.GetRef(textureHash);
-                eint textureEntity = image.binding.texture;
                 Material material = new(world, image.materialEntity);
-                if (material.TryGetTextureBinding(textureEntity, out MaterialTextureBinding binding))
+                if (material.TryGetTextureBinding(image.binding.TextureEntity, out MaterialTextureBinding binding))
                 {
-                    uint textureVersion = world.GetComponent<IsTexture>(textureEntity).version;
-                    if (image.textureVersion != textureVersion || image.binding != binding)
+                    uint textureVersion = world.GetComponent<IsTexture>(binding.TextureEntity).version;
+                    if (image.textureVersion != textureVersion)
                     {
+                        //todo: untested: (triggered when the texture's pixel array changes)
+                        logicalDevice.Wait();
                         image.Dispose();
                         image = CompileImage(image.materialEntity, textureVersion, binding);
                     }
-                }
-                else
-                {
-                    throw new InvalidOperationException($"Material `{image.materialEntity}` references texture entity `{textureEntity}` that no longer exists");
                 }
             }
         }
@@ -731,7 +728,28 @@ namespace Rendering.Vulkan
                 pipelines.Add(groupHash, pipeline);
             }
 
-            if (meshChanged || shaderChanged)
+            //update images of bindings that change
+            bool updateDescriptorSet = false;
+            UnmanagedList<MaterialTextureBinding> textureBindings = world.GetList<MaterialTextureBinding>(materialEntity);
+            for (uint i = 0; i < textureBindings.Count; i++)
+            {
+                ref MaterialTextureBinding textureBinding = ref textureBindings.GetRef(i);
+                int textureHash = GetTextureHash(materialEntity, textureBinding);
+                if (images.TryGetValue(textureHash, out CompiledImage image))
+                {
+                    if (image.binding.Version != textureBinding.Version)
+                    {
+                        logicalDevice.Wait();
+                        image.Dispose();
+                        uint textureVersion = world.GetComponent<IsTexture>(textureBinding.TextureEntity).version;
+                        image = CompileImage(materialEntity, textureVersion, textureBinding);
+                        images[textureHash] = image;
+                        updateDescriptorSet = true;
+                    }
+                }
+            }
+
+            if (meshChanged || shaderChanged || updateDescriptorSet)
             {
                 logicalDevice.Wait();
 
@@ -752,16 +770,15 @@ namespace Rendering.Vulkan
             //update descriptor sets if needed
             foreach (eint entity in renderEntities)
             {
-                if (!renderers.TryGetValue(entity, out CompiledRenderer renderer))
+                if (!renderers.ContainsKey(entity))
                 {
                     if (!pipeline.descriptorPool.TryAllocate(pipeline.setLayout, out DescriptorSet descriptorSet))
                     {
                         throw new InvalidOperationException("Failed to allocate descriptor set");
                     }
 
-                    renderer = new(descriptorSet);
+                    CompiledRenderer renderer = new(descriptorSet);
                     renderers.Add(entity, renderer);
-
                     UpdateDescriptorSet(materialEntity, renderer.descriptorSet, pipeline);
                 }
             }
@@ -943,15 +960,14 @@ namespace Rendering.Vulkan
             {
                 if (type == VkDescriptorType.CombinedImageSampler)
                 {
-                    MaterialTextureBinding textureBinding = material.GetTextureBinding(binding);
-                    uint textureVersion = world.GetComponent<IsTexture>(textureBinding.texture).version;
-                    int textureHash = GetTextureHash(materialEntity, textureVersion, textureBinding);
+                    MaterialTextureBinding textureBinding = material.GetTextureBindingRef(binding);
+                    int textureHash = GetTextureHash(materialEntity, textureBinding);
                     CompiledImage image = images[textureHash];
                     descriptorSet.Update(image.imageView, image.sampler, binding);
                 }
                 else if (type == VkDescriptorType.UniformBuffer)
                 {
-                    MaterialComponentBinding componentBinding = material.GetComponentBinding(binding);
+                    MaterialComponentBinding componentBinding = material.GetComponentBindingRef(binding);
                     int componentHash = GetComponentHash(materialEntity, componentBinding);
                     CompiledComponentBuffer componentBuffer = components[componentHash];
                     descriptorSet.Update(componentBuffer.buffer.buffer, binding);
@@ -968,9 +984,9 @@ namespace Rendering.Vulkan
             return HashCode.Combine(materialEntity, meshEntity);
         }
 
-        private static int GetTextureHash(eint materialEntity, uint textureVersion, MaterialTextureBinding binding)
+        private static int GetTextureHash(eint materialEntity, MaterialTextureBinding binding)
         {
-            return HashCode.Combine(materialEntity, textureVersion, binding);
+            return HashCode.Combine(materialEntity, binding.Binding);
         }
 
         private static int GetComponentHash(eint materialEntity, MaterialComponentBinding binding)
