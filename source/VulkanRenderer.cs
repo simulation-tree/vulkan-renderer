@@ -313,16 +313,17 @@ namespace Rendering.Vulkan
 
         private readonly CompiledMesh CompileMesh(World world, eint shader, eint mesh)
         {
-            Mesh.ChannelMask mask = default;
             Mesh meshEntity = new(world, mesh);
             ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetList<ShaderVertexInputAttribute>(shader).AsSpan();
-            foreach (ShaderVertexInputAttribute vertexAttribute in shaderVertexAttributes)
+            Span<Mesh.Channel> channels = stackalloc Mesh.Channel[shaderVertexAttributes.Length];
+            for (int i = 0; i < shaderVertexAttributes.Length; i++)
             {
+                ShaderVertexInputAttribute vertexAttribute = shaderVertexAttributes[i];
                 if (TryGetMeshChannel(vertexAttribute, out Mesh.Channel channel))
                 {
                     if (meshEntity.ContainsChannel(channel))
                     {
-                        mask.AddChannel(channel);
+                        channels[i] = channel;
                     }
                     else
                     {
@@ -336,7 +337,7 @@ namespace Rendering.Vulkan
             }
 
             using UnmanagedList<float> vertexData = new();
-            uint vertexCount = meshEntity.Assemble(vertexData, mask);
+            meshEntity.Assemble(vertexData, channels);
             uint indexCount = meshEntity.GetIndexCount();
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
             IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.GetIndices().AsSpan());
@@ -648,11 +649,11 @@ namespace Rendering.Vulkan
             commandBuffer.Begin();
 
             Framebuffer framebuffer = surfaceFramebuffers[imageIndex];
-            Vector4 area = new(0, 0, 1, 1);
+            Vector4 area = new(0, 0, framebuffer.width, framebuffer.height);
             Vector4 clearColor = new(0, 0, 0, 1);
             commandBuffer.BeginRenderPass(renderPass, framebuffer, area, clearColor);
 
-            Vector4 viewport = new(0, 0, framebuffer.width, framebuffer.height);
+            Vector4 viewport = new(0, framebuffer.height, framebuffer.width, -framebuffer.height);
             commandBuffer.SetViewport(viewport);
 
             Vector4 scissor = new(0, 0, framebuffer.width, framebuffer.height);
