@@ -140,6 +140,27 @@ namespace Vulkan
             return sets;
         }
 
+        public readonly DescriptorSet Allocate(DescriptorSetLayout setLayout)
+        {
+            ThrowIfDisposed();
+            VkDescriptorSetLayout layout = setLayout.Value;
+            VkDescriptorSetAllocateInfo allocateInfo = new()
+            {
+                descriptorPool = value,
+                descriptorSetCount = 1,
+                pSetLayouts = &layout
+            };
+
+            VkDescriptorSet descriptorSet;
+            VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, &descriptorSet);
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Failed to allocate descriptor set");
+            }
+
+            return new(this, descriptorSet);
+        }
+
         /// <summary>
         /// Attempts to allocate a new instance from the pool, assuming the given layout
         /// is one that the pool can support.

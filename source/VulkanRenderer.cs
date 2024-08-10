@@ -700,6 +700,7 @@ namespace Rendering.Vulkan
             bool shaderChanged = compiledShader.version != shaderComponent.version;
             if (shaderChanged)
             {
+                logicalDevice.Wait();
                 compiledShader.Dispose();
                 compiledShader = CompileShader(world, shaderEntity);
                 shaders[shaderEntity] = compiledShader;
@@ -717,6 +718,7 @@ namespace Rendering.Vulkan
             bool meshChanged = compiledMesh.version != meshVersion;
             if (meshChanged || shaderChanged)
             {
+                logicalDevice.Wait();
                 compiledMesh.Dispose();
                 compiledMesh = CompileMesh(world, shaderEntity, meshEntity);
                 meshes[groupHash] = compiledMesh;
@@ -731,6 +733,17 @@ namespace Rendering.Vulkan
 
             if (meshChanged || shaderChanged)
             {
+                logicalDevice.Wait();
+
+                //need to dispose the descriptor sets before the descriptor pool is gone
+                foreach (eint entity in renderEntities)
+                {
+                    if (renderers.TryRemove(entity, out CompiledRenderer renderer))
+                    {
+                        renderer.Dispose();
+                    }
+                }
+
                 pipeline.Dispose();
                 pipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
                 pipelines[groupHash] = pipeline;
@@ -749,10 +762,6 @@ namespace Rendering.Vulkan
                     renderer = new(descriptorSet);
                     renderers.Add(entity, renderer);
 
-                    UpdateDescriptorSet(materialEntity, renderer.descriptorSet, pipeline);
-                }
-                else if (shaderChanged || meshChanged)
-                {
                     UpdateDescriptorSet(materialEntity, renderer.descriptorSet, pipeline);
                 }
             }
