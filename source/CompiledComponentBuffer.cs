@@ -7,13 +7,15 @@ namespace Rendering.Vulkan
 {
     public readonly struct CompiledComponentBuffer : IDisposable
     {
-        public readonly eint entity;
+        public readonly eint materialEntity;
+        public readonly eint containerEntity;
         public readonly RuntimeType componentType;
         public readonly BufferDeviceMemory buffer;
 
-        public CompiledComponentBuffer(eint entity, RuntimeType componentType, BufferDeviceMemory buffer)
+        public CompiledComponentBuffer(eint materialEntity, eint containerEntity, RuntimeType componentType, BufferDeviceMemory buffer)
         {
-            this.entity = entity;
+            this.materialEntity = materialEntity;
+            this.containerEntity = containerEntity;
             this.componentType = componentType;
             this.buffer = buffer;
         }
