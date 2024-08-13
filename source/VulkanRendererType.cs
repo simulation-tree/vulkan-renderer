@@ -10,9 +10,9 @@ namespace Rendering.Vulkan
     {
         private static Library library;
 
-        static FixedString IRenderSystem.Label => "vulkan";
+        FixedString IRenderSystem.Label => "vulkan";
 
-        static unsafe (CreateFunction, DisposeFunction, RenderFunction, FinishFunction, SurfaceCreatedFunction, SystemFunction, SystemFunction) IRenderSystem.GetFunctions()
+        unsafe (CreateFunction, DisposeFunction, RenderFunction, FinishFunction, SurfaceCreatedFunction, SystemFunction, SystemFunction) IRenderSystem.GetFunctions()
         {
             return (new(&Create), new(&Dispose), new(&Render), new(&Finish), new(&SurfaceCreated), new(&BeginRender), new(&EndRender));
         }
