@@ -1,4 +1,5 @@
-﻿using Meshes;
+﻿using Data;
+using Meshes;
 using Meshes.Components;
 using Rendering.Components;
 using Shaders;
@@ -322,6 +323,7 @@ namespace Rendering.Vulkan
         private readonly CompiledMesh CompileMesh(World world, eint shader, eint mesh)
         {
             Mesh meshEntity = new(world, mesh);
+            uint vertexCount = meshEntity.GetVertexCount();
             ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetList<ShaderVertexInputAttribute>(shader).AsSpan();
             Span<Mesh.Channel> channels = stackalloc Mesh.Channel[shaderVertexAttributes.Length];
             for (int i = 0; i < shaderVertexAttributes.Length; i++)
@@ -329,18 +331,28 @@ namespace Rendering.Vulkan
                 ShaderVertexInputAttribute vertexAttribute = shaderVertexAttributes[i];
                 if (TryGetMeshChannel(vertexAttribute, out Mesh.Channel channel))
                 {
-                    if (meshEntity.ContainsChannel(channel))
+                    if (!meshEntity.ContainsChannel(channel))
                     {
-                        channels[i] = channel;
+                        if (channel == Mesh.Channel.Color)
+                        {
+                            //safe to assume (1, 1, 1, 1) is default for colors if needed and its missing
+                            Mesh.Collection<Color> defaultColors = meshEntity.CreateColors();
+                            for (uint v = 0; v < vertexCount; v++)
+                            {
+                                defaultColors.Add(Color.White);
+                            }
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException($"Mesh entity `{mesh}` is missing required `{channel}` channel");
+                        }
                     }
-                    else
-                    {
-                        throw new InvalidOperationException($"Mesh does not contain channel `{channel}` but shader `{shader}` expects it");
-                    }
+
+                    channels[i] = channel;
                 }
                 else
                 {
-                    throw new InvalidOperationException($"Unable to map attribute `{vertexAttribute.name}` to a mesh channel");
+                    throw new InvalidOperationException($"Unable to attribute `{vertexAttribute.name}` to any channel on mesh entity `{mesh}`, name is too ambiguous.");
                 }
             }
 
@@ -378,7 +390,7 @@ namespace Rendering.Vulkan
             int pushConstantsCount = 0;
 
             //cant have more than 1 push constant of the same type, so batch them into 1 vertex push constant
-            //todo: fault: what if theres fragment push constants? or geometry push constants? this will break
+            //todo: fault: ^^^ what if theres fragment push constants? or geometry push constants? this will break
             if (pushConstants.Length > 0)
             {
                 uint start = 0;
