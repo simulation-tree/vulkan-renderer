@@ -29,7 +29,7 @@ namespace Vulkan
         public Library(ReadOnlySpan<char> libraryName)
         {
             name = new(libraryName);
-            VkResult result = vkInitialize(libraryName == default ? null : libraryName.ToString());
+            VkResult result = vkInitialize(libraryName.IsEmpty ? null : libraryName.ToString());
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to initialize graphics library: {result}");
