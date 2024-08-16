@@ -1,33 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <RootNamespace>VulkanRenderer</RootNamespace>
-    <ImplicitUsings>disable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<RootNamespace>VulkanRenderer</RootNamespace>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+		<BaseOutputPath>bin~\</BaseOutputPath>
+		<BaseIntermediateOutputPath>obj~\</BaseIntermediateOutputPath>
+	</PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <IsTrimmable>True</IsTrimmable>
-    <IsAotCompatible>True</IsAotCompatible>
-    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    <WarningLevel>9999</WarningLevel>
-  </PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<IsTrimmable>True</IsTrimmable>
+		<IsAotCompatible>True</IsAotCompatible>
+		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+		<WarningLevel>9999</WarningLevel>
+	</PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <IsTrimmable>True</IsTrimmable>
-    <IsAotCompatible>True</IsAotCompatible>
-    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    <WarningLevel>9999</WarningLevel>
-  </PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<IsTrimmable>True</IsTrimmable>
+		<IsAotCompatible>True</IsAotCompatible>
+		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+		<WarningLevel>9999</WarningLevel>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Vortice.Vulkan" Version="1.9.5" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Vortice.Vulkan" Version="1.9.5" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\rendering\source\Rendering.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\rendering\source\Rendering.csproj" />
+	</ItemGroup>
 
 </Project>
