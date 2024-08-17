@@ -60,7 +60,7 @@ namespace Rendering.Vulkan
         {
             this.destination = destination;
             this.instance = instance;
-            this.world = destination.GetWorld();
+            this.world = ((Entity)destination).world;
 
             if (instance.PhysicalDevices.Length == 0)
             {
@@ -282,7 +282,7 @@ namespace Rendering.Vulkan
             else
             {
                 (uint minWidth, uint maxWidth, uint minHeight, uint maxHeight) = surface.GetSizeRange(physicalDevice);
-                (width, height) = destination.GetDestinationSize();
+                (width, height) = destination.DestinationSize;
                 width = Math.Max(minWidth, Math.Min(maxWidth, width));
                 height = Math.Max(minHeight, Math.Min(maxHeight, height));
                 swapchain = new(logicalDevice, surface, width, height);
@@ -308,7 +308,7 @@ namespace Rendering.Vulkan
 
         private readonly bool IsDestinationResized()
         {
-            (uint width, uint height) = destination.GetDestinationSize();
+            (uint width, uint height) = destination.DestinationSize;
             return width != this.destinationWidth || height != this.destinationHeight;
         }
 
@@ -968,18 +968,19 @@ namespace Rendering.Vulkan
         private readonly void UpdateDescriptorSet(eint materialEntity, DescriptorSet descriptorSet, CompiledPipeline pipeline)
         {
             Material material = new(world, materialEntity);
+            byte set = 0;
             foreach ((byte binding, VkDescriptorType type, VkShaderStageFlags flags) in pipeline.Bindings)
             {
                 if (type == VkDescriptorType.CombinedImageSampler)
                 {
-                    MaterialTextureBinding textureBinding = material.GetTextureBindingRef(binding);
+                    MaterialTextureBinding textureBinding = material.GetTextureBindingRef(binding, set);
                     int textureHash = GetTextureHash(materialEntity, textureBinding);
                     CompiledImage image = images[textureHash];
                     descriptorSet.Update(image.imageView, image.sampler, binding);
                 }
                 else if (type == VkDescriptorType.UniformBuffer)
                 {
-                    MaterialComponentBinding componentBinding = material.GetComponentBindingRef(binding);
+                    MaterialComponentBinding componentBinding = material.GetComponentBindingRef(binding, set);
                     int componentHash = GetComponentHash(materialEntity, componentBinding);
                     CompiledComponentBuffer componentBuffer = components[componentHash];
                     descriptorSet.Update(componentBuffer.buffer.buffer, binding);
