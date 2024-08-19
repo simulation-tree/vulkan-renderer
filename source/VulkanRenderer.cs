@@ -323,7 +323,7 @@ namespace Rendering.Vulkan
         private readonly CompiledMesh CompileMesh(World world, eint shader, eint mesh)
         {
             Mesh meshEntity = new(world, mesh);
-            uint vertexCount = meshEntity.GetVertexCount();
+            uint vertexCount = meshEntity.VertexCount;
             ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetList<ShaderVertexInputAttribute>(shader).AsSpan();
             Span<Mesh.Channel> channels = stackalloc Mesh.Channel[shaderVertexAttributes.Length];
             for (int i = 0; i < shaderVertexAttributes.Length; i++)
@@ -358,9 +358,9 @@ namespace Rendering.Vulkan
 
             using UnmanagedList<float> vertexData = new();
             meshEntity.Assemble(vertexData, channels);
-            uint indexCount = meshEntity.GetIndexCount();
+            uint indexCount = meshEntity.IndexCount;
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
-            IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.GetIndices().AsSpan());
+            IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.Indices.AsSpan());
             return new(meshEntity.GetVersion(), indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
         }
 
@@ -435,7 +435,7 @@ namespace Rendering.Vulkan
 
                 if (!containsBinding)
                 {
-                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialComponentBinding)}` to bind an entity component to uniform named `{uniformProperty.name}`");
+                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialComponentBinding)}` to bind an entity component to uniform named `{uniformProperty.label}`");
                 }
             }
 
@@ -569,7 +569,7 @@ namespace Rendering.Vulkan
             VkImageUsageFlags usage = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled;
             VkFormat format = VkFormat.R8G8B8A8Srgb;
             eint textureEntity = binding.TextureEntity;
-            TextureSize size = world.GetComponent<TextureSize>(textureEntity);
+            IsTexture size = world.GetComponent<IsTexture>(textureEntity);
             Vector4 region = binding.Region;
             uint x = (uint)(region.X * size.width);
             uint y = (uint)(region.Y * size.height);
