@@ -60,7 +60,7 @@ namespace Rendering.Vulkan
         {
             this.destination = destination;
             this.instance = instance;
-            this.world = ((Entity)destination).world;
+            this.world = (Entity)destination;
 
             if (instance.PhysicalDevices.Length == 0)
             {
