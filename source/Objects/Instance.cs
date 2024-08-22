@@ -113,7 +113,7 @@ namespace Vulkan
                     Span<char> buffer = stackalloc char[FixedString.MaxLength];
                     foreach (FixedString layer in globalLayers)
                     {
-                        int length = layer.CopyTo(buffer);
+                        int length = layer.ToString(buffer);
                         remaining.AddRange(buffer[..length]);
                         remaining.AddRange(", ");
                     }
