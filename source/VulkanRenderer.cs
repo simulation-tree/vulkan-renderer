@@ -322,7 +322,7 @@ namespace Rendering.Vulkan
 
         private readonly CompiledMesh CompileMesh(World world, eint shader, eint mesh)
         {
-            Mesh meshEntity = new(world, mesh);
+            Mesh meshEntity = new Entity(world, mesh).As<Mesh>();
             uint vertexCount = meshEntity.VertexCount;
             ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetList<ShaderVertexInputAttribute>(shader).AsSpan();
             Span<Mesh.Channel> channels = stackalloc Mesh.Channel[shaderVertexAttributes.Length];
@@ -435,7 +435,7 @@ namespace Rendering.Vulkan
 
                 if (!containsBinding)
                 {
-                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialComponentBinding)}` to bind an entity component to uniform named `{uniformProperty.label}`");
+                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialComponentBinding).Name}` to bind a component to property at `{uniformProperty.label}`({uniformProperty.key.Binding})");
                 }
             }
 
@@ -456,7 +456,7 @@ namespace Rendering.Vulkan
 
                 if (!containsBinding)
                 {
-                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialTextureBinding)}` to bind a texture entity to sampler named `{samplerProperty.name}`");
+                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialTextureBinding).Name}` to bind a texture to property at `{samplerProperty.name}`({samplerProperty.key.Binding})");
                 }
             }
 
