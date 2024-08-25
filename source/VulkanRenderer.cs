@@ -198,8 +198,9 @@ namespace Rendering.Vulkan
 
         private readonly void DisposeMeshes()
         {
-            foreach (CompiledMesh compiledMesh in meshes.Values)
+            foreach (int groupHash in meshes.Keys)
             {
+                CompiledMesh compiledMesh = meshes[groupHash];
                 compiledMesh.Dispose();
             }
 
@@ -324,7 +325,7 @@ namespace Rendering.Vulkan
         {
             Mesh meshEntity = new Entity(world, mesh).As<Mesh>();
             uint vertexCount = meshEntity.VertexCount;
-            ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetList<ShaderVertexInputAttribute>(shader).AsSpan();
+            ReadOnlySpan<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetArray<ShaderVertexInputAttribute>(shader);
             Span<Mesh.Channel> channels = stackalloc Mesh.Channel[shaderVertexAttributes.Length];
             for (int i = 0; i < shaderVertexAttributes.Length; i++)
             {
@@ -375,12 +376,12 @@ namespace Rendering.Vulkan
                 vertexAttributes[i] = new(shaderVertexAttribute);
             }
 
-            ReadOnlySpan<MaterialPushBinding> pushBindings = material.GetPushBindings();
-            ReadOnlySpan<MaterialComponentBinding> uniformBindings = material.GetComponentBindings();
-            ReadOnlySpan<MaterialTextureBinding> textureBindings = material.GetTextureBindings();
-            ReadOnlySpan<ShaderPushConstant> pushConstants = world.GetList<ShaderPushConstant>(shaderEntity).AsSpan();
-            ReadOnlySpan<ShaderUniformProperty> uniformProperties = world.GetList<ShaderUniformProperty>(shaderEntity).AsSpan();
-            ReadOnlySpan<ShaderSamplerProperty> samplerProperties = world.GetList<ShaderSamplerProperty>(shaderEntity).AsSpan();
+            ReadOnlySpan<MaterialPushBinding> pushBindings = material.PushBindings;
+            ReadOnlySpan<MaterialComponentBinding> uniformBindings = material.ComponentBindings;
+            ReadOnlySpan<MaterialTextureBinding> textureBindings = material.TextureBindings;
+            ReadOnlySpan<ShaderPushConstant> pushConstants = world.GetArray<ShaderPushConstant>(shaderEntity);
+            ReadOnlySpan<ShaderUniformProperty> uniformProperties = world.GetArray<ShaderUniformProperty>(shaderEntity);
+            ReadOnlySpan<ShaderSamplerProperty> samplerProperties = world.GetArray<ShaderSamplerProperty>(shaderEntity);
 
             //collect information to build the set layout
             Span<(byte, VkDescriptorType, VkShaderStageFlags)> setLayoutBindings = stackalloc (byte, VkDescriptorType, VkShaderStageFlags)[uniformBindings.Length + textureBindings.Length];
@@ -577,11 +578,11 @@ namespace Rendering.Vulkan
             uint height = (uint)(region.W * size.height);
             Image image = new(logicalDevice, width, height, depth, format, usage);
             DeviceMemory imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
-            UnmanagedList<Pixel> pixels = world.GetList<Pixel>(textureEntity);
+            Span<Pixel> pixels = world.GetArray<Pixel>(textureEntity);
 
             //copy pixels from the entity, into the temporary buffer, then temporary buffer copies into the buffer
-            using BufferDeviceMemory tempStagingBuffer = new(logicalDevice, pixels.Count * 4, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostCoherent | VkMemoryPropertyFlags.HostVisible);
-            tempStagingBuffer.CopyFrom(pixels.AsSpan());
+            using BufferDeviceMemory tempStagingBuffer = new(logicalDevice, (uint)pixels.Length * 4, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostCoherent | VkMemoryPropertyFlags.HostVisible);
+            tempStagingBuffer.CopyFrom(pixels);
             VkImageLayout imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
             using CommandPool tempPool = new(graphicsQueue, true);
             using CommandBuffer tempBuffer = tempPool.CreateCommandBuffer();
@@ -614,7 +615,7 @@ namespace Rendering.Vulkan
         {
             foreach (int componentHash in components.Keys)
             {
-                ref CompiledComponentBuffer componentBuffer = ref components.GetRef(componentHash);
+                ref CompiledComponentBuffer componentBuffer = ref components[componentHash];
                 eint entity = componentBuffer.containerEntity;
                 RuntimeType componentType = componentBuffer.componentType;
                 if (!world.ContainsEntity(entity))
@@ -639,7 +640,7 @@ namespace Rendering.Vulkan
         {
             foreach (int textureHash in images.Keys)
             {
-                ref CompiledImage image = ref images.GetRef(textureHash);
+                ref CompiledImage image = ref images[textureHash];
                 Material material = new(world, image.materialEntity);
                 if (material.TryGetTextureBinding(image.binding.TextureEntity, out MaterialTextureBinding binding))
                 {
@@ -742,20 +743,20 @@ namespace Rendering.Vulkan
 
             //update images of bindings that change
             bool updateDescriptorSet = false;
-            UnmanagedList<MaterialTextureBinding> textureBindings = world.GetList<MaterialTextureBinding>(materialEntity);
-            for (uint i = 0; i < textureBindings.Count; i++)
+            Span<MaterialTextureBinding> textureBindings = world.GetArray<MaterialTextureBinding>(materialEntity);
+            for (uint i = 0; i < textureBindings.Length; i++)
             {
-                ref MaterialTextureBinding textureBinding = ref textureBindings.GetRef(i);
+                ref MaterialTextureBinding textureBinding = ref textureBindings[(int)i];
                 int textureHash = GetTextureHash(materialEntity, textureBinding);
-                if (images.TryGetValue(textureHash, out CompiledImage image))
+                if (images.ContainsKey(textureHash))
                 {
+                    ref CompiledImage image = ref images[textureHash];
                     if (image.binding.Version != textureBinding.Version)
                     {
                         logicalDevice.Wait();
                         image.Dispose();
                         uint textureVersion = world.GetComponent<IsTexture>(textureBinding.TextureEntity).version;
                         image = CompileImage(materialEntity, textureVersion, textureBinding);
-                        images[textureHash] = image;
                         updateDescriptorSet = true;
                     }
                 }
