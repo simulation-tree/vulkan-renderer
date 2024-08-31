@@ -283,7 +283,7 @@ namespace Rendering.Vulkan
             else
             {
                 (uint minWidth, uint maxWidth, uint minHeight, uint maxHeight) = surface.GetSizeRange(physicalDevice);
-                (width, height) = destination.DestinationSize;
+                (width, height) = destination.Size;
                 width = Math.Max(minWidth, Math.Min(maxWidth, width));
                 height = Math.Max(minHeight, Math.Min(maxHeight, height));
                 swapchain = new(logicalDevice, surface, width, height);
@@ -309,7 +309,7 @@ namespace Rendering.Vulkan
 
         private readonly bool IsDestinationResized()
         {
-            (uint width, uint height) = destination.DestinationSize;
+            (uint width, uint height) = destination.Size;
             return width != this.destinationWidth || height != this.destinationHeight;
         }
 
