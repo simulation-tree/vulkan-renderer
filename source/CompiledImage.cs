@@ -1,5 +1,4 @@
 ﻿using Rendering.Components;
-using Simulation;
 using System;
 using Vulkan;
 
@@ -7,7 +6,7 @@ namespace Rendering.Vulkan
 {
     public readonly struct CompiledImage : IDisposable
     {
-        public readonly eint materialEntity;
+        public readonly uint materialEntity;
         public readonly uint textureVersion;
         public readonly MaterialTextureBinding binding;
         public readonly Image image;
@@ -15,7 +14,7 @@ namespace Rendering.Vulkan
         public readonly DeviceMemory imageMemory;
         public readonly Sampler sampler;
 
-        public CompiledImage(eint materialEntity, uint textureVersion, MaterialTextureBinding binding, Image image, ImageView imageView, DeviceMemory imageMemory, Sampler sampler)
+        public CompiledImage(uint materialEntity, uint textureVersion, MaterialTextureBinding binding, Image image, ImageView imageView, DeviceMemory imageMemory, Sampler sampler)
         {
             this.materialEntity = materialEntity;
             this.textureVersion = textureVersion;
