@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -95,17 +96,17 @@ namespace Vulkan
             }
         }
 
-        public readonly int CopyImagesTo(Span<Image> buffer)
+        public readonly uint CopyImagesTo(USpan<Image> buffer)
         {
             ThrowIfDisposed();
-            ReadOnlySpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(device.Value, value);
-            for (int i = 0; i < imageSpan.Length; i++)
+            USpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(device.Value, value);
+            for (uint i = 0; i < imageSpan.length; i++)
             {
                 Image image = new(device, imageSpan[i], width, height, format);
                 buffer[i] = image;
             }
 
-            return imageSpan.Length;
+            return imageSpan.length;
         }
 
         public readonly override bool Equals(object? obj)

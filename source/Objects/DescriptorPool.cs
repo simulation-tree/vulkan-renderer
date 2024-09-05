@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Unmanaged.Collections;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
@@ -57,16 +58,16 @@ namespace Vulkan
             valid = true;
         }
 
-        public DescriptorPool(LogicalDevice logicalDevice, ReadOnlySpan<(VkDescriptorType type, uint descriptorCount)> pools, uint maxSets)
+        public DescriptorPool(LogicalDevice logicalDevice, USpan<(VkDescriptorType type, uint descriptorCount)> pools, uint maxSets)
         {
-            if (pools.Length == 0)
+            if (pools.length == 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(pools));
             }
 
             this.logicalDevice = logicalDevice;
-            VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[pools.Length];
-            for (int i = 0; i < pools.Length; i++)
+            VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[(int)pools.length];
+            for (uint i = 0; i < pools.length; i++)
             {
                 (VkDescriptorType type, uint descriptorCount) = pools[i];
                 poolSizes[i] = new(type, descriptorCount);
@@ -74,7 +75,7 @@ namespace Vulkan
 
             VkDescriptorPoolCreateInfo createInfo = new()
             {
-                poolSizeCount = (uint)pools.Length,
+                poolSizeCount = (uint)pools.length,
                 pPoolSizes = poolSizes,
                 maxSets = maxSets,
                 flags = VkDescriptorPoolCreateFlags.FreeDescriptorSet
@@ -108,11 +109,11 @@ namespace Vulkan
         /// <summary>
         /// Allocates as many new descriptor sets from the pool, as there are layouts given.
         /// </summary>
-        public readonly UnmanagedArray<DescriptorSet> Allocate(ReadOnlySpan<DescriptorSetLayout> layouts)
+        public readonly UnmanagedArray<DescriptorSet> Allocate(USpan<DescriptorSetLayout> layouts)
         {
             ThrowIfDisposed();
-            VkDescriptorSetLayout* layoutPointers = stackalloc VkDescriptorSetLayout[layouts.Length];
-            for (int i = 0; i < layouts.Length; i++)
+            VkDescriptorSetLayout* layoutPointers = stackalloc VkDescriptorSetLayout[(int)layouts.length];
+            for (uint i = 0; i < layouts.length; i++)
             {
                 layoutPointers[i] = layouts[i].Value;
             }
@@ -120,19 +121,19 @@ namespace Vulkan
             VkDescriptorSetAllocateInfo allocateInfo = new()
             {
                 descriptorPool = value,
-                descriptorSetCount = (uint)layouts.Length,
+                descriptorSetCount = layouts.length,
                 pSetLayouts = layoutPointers
             };
 
-            VkDescriptorSet* descriptorSet = stackalloc VkDescriptorSet[layouts.Length];
+            VkDescriptorSet* descriptorSet = stackalloc VkDescriptorSet[(int)layouts.length];
             VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, descriptorSet);
             if (result != VkResult.Success)
             {
                 throw new InvalidOperationException("Failed to allocate descriptor sets");
             }
 
-            UnmanagedArray<DescriptorSet> sets = new((uint)layouts.Length);
-            for (uint i = 0; i < layouts.Length; i++)
+            UnmanagedArray<DescriptorSet> sets = new(layouts.length);
+            for (uint i = 0; i < layouts.length; i++)
             {
                 sets[i] = new(this, descriptorSet[i]);
             }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -33,21 +34,21 @@ namespace Vulkan
 
         }
 
-        public Framebuffer(RenderPass renderPass, ReadOnlySpan<ImageView> imageViews, uint width, uint height)
+        public Framebuffer(RenderPass renderPass, USpan<ImageView> imageViews, uint width, uint height)
         {
             this.logicalDevice = renderPass.logicalDevice;
             this.width = width;
             this.height = height;
 
-            VkImageView* images = stackalloc VkImageView[imageViews.Length];
-            for (int i = 0; i < imageViews.Length; i++)
+            VkImageView* images = stackalloc VkImageView[(int)imageViews.length];
+            for (uint i = 0; i < imageViews.length; i++)
             {
                 images[i] = imageViews[i].Value;
             }
 
             VkFramebufferCreateInfo createInfo = new();
             createInfo.renderPass = renderPass.Value;
-            createInfo.attachmentCount = (uint)imageViews.Length;
+            createInfo.attachmentCount = imageViews.length;
             createInfo.pAttachments = images;
             createInfo.width = width;
             createInfo.height = height;

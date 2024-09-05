@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Numerics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -212,16 +213,16 @@ namespace Vulkan
             vkCmdBindIndexBuffer(value, indexBuffer.bufferDeviceMemory.buffer.Value, offset, VkIndexType.Uint32);
         }
 
-        public readonly void BindDescriptorSets(PipelineLayout layout, ReadOnlySpan<DescriptorSet> descriptorSets, uint set = 0)
+        public readonly void BindDescriptorSets(PipelineLayout layout, USpan<DescriptorSet> descriptorSets, uint set = 0)
         {
             ThrowIfDisposed();
-            VkDescriptorSet* descriptorSetValue = stackalloc VkDescriptorSet[descriptorSets.Length];
-            for (int i = 0; i < descriptorSets.Length; i++)
+            VkDescriptorSet* descriptorSetValue = stackalloc VkDescriptorSet[(int)descriptorSets.length];
+            for (uint i = 0; i < descriptorSets.length; i++)
             {
                 descriptorSetValue[i] = descriptorSets[i].Value;
             }
 
-            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, descriptorSets.Length));
+            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, (int)descriptorSets.length));
         }
 
         public readonly void BindDescriptorSet(PipelineLayout layout, DescriptorSet descriptorSet, uint set = 0)
@@ -232,13 +233,10 @@ namespace Vulkan
             vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, 1));
         }
 
-        public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags stage, ReadOnlySpan<byte> data, uint offset = 0)
+        public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags stage, USpan<byte> data, uint offset = 0)
         {
             ThrowIfDisposed();
-            fixed (byte* dataPtr = data)
-            {
-                vkCmdPushConstants(value, layout.Value, stage, offset, (uint)data.Length, dataPtr);
-            }
+            vkCmdPushConstants(value, layout.Value, stage, offset, data.length, data.pointer);
         }
 
         public readonly void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)

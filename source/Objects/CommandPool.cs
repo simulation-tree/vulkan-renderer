@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -92,15 +93,15 @@ namespace Vulkan
             return new CommandBuffer(this, newBuffer);
         }
 
-        public readonly void CreateCommandBuffers(Span<CommandBuffer> buffer, bool isPrimary = true)
+        public readonly void CreateCommandBuffers(USpan<CommandBuffer> buffer, bool isPrimary = true)
         {
             ThrowIfDisposed();
-            VkCommandBuffer* newBuffers = stackalloc VkCommandBuffer[buffer.Length];
+            VkCommandBuffer* newBuffers = stackalloc VkCommandBuffer[(int)buffer.length];
             VkCommandBufferAllocateInfo allocateInfo = new()
             {
                 commandPool = value,
                 level = isPrimary ? VkCommandBufferLevel.Primary : VkCommandBufferLevel.Secondary,
-                commandBufferCount = (uint)buffer.Length
+                commandBufferCount = buffer.length
             };
 
             VkResult result = vkAllocateCommandBuffers(logicalDevice.Value, &allocateInfo, newBuffers);
@@ -109,7 +110,7 @@ namespace Vulkan
                 throw new Exception($"Failed to allocate command buffers: {result}");
             }
 
-            for (int i = 0; i < buffer.Length; i++)
+            for (uint i = 0; i < buffer.length; i++)
             {
                 buffer[i] = new CommandBuffer(this, newBuffers[i]);
             }

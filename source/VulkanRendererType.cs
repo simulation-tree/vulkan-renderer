@@ -1,5 +1,4 @@
 ﻿using Rendering.Functions;
-using System;
 using System.Runtime.InteropServices;
 using Unmanaged;
 using Vulkan;
@@ -18,10 +17,10 @@ namespace Rendering.Vulkan
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static CreateResult Create(Destination destination, void* names, int nameCount)
+        private unsafe static CreateResult Create(Destination destination, FixedString* names, uint nameCount)
         {
             library = new();
-            ReadOnlySpan<FixedString> namesSpan = new(names, nameCount);
+            USpan<FixedString> namesSpan = new(names, nameCount);
             Instance instance = library.CreateInstance("Game", "Engine", namesSpan);
             VulkanRenderer renderer = new(destination, instance);
             return CreateResult.Create(renderer, renderer.Library);
@@ -43,9 +42,9 @@ namespace Rendering.Vulkan
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static void Render(Allocation system, void* entities, int entityCount, uint material, uint shader, uint mesh)
+        private unsafe static void Render(Allocation system, uint* entities, uint entityCount, uint material, uint shader, uint mesh)
         {
-            ReadOnlySpan<uint> entitiesSpan = new(entities, entityCount);
+            USpan<uint> entitiesSpan = new(entities, entityCount);
             ref VulkanRenderer renderer = ref system.Read<VulkanRenderer>();
             renderer.Render(entitiesSpan, material, shader, mesh);
         }

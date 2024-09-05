@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -23,12 +24,12 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public DescriptorSetLayout(LogicalDevice device, ReadOnlySpan<(byte binding, VkDescriptorType type, VkShaderStageFlags stage)> bindings)
+        public DescriptorSetLayout(LogicalDevice device, USpan<(byte binding, VkDescriptorType type, VkShaderStageFlags stage)> bindings)
         {
             this.logicalDevice = device;
 
-            VkDescriptorSetLayoutBinding* layoutBindings = stackalloc VkDescriptorSetLayoutBinding[bindings.Length];
-            for (int i = 0; i < bindings.Length; i++)
+            VkDescriptorSetLayoutBinding* layoutBindings = stackalloc VkDescriptorSetLayoutBinding[(int)bindings.length];
+            for (uint i = 0; i < bindings.length; i++)
             {
                 (byte binding, VkDescriptorType type, VkShaderStageFlags stage) = bindings[i];
                 layoutBindings[i] = new()
@@ -41,7 +42,7 @@ namespace Vulkan
             }
 
             VkDescriptorSetLayoutCreateInfo createInfo = new();
-            createInfo.bindingCount = (uint)bindings.Length;
+            createInfo.bindingCount = bindings.length;
             createInfo.pBindings = layoutBindings;
 
             VkResult result = vkCreateDescriptorSetLayout(device.Value, &createInfo, null, out value);
@@ -94,17 +95,17 @@ namespace Vulkan
             valid = false;
         }
 
-        public override bool Equals(object? obj)
+        public readonly override bool Equals(object? obj)
         {
             return obj is DescriptorSetLayout layout && Equals(layout);
         }
 
-        public bool Equals(DescriptorSetLayout other)
+        public readonly bool Equals(DescriptorSetLayout other)
         {
             return value.Equals(other.value);
         }
 
-        public override int GetHashCode()
+        public readonly override int GetHashCode()
         {
             return HashCode.Combine(value);
         }

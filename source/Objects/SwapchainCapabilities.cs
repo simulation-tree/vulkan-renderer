@@ -1,17 +1,17 @@
-﻿using System;
+﻿using Unmanaged;
 using Vortice.Vulkan;
 
 namespace Vulkan
 {
-    public ref struct SwapchainCapabilities(VkSurfaceCapabilitiesKHR capabilities, ReadOnlySpan<VkSurfaceFormatKHR> formats, ReadOnlySpan<VkPresentModeKHR> presentModes)
+    public ref struct SwapchainCapabilities(VkSurfaceCapabilitiesKHR capabilities, USpan<VkSurfaceFormatKHR> formats, USpan<VkPresentModeKHR> presentModes)
     {
         public readonly VkSurfaceCapabilitiesKHR capabilities = capabilities;
-        public readonly ReadOnlySpan<VkSurfaceFormatKHR> formats = formats;
-        public readonly ReadOnlySpan<VkPresentModeKHR> presentModes = presentModes;
+        public readonly USpan<VkSurfaceFormatKHR> formats = formats;
+        public readonly USpan<VkPresentModeKHR> presentModes = presentModes;
 
         public readonly VkSurfaceFormatKHR ChooseSwapSurfaceFormat()
         {
-            if (formats.Length == 1 && formats[0].format == VkFormat.Undefined)
+            if (formats.length == 1 && formats[0].format == VkFormat.Undefined)
             {
                 return new VkSurfaceFormatKHR(VkFormat.B8G8R8A8Unorm, formats[0].colorSpace);
             }

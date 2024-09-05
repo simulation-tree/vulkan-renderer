@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -50,8 +51,8 @@ namespace Vulkan
         {
             ThrowIfDisposed();
             VkSurfaceCapabilitiesKHR capabilities = physicalDevice.GetSurfaceCapabilities(this);
-            ReadOnlySpan<VkSurfaceFormatKHR> formats = physicalDevice.GetSurfaceFormats(this);
-            ReadOnlySpan<VkPresentModeKHR> presentModes = physicalDevice.GetSurfacePresentModes(this);
+            USpan<VkSurfaceFormatKHR> formats = physicalDevice.GetSurfaceFormats(this);
+            USpan<VkPresentModeKHR> presentModes = physicalDevice.GetSurfacePresentModes(this);
             return new(capabilities, formats, presentModes);
         }
 

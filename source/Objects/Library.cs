@@ -14,7 +14,7 @@ namespace Vulkan
         private readonly UnmanagedArray<char> name;
 
         public readonly bool IsDisposed => name.IsDisposed;
-        public readonly ReadOnlySpan<char> Name => name.AsSpan();
+        public readonly USpan<char> Name => name.AsSpan();
 
         /// <summary>
         /// Initializes the vulkan library.
@@ -26,10 +26,10 @@ namespace Vulkan
         /// <summary>
         /// Initializes the vulkan library.
         /// </summary>
-        public Library(ReadOnlySpan<char> libraryName)
+        public Library(USpan<char> libraryName)
         {
             name = new(libraryName);
-            VkResult result = vkInitialize(libraryName.IsEmpty ? null : libraryName.ToString());
+            VkResult result = vkInitialize(libraryName.length == 0 ? null : libraryName.ToString());
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to initialize graphics library: {result}");
@@ -47,15 +47,33 @@ namespace Vulkan
             name.Dispose();
         }
 
-        public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<FixedString>? extensions = null)
+        public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, IEnumerable<FixedString>? extensions = null)
+        {
+            using UnmanagedList<FixedString> extensionNames = new();
+            if (extensions != null)
+            {
+                foreach (FixedString extension in extensions)
+                {
+                    extensionNames.Add(extension);
+                }
+            }
+
+            return new(this, applicationName, engineName, extensionNames.AsSpan());
+        }
+
+        public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, USpan<FixedString> extensions)
         {
             return new(this, applicationName, engineName, extensions);
         }
 
-        public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<FixedString> extensions)
+        public readonly Instance CreateInstance(string applicationName, string engineName, IEnumerable<FixedString>? extensions = null)
         {
-            List<FixedString> throwaway = [..extensions];
-            return CreateInstance(applicationName, engineName, throwaway);
+            return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
+        }
+
+        public readonly Instance CreateInstance(string applicationName, string engineName, USpan<FixedString> extensions)
+        {
+            return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
         }
 
         /// <summary>

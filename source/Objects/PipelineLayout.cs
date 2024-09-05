@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -36,31 +37,31 @@ namespace Vulkan
             valid = true;
         }
 
-        public PipelineLayout(LogicalDevice device, DescriptorSetLayout setLayout, ReadOnlySpan<PushConstant> pushConstants) : this(device, [setLayout], pushConstants)
+        public PipelineLayout(LogicalDevice device, DescriptorSetLayout setLayout, USpan<PushConstant> pushConstants) : this(device, [setLayout], pushConstants)
         {
         }
 
-        public PipelineLayout(LogicalDevice device, ReadOnlySpan<DescriptorSetLayout> setLayouts, ReadOnlySpan<PushConstant> pushConstants)
+        public PipelineLayout(LogicalDevice device, USpan<DescriptorSetLayout> setLayouts, USpan<PushConstant> pushConstants)
         {
             this.logicalDevice = device;
 
             VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new();
-            if (!setLayouts.IsEmpty)
+            if (setLayouts.length > 0)
             {
-                VkDescriptorSetLayout* layouts = stackalloc VkDescriptorSetLayout[setLayouts.Length];
-                for (int i = 0; i < setLayouts.Length; i++)
+                VkDescriptorSetLayout* layouts = stackalloc VkDescriptorSetLayout[(int)setLayouts.length];
+                for (uint i = 0; i < setLayouts.length; i++)
                 {
                     layouts[i] = setLayouts[i].Value;
                 }
 
                 pipelineLayoutCreateInfo.pSetLayouts = layouts;
-                pipelineLayoutCreateInfo.setLayoutCount = (uint)setLayouts.Length;
+                pipelineLayoutCreateInfo.setLayoutCount = setLayouts.length;
             }
 
-            if (!pushConstants.IsEmpty)
+            if (pushConstants.length > 0)
             {
-                VkPushConstantRange* constants = stackalloc VkPushConstantRange[pushConstants.Length];
-                for (int i = 0; i < pushConstants.Length; i++)
+                VkPushConstantRange* constants = stackalloc VkPushConstantRange[(int)pushConstants.length];
+                for (uint i = 0; i < pushConstants.length; i++)
                 {
                     PushConstant constant = pushConstants[i];
                     constants[i] = new()
@@ -72,7 +73,7 @@ namespace Vulkan
                 }
 
                 pipelineLayoutCreateInfo.pPushConstantRanges = constants;
-                pipelineLayoutCreateInfo.pushConstantRangeCount = (uint)pushConstants.Length;
+                pipelineLayoutCreateInfo.pushConstantRangeCount = pushConstants.length;
             }
 
             VkResult result = vkCreatePipelineLayout(device.Value, &pipelineLayoutCreateInfo, null, out value);

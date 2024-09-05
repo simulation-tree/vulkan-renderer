@@ -1,4 +1,5 @@
 ﻿using System;
+using Unmanaged;
 using Unmanaged.Collections;
 using Vortice.Vulkan;
 using Vulkan;
@@ -14,9 +15,9 @@ namespace Rendering.Vulkan
 
         private readonly UnmanagedArray<(byte, VkDescriptorType, VkShaderStageFlags)> bindings;
 
-        public readonly ReadOnlySpan<(byte, VkDescriptorType, VkShaderStageFlags)> Bindings => bindings.AsSpan();
+        public readonly USpan<(byte, VkDescriptorType, VkShaderStageFlags)> Bindings => bindings.AsSpan();
 
-        public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, DescriptorPool descriptorPool, DescriptorSetLayout setLayout, Span<(byte, VkDescriptorType, VkShaderStageFlags)> bindings)
+        public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, DescriptorPool descriptorPool, DescriptorSetLayout setLayout, USpan<(byte, VkDescriptorType, VkShaderStageFlags)> bindings)
         {
             this.pipeline = pipeline;
             this.pipelineLayout = pipelineLayout;

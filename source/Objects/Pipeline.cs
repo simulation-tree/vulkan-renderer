@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -22,11 +23,16 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public Pipeline(PipelineCreateInput input, PipelineLayout layout, ReadOnlySpan<char> entryPoint)
+        public Pipeline(PipelineCreateInput input, PipelineLayout layout, string entryPoint)
+            : this(input, layout, entryPoint.AsSpan())
+        {
+        }
+
+        public Pipeline(PipelineCreateInput input, PipelineLayout layout, USpan<char> entryPoint)
         {
             logicalDevice = input.LogicalDevice;
-            byte* nameBuffer = stackalloc byte[entryPoint.Length];
-            for (int i = 0; i < entryPoint.Length; i++)
+            byte* nameBuffer = stackalloc byte[(int)entryPoint.length];
+            for (uint i = 0; i < entryPoint.length; i++)
             {
                 nameBuffer[i] = (byte)entryPoint[i];
             }
@@ -46,9 +52,9 @@ namespace Vulkan
                 pName = nameBuffer
             };
 
-            VkVertexInputAttributeDescription* attributes = stackalloc VkVertexInputAttributeDescription[input.vertexAttributes.Length];
+            VkVertexInputAttributeDescription* attributes = stackalloc VkVertexInputAttributeDescription[(int)input.vertexAttributes.length];
             uint offset = 0;
-            for (int i = 0; i < input.vertexAttributes.Length; i++)
+            for (uint i = 0; i < input.vertexAttributes.length; i++)
             {
                 VertexInputAttribute attribute = input.vertexAttributes[i];
                 attributes[i] = new(attribute.location, attribute.format, offset, attribute.binding);
@@ -60,7 +66,7 @@ namespace Vulkan
             {
                 vertexBindingDescriptionCount = 1,
                 pVertexBindingDescriptions = &vertexInputBinding,
-                vertexAttributeDescriptionCount = (uint)input.vertexAttributes.Length,
+                vertexAttributeDescriptionCount = input.vertexAttributes.length,
                 pVertexAttributeDescriptions = attributes
             };
 

@@ -55,7 +55,7 @@ namespace Vulkan
 
         public readonly nint Address => (nint)value.Handle;
 
-        public readonly ReadOnlySpan<PhysicalDevice> PhysicalDevices
+        public readonly USpan<PhysicalDevice> PhysicalDevices
         {
             get
             {
@@ -66,7 +66,7 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public readonly ReadOnlySpan<char> ApplicationName
+        public readonly USpan<char> ApplicationName
         {
             get
             {
@@ -75,7 +75,7 @@ namespace Vulkan
             }
         }
 
-        public readonly ReadOnlySpan<char> EngineName
+        public readonly USpan<char> EngineName
         {
             get
             {
@@ -84,7 +84,7 @@ namespace Vulkan
             }
         }
 
-        internal Instance(Library library, ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<FixedString>? extensions = null)
+        internal Instance(Library library, USpan<char> applicationName, USpan<char> engineName, USpan<FixedString> extensions)
         {
             using UnmanagedList<FixedString> inputLayers = new();
             using UnmanagedArray<FixedString> globalLayers = library.GetGlobalLayers();
@@ -110,12 +110,13 @@ namespace Vulkan
                 if (globalLayers.Length > 0)
                 {
                     using UnmanagedList<char> remaining = UnmanagedList<char>.Create();
-                    Span<char> buffer = stackalloc char[FixedString.MaxLength];
+                    USpan<char> buffer = stackalloc char[(int)FixedString.MaxLength];
                     foreach (FixedString layer in globalLayers)
                     {
-                        int length = layer.ToString(buffer);
-                        remaining.AddRange(buffer[..length]);
-                        remaining.AddRange(", ");
+                        uint length = layer.CopyTo(buffer);
+                        remaining.AddRange(buffer.Slice(0, length));
+                        remaining.Add(',');
+                        remaining.Add(' ');
                     }
 
                     remaining.RemoveAt(remaining.Count - 1);
@@ -152,7 +153,7 @@ namespace Vulkan
             }
 
             using UnmanagedArray<FixedString> globalExtensions = library.GetGlobalExtensions();
-            using UnmanagedList<FixedString> inputExtensions = new(extensions ?? []);
+            using UnmanagedList<FixedString> inputExtensions = new(extensions);
             foreach (FixedString extensionName in globalExtensions)
             {
                 if (extensionName == new FixedString(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
@@ -165,54 +166,46 @@ namespace Vulkan
                 }
             }
 
-            Span<byte> applicationNameBytes = stackalloc byte[applicationName.Length];
-            for (int i = 0; i < applicationName.Length; i++)
+            USpan<byte> applicationNameBytes = stackalloc byte[(int)applicationName.length];
+            for (uint i = 0; i < applicationName.length; i++)
             {
                 applicationNameBytes[i] = (byte)applicationName[i];
             }
 
-            Span<byte> engineNameBytes = stackalloc byte[engineName.Length];
-            for (int i = 0; i < engineName.Length; i++)
+            USpan<byte> engineNameBytes = stackalloc byte[(int)engineName.length];
+            for (uint i = 0; i < engineName.length; i++)
             {
                 engineNameBytes[i] = (byte)engineName[i];
             }
 
             VkApplicationInfo appInfo = new();
-            appInfo.pApplicationName = new VkUtf8ReadOnlyString(applicationNameBytes);
+            appInfo.pApplicationName = new VkUtf8ReadOnlyString(applicationNameBytes.AsSystemSpan());
             appInfo.applicationVersion = VkVersion.Version_1_0;
-            appInfo.pEngineName = new VkUtf8ReadOnlyString(engineNameBytes);
+            appInfo.pEngineName = new VkUtf8ReadOnlyString(engineNameBytes.AsSystemSpan());
             appInfo.engineVersion = VkVersion.Version_1_0;
             appInfo.apiVersion = VkVersion.Version_1_3;
 
             using UnmanagedList<VkUtf8String> vkInstanceLayers = new(inputLayers.Count);
             using UnmanagedList<nint> tempAllocations = new();
-            Span<byte> nameBuffer = stackalloc byte[FixedString.MaxLength];
+            USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.MaxLength];
             foreach (FixedString instanceLayer in inputLayers)
             {
-                int length = instanceLayer.CopyTo(nameBuffer) + 1;
-                fixed (byte* bytes = nameBuffer)
-                {
-                    byte* newAllocation = (byte*)Allocations.Allocate((uint)length);
-                    Unsafe.CopyBlock(newAllocation, bytes, (uint)length);
-                    vkInstanceLayers.Add(new(newAllocation));
-                    tempAllocations.Add((nint)newAllocation);
-                }
-
+                uint length = instanceLayer.CopyTo(nameBuffer) + 1;
+                byte* newAllocation = (byte*)Allocations.Allocate(length);
+                Unsafe.CopyBlock(newAllocation, nameBuffer.pointer, length);
+                vkInstanceLayers.Add(new(newAllocation));
+                tempAllocations.Add((nint)newAllocation);
                 nameBuffer.Clear();
             }
 
             using UnmanagedList<VkUtf8String> vkInstanceExtensions = new(inputExtensions.Count);
             foreach (FixedString instanceExtension in inputExtensions)
             {
-                int length = instanceExtension.CopyTo(nameBuffer) + 1;
-                fixed (byte* bytes = nameBuffer)
-                {
-                    byte* newAllocation = (byte*)Allocations.Allocate((uint)length);
-                    Unsafe.CopyBlock(newAllocation, bytes, (uint)length);
-                    vkInstanceExtensions.Add(new(newAllocation));
-                    tempAllocations.Add((nint)newAllocation);
-                }
-
+                uint length = instanceExtension.CopyTo(nameBuffer) + 1;
+                byte* newAllocation = (byte*)Allocations.Allocate(length);
+                Unsafe.CopyBlock(newAllocation, nameBuffer.pointer, length);
+                vkInstanceExtensions.Add(new(newAllocation));
+                tempAllocations.Add((nint)newAllocation);
                 nameBuffer.Clear();
             }
 
@@ -358,23 +351,6 @@ namespace Vulkan
             }
 
             return VK_FALSE;
-        }
-
-        public static void EnumerateInstanceExtensions()
-        {
-            //if instances can be created at runtime, then they will be
-            //the extensions that will be needed will be fetched before hand,
-            //this means that the destination exists first, then the renderer
-
-            //but how is vulkan specified to be made, when a destination is created?
-            //and how can an os window become a destination that has some renderer specified (like vulkan)?
-
-            //the renderer mechanism will be attached to all os windows created here automatically
-            //that will be the behaviour of rendering, its like a mod for projects that have
-            //render destinations like windows
-
-            //so rendering is a dependency for windows? i guess what else is a window going to have inside of them
-            //rendering comes first, windows are a destination, so that tracks
         }
     }
 }

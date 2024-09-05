@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -26,10 +27,10 @@ namespace Vulkan
         /// <summary>
         /// Creates a shader module from the given SPV bytecode.
         /// </summary>
-        public ShaderModule(LogicalDevice device, ReadOnlySpan<byte> code)
+        public ShaderModule(LogicalDevice device, USpan<byte> code)
         {
             this.logicalDevice = device;
-            VkResult result = vkCreateShaderModule(device.Value, code, null, out value);
+            VkResult result = vkCreateShaderModule(device.Value, code.AsSystemSpan(), null, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to create shader module: {result}");

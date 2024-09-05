@@ -1,4 +1,5 @@
 ﻿using System;
+using Unmanaged;
 
 namespace Vulkan
 {
@@ -10,7 +11,7 @@ namespace Vulkan
         public readonly uint vertexBinding;
         public readonly ShaderModule vertex;
         public readonly ShaderModule fragment;
-        public readonly ReadOnlySpan<VertexInputAttribute> vertexAttributes;
+        public readonly USpan<VertexInputAttribute> vertexAttributes;
 
         public readonly LogicalDevice LogicalDevice => renderPass.logicalDevice;
 
@@ -20,7 +21,7 @@ namespace Vulkan
             throw new NotImplementedException();
         }
 
-        public PipelineCreateInput(RenderPass renderPass, ShaderModule vertex, ShaderModule fragment, ReadOnlySpan<VertexInputAttribute> vertexAttributes)
+        public PipelineCreateInput(RenderPass renderPass, ShaderModule vertex, ShaderModule fragment, USpan<VertexInputAttribute> vertexAttributes)
         {
             this.renderPass = renderPass;
             this.vertex = vertex;

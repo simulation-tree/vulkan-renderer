@@ -1,4 +1,5 @@
 ﻿using System;
+using Unmanaged;
 using Vortice.Vulkan;
 
 namespace Vulkan
@@ -14,14 +15,14 @@ namespace Vulkan
 
         public readonly LogicalDevice Device => bufferDeviceMemory.LogicalDevice;
 
-        public IndexBuffer(Queue graphicsQueue, CommandPool commandPool, ReadOnlySpan<uint> data)
+        public IndexBuffer(Queue graphicsQueue, CommandPool commandPool, USpan<uint> data)
         {
-            uint byteCount = (uint)data.Length * sizeof(uint);
+            uint byteCount = (uint)data.length * sizeof(uint);
             VkPhysicalDeviceLimits limits = graphicsQueue.logicalDevice.physicalDevice.GetLimits();
             byteCount = (uint)(Math.Ceiling(byteCount / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
             using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);
 
-            Span<uint> destinationData = stagingBuffer.Map<uint>();
+            USpan<uint> destinationData = stagingBuffer.Map<uint>();
             data.CopyTo(destinationData);
             stagingBuffer.Unmap();
 

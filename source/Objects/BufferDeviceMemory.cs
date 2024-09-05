@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using Unmanaged;
 using Vortice.Vulkan;
 
 namespace Vulkan
@@ -33,12 +34,12 @@ namespace Vulkan
             memory.Unmap();
         }
 
-        public readonly Span<T> Map<T>() where T : unmanaged
+        public readonly USpan<T> Map<T>() where T : unmanaged
         {
             nint pointer = Map();
             uint size = buffer.size;
-            uint elementSize = (uint)Unsafe.SizeOf<T>();
-            return new Span<T>((void*)pointer, (int)(size / elementSize));
+            uint elementSize = USpan<T>.ElementSize;
+            return new USpan<T>((void*)pointer, size / elementSize);
         }
 
         /// <summary>
@@ -56,22 +57,22 @@ namespace Vulkan
         /// Maps the memory and copies the data from the given span of bytes,
         /// then unmaps it.
         /// </summary>
-        public readonly void CopyFrom(Span<byte> bytes)
+        public readonly void CopyFrom(USpan<byte> bytes)
         {
             nint pointer = Map();
-            bytes.CopyTo(new Span<byte>((void*)pointer, bytes.Length));
+            bytes.CopyTo(new USpan<byte>((void*)pointer, bytes.length));
             Unmap();
         }
 
         /// <summary>
         /// Maps the memory and copies the data from the given span then unmaps it.
         /// </summary>
-        public readonly void CopyFrom<T>(Span<T> data) where T : unmanaged
+        public readonly void CopyFrom<T>(USpan<T> data) where T : unmanaged
         {
             nint pointer = Map();
             uint size = buffer.size;
-            uint elementSize = (uint)Unsafe.SizeOf<T>();
-            Span<T> span = new((void*)pointer, (int)(size / elementSize));
+            uint elementSize = USpan<T>.ElementSize;
+            USpan<T> span = new((void*)pointer, size / elementSize);
             data.CopyTo(span);
             Unmap();
         }

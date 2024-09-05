@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Numerics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -27,11 +27,11 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public RenderPass(LogicalDevice logicalDevice, ReadOnlySpan<Attachment> attachments)
+        public RenderPass(LogicalDevice logicalDevice, USpan<Attachment> attachments)
         {
             this.logicalDevice = logicalDevice;
-            VkAttachmentDescription* attachmentsPointer = stackalloc VkAttachmentDescription[attachments.Length];
-            for (int i = 0; i < attachments.Length; i++)
+            VkAttachmentDescription* attachmentsPointer = stackalloc VkAttachmentDescription[(int)attachments.length];
+            for (uint i = 0; i < attachments.length; i++)
             {
                 Attachment attachment = attachments[i];
                 VkFormat format = attachment.format;
@@ -56,7 +56,7 @@ namespace Vulkan
                 pDepthStencilAttachment = &depthReference
             };
 
-            Span<VkSubpassDependency> dependencies =
+            USpan<VkSubpassDependency> dependencies =
             [
                 new VkSubpassDependency
                 {
@@ -70,26 +70,23 @@ namespace Vulkan
                 }
             ];
 
-            fixed (VkSubpassDependency* dependenciesPtr = dependencies)
+            VkRenderPassCreateInfo renderPassCreateInfo = new()
             {
-                VkRenderPassCreateInfo renderPassCreateInfo = new()
-                {
-                    attachmentCount = (uint)attachments.Length,
-                    pAttachments = attachmentsPointer,
-                    subpassCount = 1,
-                    pSubpasses = &subPass,
-                    dependencyCount = (uint)dependencies.Length,
-                    pDependencies = dependenciesPtr
-                };
+                attachmentCount = attachments.length,
+                pAttachments = attachmentsPointer,
+                subpassCount = 1,
+                pSubpasses = &subPass,
+                dependencyCount = dependencies.length,
+                pDependencies = dependencies.pointer
+            };
 
-                VkResult result = vkCreateRenderPass(logicalDevice.Value, &renderPassCreateInfo, null, out value);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception($"Failed to create render pass: {result}");
-                }
-
-                valid = true;
+            VkResult result = vkCreateRenderPass(logicalDevice.Value, &renderPassCreateInfo, null, out value);
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create render pass: {result}");
             }
+
+            valid = true;
         }
 
         public void Dispose()

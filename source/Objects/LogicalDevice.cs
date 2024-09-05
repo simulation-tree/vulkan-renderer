@@ -32,12 +32,12 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public LogicalDevice(PhysicalDevice physicalDevice, ReadOnlySpan<uint> queueFamilies, ReadOnlySpan<FixedString> deviceExtensions)
+        public LogicalDevice(PhysicalDevice physicalDevice, USpan<uint> queueFamilies, USpan<FixedString> deviceExtensions)
         {
             this.physicalDevice = physicalDevice;
             float priority = 1f;
             uint queueCount = 0;
-            VkDeviceQueueCreateInfo* queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[queueFamilies.Length];
+            VkDeviceQueueCreateInfo* queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[(int)queueFamilies.length];
             foreach (uint queueFamily in queueFamilies)
             {
                 VkDeviceQueueCreateInfo queueCreateInfo = new();
@@ -50,16 +50,13 @@ namespace Vulkan
             VkPhysicalDeviceFeatures features = new();
             features.samplerAnisotropy = true;
 
-            using UnmanagedArray<VkUtf8String> vkDeviceExtensions = new((uint)deviceExtensions.Length);
-            Span<byte> nameBuffer = stackalloc byte[FixedString.MaxLength];
-            for (int i = 0; i < deviceExtensions.Length; i++)
+            using UnmanagedArray<VkUtf8String> vkDeviceExtensions = new(deviceExtensions.length);
+            USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.MaxLength];
+            for (uint i = 0; i < deviceExtensions.length; i++)
             {
                 FixedString extension = deviceExtensions[i];
-                int length = extension.CopyTo(nameBuffer);
-                fixed (byte* ptr = nameBuffer)
-                {
-                    vkDeviceExtensions[(uint)i] = new(ptr, length);
-                }
+                uint length = extension.CopyTo(nameBuffer);
+                vkDeviceExtensions[i] = new(nameBuffer.pointer, (int)length);
             }
 
             using VkStringArray deviceExtensionNames = new(vkDeviceExtensions);
@@ -114,11 +111,11 @@ namespace Vulkan
 
         public readonly VkFormat GetDepthFormat()
         {
-            Span<VkFormat> candidates = [VkFormat.D32Sfloat, VkFormat.D32SfloatS8Uint, VkFormat.D24UnormS8Uint];
+            USpan<VkFormat> candidates = [VkFormat.D32Sfloat, VkFormat.D32SfloatS8Uint, VkFormat.D24UnormS8Uint];
             return GetSupportedFormat(candidates, VkImageTiling.Optimal, VkFormatFeatureFlags.DepthStencilAttachment);
         }
 
-        public readonly VkFormat GetSupportedFormat(ReadOnlySpan<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+        public readonly VkFormat GetSupportedFormat(USpan<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
         {
             ThrowIfDisposed();
             foreach (VkFormat format in candidates)
