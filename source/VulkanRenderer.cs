@@ -37,6 +37,9 @@ namespace Rendering.Vulkan
         private readonly UnmanagedList<(uint, uint, uint)> previouslyRenderedGroups;
         private readonly UnmanagedList<uint> previouslyRenderedEntities;
 
+        private readonly ComponentQuery<RendererScissor> scissorsQuery;
+        private readonly UnmanagedArray<Vector4> scissors;
+
         private DateTime lastUnusuedCheck;
         private UnmanagedArray<ImageView> surfaceImageViews;
         private UnmanagedArray<Framebuffer> surfaceFramebuffers;
@@ -88,10 +91,16 @@ namespace Rendering.Vulkan
             previouslyRenderedEntities = new();
             meshes = new();
             components = new();
+
+            scissorsQuery = new();
+            scissors = new();
         }
 
         public readonly void Dispose()
         {
+            scissors.Dispose();
+            scissorsQuery.Dispose();
+
             if (surface != default)
             {
                 logicalDevice.Wait();
@@ -694,6 +703,14 @@ namespace Rendering.Vulkan
 
             UpdateComponentBuffers(world);
             UpdateTextureBuffers(world);
+            scissorsQuery.Update(world);
+            scissors.Resize(world.MaxEntityValue);
+            scissors.Fill(new Vector4(0, 0, framebuffer.width, framebuffer.height));
+            foreach (var s in scissorsQuery)
+            {
+                scissors[s.entity] = s.Component1.region;
+            }
+
             return true;
         }
 
@@ -737,10 +754,10 @@ namespace Rendering.Vulkan
             }
 
             //make sure a pipeline exists, the same way a compiled mesh is
-            if (!pipelines.TryGetValue(groupHash, out CompiledPipeline pipeline))
+            if (!pipelines.TryGetValue(groupHash, out CompiledPipeline compiledPipeline))
             {
-                pipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
-                pipelines.Add(groupHash, pipeline);
+                compiledPipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
+                pipelines.Add(groupHash, compiledPipeline);
             }
 
             //update images of bindings that change
@@ -777,9 +794,9 @@ namespace Rendering.Vulkan
                     }
                 }
 
-                pipeline.Dispose();
-                pipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
-                pipelines[groupHash] = pipeline;
+                compiledPipeline.Dispose();
+                compiledPipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
+                pipelines[groupHash] = compiledPipeline;
             }
 
             //update descriptor sets if needed
@@ -787,26 +804,30 @@ namespace Rendering.Vulkan
             {
                 if (!renderers.ContainsKey(entity))
                 {
-                    if (!pipeline.descriptorPool.TryAllocate(pipeline.setLayout, out DescriptorSet descriptorSet))
+                    if (!compiledPipeline.descriptorPool.TryAllocate(compiledPipeline.setLayout, out DescriptorSet descriptorSet))
                     {
                         throw new InvalidOperationException("Failed to allocate descriptor set");
                     }
 
                     CompiledRenderer renderer = new(descriptorSet);
                     renderers.Add(entity, renderer);
-                    UpdateDescriptorSet(materialEntity, renderer.descriptorSet, pipeline);
+                    UpdateDescriptorSet(materialEntity, renderer.descriptorSet, compiledPipeline);
                 }
             }
 
             //finally draw everything
             CommandBuffer commandBuffer = commandBuffers[frameIndex];
-            commandBuffer.BindPipeline(pipeline.pipeline, VkPipelineBindPoint.Graphics);
+            commandBuffer.BindPipeline(compiledPipeline.pipeline, VkPipelineBindPoint.Graphics);
             commandBuffer.BindVertexBuffer(compiledMesh.vertexBuffer);
             commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
 
             bool hasPushConstants = knownPushConstants.TryGetValue(materialEntity, out UnmanagedArray<CompiledPushConstant> pushConstants);
             foreach (uint rendererEntity in renderEntities)
             {
+                //apply scissor
+                Vector4 scissor = scissors[rendererEntity];
+                commandBuffer.SetScissor(scissor);
+
                 //push constants
                 if (hasPushConstants)
                 {
@@ -814,13 +835,13 @@ namespace Rendering.Vulkan
                     foreach (CompiledPushConstant pushConstant in pushConstants)
                     {
                         USpan<byte> componentBytes = world.GetComponentBytes(rendererEntity, pushConstant.componentType);
-                        commandBuffer.PushConstants(pipeline.pipelineLayout, GetShaderStage(pushConstant.stage), componentBytes, pushOffset);
+                        commandBuffer.PushConstants(compiledPipeline.pipelineLayout, GetShaderStage(pushConstant.stage), componentBytes, pushOffset);
                         pushOffset += componentBytes.length;
                     }
                 }
 
                 CompiledRenderer renderer = renderers[rendererEntity];
-                commandBuffer.BindDescriptorSet(pipeline.pipelineLayout, renderer.descriptorSet);
+                commandBuffer.BindDescriptorSet(compiledPipeline.pipelineLayout, renderer.descriptorSet);
                 commandBuffer.DrawIndexed(compiledMesh.indexCount, 1, 0, 0, 0);
 
                 previouslyRenderedEntities.Add(rendererEntity);

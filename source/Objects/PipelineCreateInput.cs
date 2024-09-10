@@ -5,8 +5,6 @@ namespace Vulkan
 {
     public readonly ref struct PipelineCreateInput
     {
-        public readonly uint viewportCount;
-        public readonly uint scissorCount;
         public readonly RenderPass renderPass;
         public readonly uint vertexBinding;
         public readonly ShaderModule vertex;
