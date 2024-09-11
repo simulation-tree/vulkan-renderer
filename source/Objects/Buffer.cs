@@ -32,7 +32,8 @@ namespace Vulkan
         {
             if (size == 0)
             {
-                throw new Exception("Buffer size cannot be zero!");
+                size = 2;
+                //throw new Exception("Buffer size cannot be zero!");
             }
 
             VkBufferCreateInfo bufferInfo = new()
