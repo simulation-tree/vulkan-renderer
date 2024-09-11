@@ -567,9 +567,9 @@ namespace Rendering.Vulkan
                 }
             }
 
-            uint maxSets = 32; //todo: fault: after 32 allocations it should fail, where another pool should be created????
-            DescriptorPool descriptorPool = new(logicalDevice, poolTypes.Slice(0, poolCount), maxSets);
-            return new(pipeline, pipelineLayout, descriptorPool, setLayout, setLayoutBindings.Slice(0, bindingCount));
+            //uint maxSets = 32; //todo: fault: after 32 allocations it should fail, where another pool should be created????
+            //DescriptorPool descriptorPool = new(logicalDevice, poolTypes.Slice(0, poolCount), maxSets);
+            return new(pipeline, pipelineLayout, poolTypes.Slice(0, poolCount), setLayout, setLayoutBindings.Slice(0, bindingCount));
         }
 
         private readonly CompiledImage CompileImage(uint materialEntity, uint textureVersion, MaterialTextureBinding binding)
@@ -804,11 +804,7 @@ namespace Rendering.Vulkan
             {
                 if (!renderers.ContainsKey(entity))
                 {
-                    if (!compiledPipeline.descriptorPool.TryAllocate(compiledPipeline.setLayout, out DescriptorSet descriptorSet))
-                    {
-                        throw new InvalidOperationException("Failed to allocate descriptor set");
-                    }
-
+                    DescriptorSet descriptorSet = compiledPipeline.Allocate();
                     CompiledRenderer renderer = new(descriptorSet);
                     renderers.Add(entity, renderer);
                     UpdateDescriptorSet(materialEntity, renderer.descriptorSet, compiledPipeline);
