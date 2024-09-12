@@ -1112,7 +1112,7 @@ namespace Rendering.Vulkan
 
             if (attribute.type == RuntimeType.Get<Vector2>())
             {
-                if (nameBuffer.Slice(0, length).Contains("uv".AsSpan()))
+                if (nameBuffer.Slice(0, length).Contains("uv".AsUSpan()))
                 {
                     channel = Mesh.Channel.UV;
                     return true;
@@ -1120,22 +1120,22 @@ namespace Rendering.Vulkan
             }
             else if (attribute.type == RuntimeType.Get<Vector3>())
             {
-                if (nameBuffer.Slice(0, length).Contains("normal".AsSpan()))
+                if (nameBuffer.Slice(0, length).Contains("normal".AsUSpan()))
                 {
                     channel = Mesh.Channel.Normal;
                     return true;
                 }
-                else if (nameBuffer.Slice(0, length).Contains("tangent".AsSpan()))
+                else if (nameBuffer.Slice(0, length).Contains("tangent".AsUSpan()))
                 {
                     channel = Mesh.Channel.Tangent;
                     return true;
                 }
-                else if (nameBuffer.Slice(0, length).Contains("position".AsSpan()))
+                else if (nameBuffer.Slice(0, length).Contains("position".AsUSpan()))
                 {
                     channel = Mesh.Channel.Position;
                     return true;
                 }
-                else if (nameBuffer.Slice(0, length).Contains("bitangent".AsSpan()))
+                else if (nameBuffer.Slice(0, length).Contains("bitangent".AsUSpan()))
                 {
                     channel = Mesh.Channel.BiTangent;
                     return true;
@@ -1143,7 +1143,7 @@ namespace Rendering.Vulkan
             }
             else if (attribute.type == RuntimeType.Get<Vector4>())
             {
-                if (nameBuffer.Slice(0, length).Contains("color".AsSpan()))
+                if (nameBuffer.Slice(0, length).Contains("color".AsUSpan()))
                 {
                     channel = Mesh.Channel.Color;
                     return true;
