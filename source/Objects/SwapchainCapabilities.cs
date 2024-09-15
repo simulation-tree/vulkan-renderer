@@ -11,7 +11,7 @@ namespace Vulkan
 
         public readonly VkSurfaceFormatKHR ChooseSwapSurfaceFormat()
         {
-            if (formats.length == 1 && formats[0].format == VkFormat.Undefined)
+            if (formats.Length == 1 && formats[0].format == VkFormat.Undefined)
             {
                 return new VkSurfaceFormatKHR(VkFormat.B8G8R8A8Unorm, formats[0].colorSpace);
             }

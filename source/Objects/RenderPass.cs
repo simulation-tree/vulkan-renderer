@@ -30,8 +30,8 @@ namespace Vulkan
         public RenderPass(LogicalDevice logicalDevice, USpan<Attachment> attachments)
         {
             this.logicalDevice = logicalDevice;
-            VkAttachmentDescription* attachmentsPointer = stackalloc VkAttachmentDescription[(int)attachments.length];
-            for (uint i = 0; i < attachments.length; i++)
+            VkAttachmentDescription* attachmentsPointer = stackalloc VkAttachmentDescription[(int)attachments.Length];
+            for (uint i = 0; i < attachments.Length; i++)
             {
                 Attachment attachment = attachments[i];
                 VkFormat format = attachment.format;
@@ -72,11 +72,11 @@ namespace Vulkan
 
             VkRenderPassCreateInfo renderPassCreateInfo = new()
             {
-                attachmentCount = attachments.length,
+                attachmentCount = attachments.Length,
                 pAttachments = attachmentsPointer,
                 subpassCount = 1,
                 pSubpasses = &subPass,
-                dependencyCount = dependencies.length,
+                dependencyCount = dependencies.Length,
                 pDependencies = dependencies.pointer
             };
 

@@ -31,8 +31,8 @@ namespace Vulkan
         public Pipeline(PipelineCreateInput input, PipelineLayout layout, USpan<char> entryPoint)
         {
             logicalDevice = input.LogicalDevice;
-            byte* nameBuffer = stackalloc byte[(int)entryPoint.length];
-            for (uint i = 0; i < entryPoint.length; i++)
+            byte* nameBuffer = stackalloc byte[(int)entryPoint.Length];
+            for (uint i = 0; i < entryPoint.Length; i++)
             {
                 nameBuffer[i] = (byte)entryPoint[i];
             }
@@ -52,9 +52,9 @@ namespace Vulkan
                 pName = nameBuffer
             };
 
-            VkVertexInputAttributeDescription* attributes = stackalloc VkVertexInputAttributeDescription[(int)input.vertexAttributes.length];
+            VkVertexInputAttributeDescription* attributes = stackalloc VkVertexInputAttributeDescription[(int)input.vertexAttributes.Length];
             uint offset = 0;
-            for (uint i = 0; i < input.vertexAttributes.length; i++)
+            for (uint i = 0; i < input.vertexAttributes.Length; i++)
             {
                 VertexInputAttribute attribute = input.vertexAttributes[i];
                 attributes[i] = new(attribute.location, attribute.format, offset, attribute.binding);
@@ -66,7 +66,7 @@ namespace Vulkan
             {
                 vertexBindingDescriptionCount = 1,
                 pVertexBindingDescriptions = &vertexInputBinding,
-                vertexAttributeDescriptionCount = input.vertexAttributes.length,
+                vertexAttributeDescriptionCount = input.vertexAttributes.Length,
                 pVertexAttributeDescriptions = attributes
             };
 

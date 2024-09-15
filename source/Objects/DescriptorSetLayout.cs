@@ -28,8 +28,8 @@ namespace Vulkan
         {
             this.logicalDevice = device;
 
-            VkDescriptorSetLayoutBinding* layoutBindings = stackalloc VkDescriptorSetLayoutBinding[(int)bindings.length];
-            for (uint i = 0; i < bindings.length; i++)
+            VkDescriptorSetLayoutBinding* layoutBindings = stackalloc VkDescriptorSetLayoutBinding[(int)bindings.Length];
+            for (uint i = 0; i < bindings.Length; i++)
             {
                 (byte binding, VkDescriptorType type, VkShaderStageFlags stage) = bindings[i];
                 layoutBindings[i] = new()
@@ -42,7 +42,7 @@ namespace Vulkan
             }
 
             VkDescriptorSetLayoutCreateInfo createInfo = new();
-            createInfo.bindingCount = bindings.length;
+            createInfo.bindingCount = bindings.Length;
             createInfo.pBindings = layoutBindings;
 
             VkResult result = vkCreateDescriptorSetLayout(device.Value, &createInfo, null, out value);

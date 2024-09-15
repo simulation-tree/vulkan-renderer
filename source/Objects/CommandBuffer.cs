@@ -216,13 +216,13 @@ namespace Vulkan
         public readonly void BindDescriptorSets(PipelineLayout layout, USpan<DescriptorSet> descriptorSets, uint set = 0)
         {
             ThrowIfDisposed();
-            VkDescriptorSet* descriptorSetValue = stackalloc VkDescriptorSet[(int)descriptorSets.length];
-            for (uint i = 0; i < descriptorSets.length; i++)
+            VkDescriptorSet* descriptorSetValue = stackalloc VkDescriptorSet[(int)descriptorSets.Length];
+            for (uint i = 0; i < descriptorSets.Length; i++)
             {
                 descriptorSetValue[i] = descriptorSets[i].Value;
             }
 
-            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, (int)descriptorSets.length));
+            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, (int)descriptorSets.Length));
         }
 
         public readonly void BindDescriptorSet(PipelineLayout layout, DescriptorSet descriptorSet, uint set = 0)
@@ -236,7 +236,7 @@ namespace Vulkan
         public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags stage, USpan<byte> data, uint offset = 0)
         {
             ThrowIfDisposed();
-            vkCmdPushConstants(value, layout.Value, stage, offset, data.length, data.pointer);
+            vkCmdPushConstants(value, layout.Value, stage, offset, data.Length, data.pointer);
         }
 
         public readonly void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)

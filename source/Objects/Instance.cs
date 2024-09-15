@@ -166,14 +166,14 @@ namespace Vulkan
                 }
             }
 
-            USpan<byte> applicationNameBytes = stackalloc byte[(int)applicationName.length];
-            for (uint i = 0; i < applicationName.length; i++)
+            USpan<byte> applicationNameBytes = stackalloc byte[(int)applicationName.Length];
+            for (uint i = 0; i < applicationName.Length; i++)
             {
                 applicationNameBytes[i] = (byte)applicationName[i];
             }
 
-            USpan<byte> engineNameBytes = stackalloc byte[(int)engineName.length];
-            for (uint i = 0; i < engineName.length; i++)
+            USpan<byte> engineNameBytes = stackalloc byte[(int)engineName.Length];
+            for (uint i = 0; i < engineName.Length; i++)
             {
                 engineNameBytes[i] = (byte)engineName[i];
             }

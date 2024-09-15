@@ -60,14 +60,14 @@ namespace Vulkan
 
         public DescriptorPool(LogicalDevice logicalDevice, USpan<(VkDescriptorType type, uint descriptorCount)> pools, uint maxSets)
         {
-            if (pools.length == 0)
+            if (pools.Length == 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(pools));
             }
 
             this.logicalDevice = logicalDevice;
-            VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[(int)pools.length];
-            for (uint i = 0; i < pools.length; i++)
+            VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[(int)pools.Length];
+            for (uint i = 0; i < pools.Length; i++)
             {
                 (VkDescriptorType type, uint descriptorCount) = pools[i];
                 poolSizes[i] = new(type, descriptorCount);
@@ -75,7 +75,7 @@ namespace Vulkan
 
             VkDescriptorPoolCreateInfo createInfo = new()
             {
-                poolSizeCount = (uint)pools.length,
+                poolSizeCount = (uint)pools.Length,
                 pPoolSizes = poolSizes,
                 maxSets = maxSets,
                 flags = VkDescriptorPoolCreateFlags.FreeDescriptorSet
@@ -112,8 +112,8 @@ namespace Vulkan
         public readonly UnmanagedArray<DescriptorSet> Allocate(USpan<DescriptorSetLayout> layouts)
         {
             ThrowIfDisposed();
-            VkDescriptorSetLayout* layoutPointers = stackalloc VkDescriptorSetLayout[(int)layouts.length];
-            for (uint i = 0; i < layouts.length; i++)
+            VkDescriptorSetLayout* layoutPointers = stackalloc VkDescriptorSetLayout[(int)layouts.Length];
+            for (uint i = 0; i < layouts.Length; i++)
             {
                 layoutPointers[i] = layouts[i].Value;
             }
@@ -121,19 +121,19 @@ namespace Vulkan
             VkDescriptorSetAllocateInfo allocateInfo = new()
             {
                 descriptorPool = value,
-                descriptorSetCount = layouts.length,
+                descriptorSetCount = layouts.Length,
                 pSetLayouts = layoutPointers
             };
 
-            VkDescriptorSet* descriptorSet = stackalloc VkDescriptorSet[(int)layouts.length];
+            VkDescriptorSet* descriptorSet = stackalloc VkDescriptorSet[(int)layouts.Length];
             VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, descriptorSet);
             if (result != VkResult.Success)
             {
                 throw new InvalidOperationException("Failed to allocate descriptor sets");
             }
 
-            UnmanagedArray<DescriptorSet> sets = new(layouts.length);
-            for (uint i = 0; i < layouts.length; i++)
+            UnmanagedArray<DescriptorSet> sets = new(layouts.Length);
+            for (uint i = 0; i < layouts.Length; i++)
             {
                 sets[i] = new(this, descriptorSet[i]);
             }

@@ -83,7 +83,7 @@ namespace Vulkan
             USpan<VkQueueFamilyProperties> queueFamilies = GetAllQueueFamilies();
             uint graphicsFamily = VK_QUEUE_FAMILY_IGNORED;
             uint presentFamily = VK_QUEUE_FAMILY_IGNORED;
-            for (uint i = 0; i < queueFamilies.length; i++)
+            for (uint i = 0; i < queueFamilies.Length; i++)
             {
                 VkQueueFamilyProperties queueFamily = queueFamilies[i];
                 if ((queueFamily.queueFlags & VkQueueFlags.Graphics) != VkQueueFlags.None)
@@ -110,7 +110,7 @@ namespace Vulkan
         public readonly bool TryGetGraphicsQueueFamily(out uint graphicsFamily)
         {
             USpan<VkQueueFamilyProperties> queueFamilies = GetAllQueueFamilies();
-            for (uint i = 0; i < queueFamilies.length; i++)
+            for (uint i = 0; i < queueFamilies.Length; i++)
             {
                 VkQueueFamilyProperties queueFamily = queueFamilies[i];
                 if ((queueFamily.queueFlags & VkQueueFlags.Graphics) != VkQueueFlags.None)

@@ -100,13 +100,13 @@ namespace Vulkan
         {
             ThrowIfDisposed();
             USpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(device.Value, value);
-            for (uint i = 0; i < imageSpan.length; i++)
+            for (uint i = 0; i < imageSpan.Length; i++)
             {
                 Image image = new(device, imageSpan[i], width, height, format);
                 buffer[i] = image;
             }
 
-            return imageSpan.length;
+            return imageSpan.Length;
         }
 
         public readonly override bool Equals(object? obj)

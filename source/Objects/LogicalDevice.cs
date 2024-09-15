@@ -37,7 +37,7 @@ namespace Vulkan
             this.physicalDevice = physicalDevice;
             float priority = 1f;
             uint queueCount = 0;
-            VkDeviceQueueCreateInfo* queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[(int)queueFamilies.length];
+            VkDeviceQueueCreateInfo* queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[(int)queueFamilies.Length];
             foreach (uint queueFamily in queueFamilies)
             {
                 VkDeviceQueueCreateInfo queueCreateInfo = new();
@@ -50,9 +50,9 @@ namespace Vulkan
             VkPhysicalDeviceFeatures features = new();
             features.samplerAnisotropy = true;
 
-            using UnmanagedArray<VkUtf8String> vkDeviceExtensions = new(deviceExtensions.length);
+            using UnmanagedArray<VkUtf8String> vkDeviceExtensions = new(deviceExtensions.Length);
             USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.MaxLength];
-            for (uint i = 0; i < deviceExtensions.length; i++)
+            for (uint i = 0; i < deviceExtensions.Length; i++)
             {
                 FixedString extension = deviceExtensions[i];
                 uint length = extension.CopyTo(nameBuffer);

@@ -17,7 +17,7 @@ namespace Vulkan
 
         public IndexBuffer(Queue graphicsQueue, CommandPool commandPool, USpan<uint> data)
         {
-            uint byteCount = (uint)data.length * sizeof(uint);
+            uint byteCount = (uint)data.Length * sizeof(uint);
             VkPhysicalDeviceLimits limits = graphicsQueue.logicalDevice.physicalDevice.GetLimits();
             byteCount = (uint)(Math.Ceiling(byteCount / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
             using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);

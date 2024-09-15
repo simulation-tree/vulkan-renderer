@@ -60,7 +60,7 @@ namespace Vulkan
         public readonly void CopyFrom(USpan<byte> bytes)
         {
             nint pointer = Map();
-            bytes.CopyTo(new USpan<byte>((void*)pointer, bytes.length));
+            bytes.CopyTo(new USpan<byte>((void*)pointer, bytes.Length));
             Unmap();
         }
 

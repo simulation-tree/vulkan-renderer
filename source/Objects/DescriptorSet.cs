@@ -105,8 +105,8 @@ namespace Vulkan
         public readonly void Update(USpan<Buffer> buffers, byte startBinding = 0)
         {
             ThrowIfDisposed();
-            VkWriteDescriptorSet* descriptorWrite = stackalloc VkWriteDescriptorSet[(int)buffers.length];
-            for (uint i = 0; i < buffers.length; i++)
+            VkWriteDescriptorSet* descriptorWrite = stackalloc VkWriteDescriptorSet[(int)buffers.Length];
+            for (uint i = 0; i < buffers.Length; i++)
             {
                 Buffer buffer = buffers[i];
                 VkDescriptorBufferInfo bufferInfo = new();
@@ -127,7 +127,7 @@ namespace Vulkan
                 startBinding++;
             }
 
-            vkUpdateDescriptorSets(pool.logicalDevice.Value, buffers.length, descriptorWrite, 0, null);
+            vkUpdateDescriptorSets(pool.logicalDevice.Value, buffers.Length, descriptorWrite, 0, null);
         }
 
         /// <summary>
@@ -136,8 +136,8 @@ namespace Vulkan
         public readonly void Update(USpan<ImageView> imageViews, USpan<Sampler> samplers, byte startBinding = 0)
         {
             ThrowIfDisposed();
-            VkWriteDescriptorSet* descriptorWrite = stackalloc VkWriteDescriptorSet[(int)imageViews.length];
-            for (uint i = 0; i < imageViews.length; i++)
+            VkWriteDescriptorSet* descriptorWrite = stackalloc VkWriteDescriptorSet[(int)imageViews.Length];
+            for (uint i = 0; i < imageViews.Length; i++)
             {
                 VkDescriptorImageInfo imageInfo = new();
                 imageInfo.imageView = imageViews[i].Value;
@@ -157,7 +157,7 @@ namespace Vulkan
                 startBinding++;
             }
 
-            vkUpdateDescriptorSets(pool.logicalDevice.Value, imageViews.length, descriptorWrite, 0, null);
+            vkUpdateDescriptorSets(pool.logicalDevice.Value, imageViews.Length, descriptorWrite, 0, null);
         }
 
         public void Dispose()
