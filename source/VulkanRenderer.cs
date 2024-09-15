@@ -585,7 +585,8 @@ namespace Rendering.Vulkan
             World world = destination.entity.world;
             uint depth = 1;
             VkImageUsageFlags usage = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled;
-            VkFormat format = VkFormat.R8G8B8A8Srgb;
+            //VkFormat format = VkFormat.R8G8B8A8Srgb;
+            VkFormat format = VkFormat.R8G8B8A8Unorm;
             uint textureEntity = binding.TextureEntity;
             IsTexture size = world.GetComponent<IsTexture>(textureEntity);
             Vector4 region = binding.Region;
@@ -621,6 +622,8 @@ namespace Rendering.Vulkan
 
             ImageView imageView = new(image);
             SamplerCreateParameters samplerParameters = new();
+            samplerParameters.minFilter = binding.Filter == TextureFiltering.Linear ? VkFilter.Linear : VkFilter.Nearest;
+            samplerParameters.magFilter = samplerParameters.minFilter;
             Sampler sampler = new(logicalDevice, samplerParameters);
             return new(materialEntity, textureVersion, binding, image, imageView, imageMemory, sampler);
         }
