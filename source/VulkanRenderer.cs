@@ -590,10 +590,12 @@ namespace Rendering.Vulkan
             uint textureEntity = binding.TextureEntity;
             IsTexture size = world.GetComponent<IsTexture>(textureEntity);
             Vector4 region = binding.Region;
-            uint x = (uint)(region.X * size.width);
-            uint y = (uint)(region.Y * size.height);
-            uint width = (uint)(region.Z * size.width);
-            uint height = (uint)(region.W * size.height);
+            uint minX = (uint)(region.X * size.width);
+            uint minY = (uint)(region.Y * size.height);
+            uint maxX = (uint)(region.Z * size.width);
+            uint maxY = (uint)(region.W * size.height);
+            uint width = maxX - minX;
+            uint height = maxY - minY;
             Image image = new(logicalDevice, width, height, depth, format, usage);
             DeviceMemory imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
             USpan<Pixel> pixels = world.GetArray<Pixel>(textureEntity);
@@ -610,7 +612,7 @@ namespace Rendering.Vulkan
             graphicsQueue.Submit(tempBuffer);
             graphicsQueue.Wait();
             tempBuffer.Begin();
-            tempBuffer.CopyBufferToImage(tempStagingBuffer.buffer, size.width, size.height, x, y, image, depth);
+            tempBuffer.CopyBufferToImage(tempStagingBuffer.buffer, size.width, size.height, minX, minY, image, depth);
             tempBuffer.End();
             graphicsQueue.Submit(tempBuffer);
             graphicsQueue.Wait();
