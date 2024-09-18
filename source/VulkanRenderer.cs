@@ -717,7 +717,7 @@ namespace Rendering.Vulkan
             UpdateComponentBuffers(world);
             UpdateTextureBuffers(world);
             scissorsQuery.Update(world);
-            scissors.Resize(world.MaxEntityValue);
+            scissors.Resize(world.MaxEntityValue + 1);
             scissors.Fill(new Vector4(0, 0, framebuffer.width, framebuffer.height));
             foreach (var s in scissorsQuery)
             {
