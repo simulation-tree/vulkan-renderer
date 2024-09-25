@@ -521,34 +521,27 @@ namespace Rendering.Vulkan
             foreach (MaterialComponentBinding binding in uniformBindings)
             {
                 uint componentEntity = binding.entity;
-                if (componentEntity == default)
+                RuntimeType componentType = binding.componentType;
+                if (!world.ContainsEntity(componentEntity))
                 {
-                    //this binding is a push constant
+                    throw new InvalidOperationException($"Material `{materialEntity}` references missing entity `{componentEntity}` for component `{componentType}`");
                 }
-                else
+
+                if (!world.ContainsComponent(componentEntity, componentType))
                 {
-                    RuntimeType componentType = binding.componentType;
-                    if (!world.ContainsEntity(componentEntity))
-                    {
-                        throw new InvalidOperationException($"Material `{materialEntity}` references entity `{componentEntity}` for a component `{componentType}`, which does not exist");
-                    }
+                    throw new InvalidOperationException($"Material `{materialEntity}` references entity `{componentEntity}` for a missing component `{componentType}`");
+                }
 
-                    if (!world.ContainsComponent(componentEntity, componentType))
-                    {
-                        throw new InvalidOperationException($"Material `{materialEntity}` references entity `{componentEntity}` for a component `{componentType}`, but it is missing");
-                    }
-
-                    int componentHash = GetComponentHash(materialEntity, binding);
-                    if (!components.TryGetValue(componentHash, out CompiledComponentBuffer componentBuffer))
-                    {
-                        uint typeSize = componentType.Size;
-                        uint bufferSize = (uint)(Math.Ceiling(typeSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
-                        VkBufferUsageFlags usage = VkBufferUsageFlags.UniformBuffer;
-                        VkMemoryPropertyFlags flags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
-                        BufferDeviceMemory buffer = new(logicalDevice, bufferSize, usage, flags);
-                        componentBuffer = new(materialEntity, binding.entity, componentType, buffer);
-                        components.Add(componentHash, componentBuffer);
-                    }
+                int componentHash = GetComponentHash(materialEntity, binding);
+                if (!components.TryGetValue(componentHash, out CompiledComponentBuffer componentBuffer))
+                {
+                    uint typeSize = componentType.Size;
+                    uint bufferSize = (uint)(Math.Ceiling(typeSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
+                    VkBufferUsageFlags usage = VkBufferUsageFlags.UniformBuffer;
+                    VkMemoryPropertyFlags flags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
+                    BufferDeviceMemory buffer = new(logicalDevice, bufferSize, usage, flags);
+                    componentBuffer = new(materialEntity, binding.entity, componentType, buffer);
+                    components.Add(componentHash, componentBuffer);
                 }
             }
 
