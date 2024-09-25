@@ -675,7 +675,7 @@ namespace Rendering.Vulkan
             }
         }
 
-        public bool BeginRender()
+        public bool BeginRender(Color clearColor)
         {
             World world = destination.entity.world;
             Fence submitFence = submitFences[frameIndex];
@@ -702,8 +702,7 @@ namespace Rendering.Vulkan
 
             Framebuffer framebuffer = surfaceFramebuffers[imageIndex];
             Vector4 area = new(0, 0, framebuffer.width, framebuffer.height);
-            Vector4 clearColor = new(0, 0, 0, 1);
-            commandBuffer.BeginRenderPass(renderPass, framebuffer, area, clearColor);
+            commandBuffer.BeginRenderPass(renderPass, framebuffer, area, clearColor.AsVector4());
 
             Vector4 viewport = new(0, framebuffer.height, framebuffer.width, -framebuffer.height);
             commandBuffer.SetViewport(viewport);

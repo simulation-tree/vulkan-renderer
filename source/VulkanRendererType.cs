@@ -1,4 +1,5 @@
-﻿using Rendering.Functions;
+﻿using Data;
+using Rendering.Functions;
 using System.Runtime.InteropServices;
 using Unmanaged;
 using Vulkan;
@@ -11,7 +12,7 @@ namespace Rendering.Vulkan
 
         FixedString IRenderSystem.Label => "vulkan";
 
-        unsafe (CreateFunction, DisposeFunction, RenderFunction, FinishFunction, SurfaceCreatedFunction, SystemFunction, SystemFunction) IRenderSystem.GetFunctions()
+        unsafe (CreateFunction, DisposeFunction, RenderFunction, FinishFunction, SurfaceCreatedFunction, BeginRenderFunction, SystemFunction) IRenderSystem.GetFunctions()
         {
             return (new(&Create), new(&Dispose), new(&Render), new(&Finish), new(&SurfaceCreated), new(&BeginRender), new(&EndRender));
         }
@@ -35,10 +36,10 @@ namespace Rendering.Vulkan
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static uint BeginRender(Allocation system)
+        private unsafe static uint BeginRender(Allocation system, Color clearColor)
         {
             ref VulkanRenderer renderer = ref system.Read<VulkanRenderer>();
-            return renderer.BeginRender() ? (uint)0 : 1;
+            return renderer.BeginRender(clearColor) ? (uint)0 : 1;
         }
 
         [UnmanagedCallersOnly]
