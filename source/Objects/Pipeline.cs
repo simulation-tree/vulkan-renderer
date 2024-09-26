@@ -80,7 +80,7 @@ namespace Vulkan
             depthStencilState.minDepthBounds = 0f;
             depthStencilState.maxDepthBounds = 1f;
 
-            VkPipelineColorBlendAttachmentState blendAttachmentState = VkPipelineColorBlendAttachmentState.Opaque;
+            VkPipelineColorBlendAttachmentState blendAttachmentState = default;
             blendAttachmentState.blendEnable = true;
             blendAttachmentState.srcColorBlendFactor = VkBlendFactor.One;
             blendAttachmentState.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
