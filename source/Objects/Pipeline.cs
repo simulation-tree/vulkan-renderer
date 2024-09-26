@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using Unmanaged;
 using Vortice.Vulkan;
-using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
@@ -74,7 +73,11 @@ namespace Vulkan
             VkPipelineViewportStateCreateInfo viewportState = new(1, 1);
             VkPipelineRasterizationStateCreateInfo rasterizationState = VkPipelineRasterizationStateCreateInfo.CullClockwise;
             VkPipelineMultisampleStateCreateInfo multisampleState = VkPipelineMultisampleStateCreateInfo.Default;
-            VkPipelineDepthStencilStateCreateInfo depthStencilState = new(true, true, VkCompareOp.Less);
+            VkPipelineDepthStencilStateCreateInfo depthStencilState = default;
+            depthStencilState.sType = VkStructureType.PipelineDepthStencilStateCreateInfo;
+            depthStencilState.depthTestEnable = true;
+            depthStencilState.depthWriteEnable = true;
+            depthStencilState.depthCompareOp = VkCompareOp.LessOrEqual;
             depthStencilState.depthBoundsTestEnable = false;
             depthStencilState.stencilTestEnable = false;
             depthStencilState.minDepthBounds = 0f;
@@ -82,7 +85,7 @@ namespace Vulkan
 
             VkPipelineColorBlendAttachmentState blendAttachmentState = default;
             blendAttachmentState.blendEnable = true;
-            blendAttachmentState.srcColorBlendFactor = VkBlendFactor.One;
+            blendAttachmentState.srcColorBlendFactor = VkBlendFactor.SrcAlpha;
             blendAttachmentState.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
             blendAttachmentState.colorBlendOp = VkBlendOp.Add;
             blendAttachmentState.srcAlphaBlendFactor = VkBlendFactor.One;
@@ -118,7 +121,7 @@ namespace Vulkan
                 renderPass = input.renderPass.Value
             };
 
-            VkResult result = vkCreateGraphicsPipeline(logicalDevice.Value, pipelineCreateInfo, out value);
+            VkResult result = Vortice.Vulkan.Vulkan.vkCreateGraphicsPipeline(logicalDevice.Value, pipelineCreateInfo, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to create graphics pipeline: {result}");
@@ -139,7 +142,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
-            vkDestroyPipeline(logicalDevice.Value, value);
+            Vortice.Vulkan.Vulkan.vkDestroyPipeline(logicalDevice.Value, value);
             valid = false;
         }
 
