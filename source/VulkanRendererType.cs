@@ -43,11 +43,10 @@ namespace Rendering.Vulkan
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static void Render(Allocation system, uint* entities, uint entityCount, uint material, uint shader, uint mesh)
+        private unsafe static void Render(RenderFunction.Input input)
         {
-            USpan<uint> entitiesSpan = new(entities, entityCount);
-            ref VulkanRenderer renderer = ref system.Read<VulkanRenderer>();
-            renderer.Render(entitiesSpan, material, shader, mesh);
+            ref VulkanRenderer renderer = ref input.system.Read<VulkanRenderer>();
+            renderer.Render(input.Renderers, input.material, input.shader, input.mesh);
         }
 
         [UnmanagedCallersOnly]

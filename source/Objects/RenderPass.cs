@@ -77,7 +77,7 @@ namespace Vulkan
                 subpassCount = 1,
                 pSubpasses = &subPass,
                 dependencyCount = dependencies.Length,
-                pDependencies = dependencies.pointer
+                pDependencies = (VkSubpassDependency*)dependencies.Address
             };
 
             VkResult result = vkCreateRenderPass(logicalDevice.Value, &renderPassCreateInfo, null, out value);

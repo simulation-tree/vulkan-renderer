@@ -192,7 +192,7 @@ namespace Vulkan
             {
                 uint length = instanceLayer.CopyTo(nameBuffer) + 1;
                 byte* newAllocation = (byte*)Allocations.Allocate(length);
-                Unsafe.CopyBlock(newAllocation, nameBuffer.pointer, length);
+                Unsafe.CopyBlock(newAllocation, (void*)nameBuffer.Address, length);
                 vkInstanceLayers.Add(new(newAllocation));
                 tempAllocations.Add((nint)newAllocation);
                 nameBuffer.Clear();
@@ -203,7 +203,7 @@ namespace Vulkan
             {
                 uint length = instanceExtension.CopyTo(nameBuffer) + 1;
                 byte* newAllocation = (byte*)Allocations.Allocate(length);
-                Unsafe.CopyBlock(newAllocation, nameBuffer.pointer, length);
+                Unsafe.CopyBlock(newAllocation, (void*)nameBuffer.Address, length);
                 vkInstanceExtensions.Add(new(newAllocation));
                 tempAllocations.Add((nint)newAllocation);
                 nameBuffer.Clear();

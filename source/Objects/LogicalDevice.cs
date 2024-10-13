@@ -56,7 +56,7 @@ namespace Vulkan
             {
                 FixedString extension = deviceExtensions[i];
                 uint length = extension.CopyTo(nameBuffer);
-                vkDeviceExtensions[i] = new(nameBuffer.pointer, (int)length);
+                vkDeviceExtensions[i] = new((byte*)nameBuffer.Address, (int)length);
             }
 
             using VkStringArray deviceExtensionNames = new(vkDeviceExtensions);

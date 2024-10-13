@@ -236,7 +236,7 @@ namespace Vulkan
         public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags stage, USpan<byte> data, uint offset = 0)
         {
             ThrowIfDisposed();
-            vkCmdPushConstants(value, layout.Value, stage, offset, data.Length, data.pointer);
+            vkCmdPushConstants(value, layout.Value, stage, offset, data.Length, (void*)data.Address);
         }
 
         public readonly void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)
