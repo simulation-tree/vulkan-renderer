@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Collections;
+using System;
 using System.Collections.Generic;
 using Unmanaged;
-using Unmanaged.Collections;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -11,7 +11,7 @@ namespace Vulkan
     {
         public readonly VkVersion version;
 
-        private readonly UnmanagedArray<char> name;
+        private readonly Array<char> name;
 
         public readonly bool IsDisposed => name.IsDisposed;
         public readonly USpan<char> Name => name.AsSpan();
@@ -49,7 +49,7 @@ namespace Vulkan
 
         public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, IEnumerable<FixedString>? extensions = null)
         {
-            using UnmanagedList<FixedString> extensionNames = new();
+            using Collections.List<FixedString> extensionNames = new();
             if (extensions != null)
             {
                 foreach (FixedString extension in extensions)
@@ -79,7 +79,7 @@ namespace Vulkan
         /// <summary>
         /// Retrieves a new list containing names of all available global layers.
         /// </summary>
-        public readonly UnmanagedArray<FixedString> GetGlobalLayers()
+        public readonly Array<FixedString> GetGlobalLayers()
         {
             uint count = 0;
             VkResult result = vkEnumerateInstanceLayerProperties(&count, null);
@@ -97,7 +97,7 @@ namespace Vulkan
                     throw new Exception($"Failed to enumerate instance layer properties: {result}");
                 }
 
-                UnmanagedArray<FixedString> availableInstanceLayers = new(count);
+                Array<FixedString> availableInstanceLayers = new(count);
                 for (uint i = 0; i < count; i++)
                 {
                     availableInstanceLayers[i] = new(properties[i].layerName);
@@ -114,7 +114,7 @@ namespace Vulkan
         /// <summary>
         /// Retrieves a new list containing names of all available global extensions.
         /// </summary>
-        public readonly UnmanagedArray<FixedString> GetGlobalExtensions()
+        public readonly Array<FixedString> GetGlobalExtensions()
         {
             uint count = 0;
             VkResult result = vkEnumerateInstanceExtensionProperties(&count, null);
@@ -132,7 +132,7 @@ namespace Vulkan
                     throw new Exception($"Failed to enumerate instance extension properties: {result}");
                 }
 
-                UnmanagedArray<FixedString> availableInstanceExtensions = new(count);
+                Array<FixedString> availableInstanceExtensions = new(count);
                 for (uint i = 0; i < count; i++)
                 {
                     availableInstanceExtensions[i] = new(extensionProperties[i].extensionName);

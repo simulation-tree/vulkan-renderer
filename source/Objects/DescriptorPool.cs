@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Collections;
+using System;
 using System.Diagnostics;
 using Unmanaged;
-using Unmanaged.Collections;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -109,7 +109,7 @@ namespace Vulkan
         /// <summary>
         /// Allocates as many new descriptor sets from the pool, as there are layouts given.
         /// </summary>
-        public readonly UnmanagedArray<DescriptorSet> Allocate(USpan<DescriptorSetLayout> layouts)
+        public readonly Array<DescriptorSet> Allocate(USpan<DescriptorSetLayout> layouts)
         {
             ThrowIfDisposed();
             VkDescriptorSetLayout* layoutPointers = stackalloc VkDescriptorSetLayout[(int)layouts.Length];
@@ -132,7 +132,7 @@ namespace Vulkan
                 throw new InvalidOperationException("Failed to allocate descriptor sets");
             }
 
-            UnmanagedArray<DescriptorSet> sets = new(layouts.Length);
+            Array<DescriptorSet> sets = new(layouts.Length);
             for (uint i = 0; i < layouts.Length; i++)
             {
                 sets[i] = new(this, descriptorSet[i]);

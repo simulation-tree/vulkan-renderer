@@ -1,6 +1,6 @@
-﻿using System;
+﻿using Collections;
+using System;
 using Unmanaged;
-using Unmanaged.Collections;
 using Vortice.Vulkan;
 using Vulkan;
 
@@ -14,9 +14,9 @@ namespace Rendering.Vulkan
         public readonly PipelineLayout pipelineLayout;
         public readonly DescriptorSetLayout setLayout;
 
-        private readonly UnmanagedArray<(VkDescriptorType, uint)> poolTypes;
-        private readonly UnmanagedArray<(byte, VkDescriptorType, VkShaderStageFlags)> bindings;
-        private readonly UnmanagedList<DescriptorPool> pools;
+        private readonly Array<(VkDescriptorType, uint)> poolTypes;
+        private readonly Array<(byte, VkDescriptorType, VkShaderStageFlags)> bindings;
+        private readonly List<DescriptorPool> pools;
 
         public readonly USpan<(byte, VkDescriptorType, VkShaderStageFlags)> Bindings => bindings.AsSpan();
 

@@ -1,4 +1,5 @@
-﻿using Data;
+﻿using Collections;
+using Data;
 using Meshes;
 using Meshes.Components;
 using Rendering.Components;
@@ -10,7 +11,6 @@ using System.Numerics;
 using Textures;
 using Textures.Components;
 using Unmanaged;
-using Unmanaged.Collections;
 using Vortice.Vulkan;
 using Vulkan;
 
@@ -23,26 +23,26 @@ namespace Rendering.Vulkan
         private readonly Destination destination;
         private readonly Instance instance;
         private readonly PhysicalDevice physicalDevice;
-        private readonly UnmanagedDictionary<uint, CompiledShader> shaders;
-        private readonly UnmanagedDictionary<uint, UnmanagedArray<CompiledPushConstant>> knownPushConstants;
-        private readonly UnmanagedDictionary<uint, CompiledRenderer> renderers;
-        private readonly UnmanagedDictionary<int, CompiledPipeline> pipelines;
-        private readonly UnmanagedDictionary<int, CompiledMesh> meshes;
-        private readonly UnmanagedDictionary<int, CompiledComponentBuffer> components;
-        private readonly UnmanagedDictionary<int, CompiledImage> images;
-        private readonly UnmanagedArray<CommandBuffer> commandBuffers;
-        private readonly UnmanagedArray<Fence> submitFences;
-        private readonly UnmanagedArray<Semaphore> pullSemaphores;
-        private readonly UnmanagedArray<Semaphore> pushSemaphores;
-        private readonly UnmanagedList<(uint, uint, uint)> previouslyRenderedGroups;
-        private readonly UnmanagedList<uint> previouslyRenderedEntities;
+        private readonly Dictionary<uint, CompiledShader> shaders;
+        private readonly Dictionary<uint, Array<CompiledPushConstant>> knownPushConstants;
+        private readonly Dictionary<uint, CompiledRenderer> renderers;
+        private readonly Dictionary<int, CompiledPipeline> pipelines;
+        private readonly Dictionary<int, CompiledMesh> meshes;
+        private readonly Dictionary<int, CompiledComponentBuffer> components;
+        private readonly Dictionary<int, CompiledImage> images;
+        private readonly Array<CommandBuffer> commandBuffers;
+        private readonly Array<Fence> submitFences;
+        private readonly Array<Semaphore> pullSemaphores;
+        private readonly Array<Semaphore> pushSemaphores;
+        private readonly List<(uint, uint, uint)> previouslyRenderedGroups;
+        private readonly List<uint> previouslyRenderedEntities;
 
         private readonly ComponentQuery<RendererScissor> scissorsQuery;
-        private readonly UnmanagedArray<Vector4> scissors;
+        private readonly Array<Vector4> scissors;
 
         private DateTime lastUnusuedCheck;
-        private UnmanagedArray<ImageView> surfaceImageViews;
-        private UnmanagedArray<Framebuffer> surfaceFramebuffers;
+        private Array<ImageView> surfaceImageViews;
+        private Array<Framebuffer> surfaceFramebuffers;
         private LogicalDevice logicalDevice;
         private Surface surface;
         private Swapchain swapchain;
@@ -152,7 +152,7 @@ namespace Rendering.Vulkan
         {
             foreach (uint materialEntity in knownPushConstants.Keys)
             {
-                UnmanagedArray<CompiledPushConstant> pushConstantArray = knownPushConstants[materialEntity];
+                Array<CompiledPushConstant> pushConstantArray = knownPushConstants[materialEntity];
                 pushConstantArray.Dispose();
             }
 
@@ -372,7 +372,7 @@ namespace Rendering.Vulkan
                 }
             }
 
-            using UnmanagedList<float> vertexData = new();
+            using List<float> vertexData = new();
             meshEntity.Assemble(vertexData, channels);
             uint indexCount = meshEntity.IndexCount;
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
@@ -497,7 +497,7 @@ namespace Rendering.Vulkan
             }
 
             //remember which bindings are push constants
-            if (!knownPushConstants.TryGetValue(materialEntity, out UnmanagedArray<CompiledPushConstant> pushConstantArray))
+            if (!knownPushConstants.TryGetValue(materialEntity, out Array<CompiledPushConstant> pushConstantArray))
             {
                 pushConstantArray = new();
                 knownPushConstants.Add(materialEntity, pushConstantArray);
@@ -826,7 +826,7 @@ namespace Rendering.Vulkan
             commandBuffer.BindVertexBuffer(compiledMesh.vertexBuffer);
             commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
 
-            bool hasPushConstants = knownPushConstants.TryGetValue(materialEntity, out UnmanagedArray<CompiledPushConstant> pushConstants);
+            bool hasPushConstants = knownPushConstants.TryGetValue(materialEntity, out Array<CompiledPushConstant> pushConstants);
             foreach (uint rendererEntity in renderEntities)
             {
                 //apply scissor

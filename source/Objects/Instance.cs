@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Collections;
+using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unmanaged;
-using Unmanaged.Collections;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -38,10 +37,10 @@ namespace Vulkan
 
         public readonly VkDebugUtilsMessengerEXT debugMessenger;
 
-        private readonly UnmanagedArray<PhysicalDevice> physicalDevices;
+        private readonly Array<PhysicalDevice> physicalDevices;
         private readonly VkInstance value;
-        private readonly UnmanagedArray<char> applicationName;
-        private readonly UnmanagedArray<char> engineName;
+        private readonly Array<char> applicationName;
+        private readonly Array<char> engineName;
         private bool valid;
 
         public readonly VkInstance Value
@@ -86,22 +85,22 @@ namespace Vulkan
 
         internal Instance(Library library, USpan<char> applicationName, USpan<char> engineName, USpan<FixedString> extensions)
         {
-            using UnmanagedList<FixedString> inputLayers = new();
-            using UnmanagedArray<FixedString> globalLayers = library.GetGlobalLayers();
+            using List<FixedString> inputLayers = new();
+            using Array<FixedString> globalLayers = library.GetGlobalLayers();
 
-            if (ContainsAll(globalLayers, preferredValidationLayers))
+            if (ContainsAll(globalLayers.AsSpan(), preferredValidationLayers))
             {
                 inputLayers.AddRange(preferredValidationLayers);
             }
-            else if (ContainsAll(globalLayers, fallbackValidationLayers))
+            else if (ContainsAll(globalLayers.AsSpan(), fallbackValidationLayers))
             {
                 inputLayers.AddRange(fallbackValidationLayers);
             }
-            else if (ContainsAll(globalLayers, fallbackIndividualLayers))
+            else if (ContainsAll(globalLayers.AsSpan(), fallbackIndividualLayers))
             {
                 inputLayers.AddRange(fallbackIndividualLayers);
             }
-            else if (ContainsAll(globalLayers, fallbackFallbackLayers))
+            else if (ContainsAll(globalLayers.AsSpan(), fallbackFallbackLayers))
             {
                 inputLayers.AddRange(fallbackFallbackLayers);
             }
@@ -109,7 +108,7 @@ namespace Vulkan
             {
                 if (globalLayers.Length > 0)
                 {
-                    using UnmanagedList<char> remaining = UnmanagedList<char>.Create();
+                    using List<char> remaining = new();
                     USpan<char> buffer = stackalloc char[(int)FixedString.MaxLength];
                     foreach (FixedString layer in globalLayers)
                     {
@@ -129,7 +128,7 @@ namespace Vulkan
                 }
             }
 
-            static bool ContainsAll(IReadOnlyList<FixedString> a, IReadOnlyList<FixedString> b)
+            static bool ContainsAll(USpan<FixedString> a, USpan<FixedString> b)
             {
                 foreach (FixedString layer in b)
                 {
@@ -152,8 +151,8 @@ namespace Vulkan
                 return true;
             }
 
-            using UnmanagedArray<FixedString> globalExtensions = library.GetGlobalExtensions();
-            using UnmanagedList<FixedString> inputExtensions = new(extensions);
+            using Array<FixedString> globalExtensions = library.GetGlobalExtensions();
+            using List<FixedString> inputExtensions = new(extensions);
             foreach (FixedString extensionName in globalExtensions)
             {
                 if (extensionName == new FixedString(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
@@ -185,8 +184,8 @@ namespace Vulkan
             appInfo.engineVersion = VkVersion.Version_1_0;
             appInfo.apiVersion = VkVersion.Version_1_3;
 
-            using UnmanagedList<VkUtf8String> vkInstanceLayers = new(inputLayers.Count);
-            using UnmanagedList<nint> tempAllocations = new();
+            using List<VkUtf8String> vkInstanceLayers = new(inputLayers.Count);
+            using List<nint> tempAllocations = new();
             USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.MaxLength];
             foreach (FixedString instanceLayer in inputLayers)
             {
@@ -198,7 +197,7 @@ namespace Vulkan
                 nameBuffer.Clear();
             }
 
-            using UnmanagedList<VkUtf8String> vkInstanceExtensions = new(inputExtensions.Count);
+            using List<VkUtf8String> vkInstanceExtensions = new(inputExtensions.Count);
             foreach (FixedString instanceExtension in inputExtensions)
             {
                 uint length = instanceExtension.CopyTo(nameBuffer) + 1;

@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Collections;
+using System;
 using System.Diagnostics;
 using Unmanaged;
-using Unmanaged.Collections;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -50,7 +50,7 @@ namespace Vulkan
             VkPhysicalDeviceFeatures features = new();
             features.samplerAnisotropy = true;
 
-            using UnmanagedArray<VkUtf8String> vkDeviceExtensions = new(deviceExtensions.Length);
+            using Array<VkUtf8String> vkDeviceExtensions = new(deviceExtensions.Length);
             USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.MaxLength];
             for (uint i = 0; i < deviceExtensions.Length; i++)
             {

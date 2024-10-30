@@ -1,7 +1,7 @@
-﻿using Shaders;
+﻿using Collections;
+using Shaders;
 using System;
 using Unmanaged;
-using Unmanaged.Collections;
 using Vulkan;
 
 namespace Rendering.Vulkan
@@ -16,7 +16,7 @@ namespace Rendering.Vulkan
         public readonly VertexBuffer vertexBuffer;
         public readonly IndexBuffer indexBuffer;
 
-        private readonly UnmanagedArray<ShaderVertexInputAttribute> attributeLayout;
+        private readonly Array<ShaderVertexInputAttribute> attributeLayout;
 
         public readonly USpan<ShaderVertexInputAttribute> VertexAttributes => attributeLayout.AsSpan();
         public readonly bool IsDisposed => attributeLayout.IsDisposed;
