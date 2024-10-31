@@ -1112,7 +1112,7 @@ namespace Rendering.Vulkan
         private static bool TryDeduceMeshChannel(ShaderVertexInputAttribute attribute, out Mesh.Channel channel)
         {
             //get lowercase version
-            USpan<char> nameBuffer = stackalloc char[(int)FixedString.MaxLength]; //<- only int allowed so cringe
+            USpan<char> nameBuffer = stackalloc char[(int)FixedString.Capacity]; //<- only int allowed so cringe
             uint length = attribute.name.CopyTo(nameBuffer);
             for (uint i = 0; i < length; i++)
             {

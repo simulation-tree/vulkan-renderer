@@ -51,7 +51,7 @@ namespace Vulkan
             features.samplerAnisotropy = true;
 
             using Array<VkUtf8String> vkDeviceExtensions = new(deviceExtensions.Length);
-            USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.MaxLength];
+            USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.Capacity];
             for (uint i = 0; i < deviceExtensions.Length; i++)
             {
                 FixedString extension = deviceExtensions[i];

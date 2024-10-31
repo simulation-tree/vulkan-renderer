@@ -109,7 +109,7 @@ namespace Vulkan
                 if (globalLayers.Length > 0)
                 {
                     using List<char> remaining = new();
-                    USpan<char> buffer = stackalloc char[(int)FixedString.MaxLength];
+                    USpan<char> buffer = stackalloc char[(int)FixedString.Capacity];
                     foreach (FixedString layer in globalLayers)
                     {
                         uint length = layer.CopyTo(buffer);
@@ -186,7 +186,7 @@ namespace Vulkan
 
             using List<VkUtf8String> vkInstanceLayers = new(inputLayers.Count);
             using List<nint> tempAllocations = new();
-            USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.MaxLength];
+            USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.Capacity];
             foreach (FixedString instanceLayer in inputLayers)
             {
                 uint length = instanceLayer.CopyTo(nameBuffer) + 1;
