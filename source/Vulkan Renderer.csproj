@@ -23,7 +23,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Vortice.Vulkan" Version="1.9.5" />
+		<PackageReference Include="Vortice.Vulkan" Version="1.9.9" />
 	</ItemGroup>
 
 	<ItemGroup>
