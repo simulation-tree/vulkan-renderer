@@ -1,5 +1,4 @@
-﻿using Rendering.Components;
-using System;
+﻿using System;
 using Vulkan;
 
 namespace Rendering.Vulkan

@@ -441,7 +441,7 @@ namespace Rendering.Vulkan
                 foreach (MaterialComponentBinding uniformBinding in uniformBindings)
                 {
                     VkShaderStageFlags shaderStage = GetShaderStage(uniformBinding.stage);
-                    if (uniformBinding.key == uniformProperty.key)
+                    if (uniformBinding.key == new DescriptorResourceKey(uniformProperty.binding, uniformProperty.set))
                     {
                         containsBinding = true;
                         VkDescriptorType descriptorType = VkDescriptorType.UniformBuffer;
@@ -452,7 +452,7 @@ namespace Rendering.Vulkan
 
                 if (!containsBinding)
                 {
-                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialComponentBinding).Name}` to bind a component to property at `{uniformProperty.label}`({uniformProperty.key.Binding})");
+                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialComponentBinding).Name}` to bind a component to property at `{uniformProperty.label}`({uniformProperty.binding})");
                 }
             }
 
@@ -461,7 +461,7 @@ namespace Rendering.Vulkan
                 bool containsBinding = false;
                 foreach (MaterialTextureBinding textureBinding in textureBindings)
                 {
-                    if (textureBinding.key == samplerProperty.key)
+                    if (textureBinding.key == new DescriptorResourceKey(samplerProperty.binding, samplerProperty.set))
                     {
                         containsBinding = true;
                         VkDescriptorType descriptorType = VkDescriptorType.CombinedImageSampler;
@@ -473,7 +473,7 @@ namespace Rendering.Vulkan
 
                 if (!containsBinding)
                 {
-                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialTextureBinding).Name}` to bind a texture to property at `{samplerProperty.name}`({samplerProperty.key.Binding})");
+                    throw new InvalidOperationException($"Material `{materialEntity}` is missing a `{typeof(MaterialTextureBinding).Name}` to bind a texture to property at `{samplerProperty.name}`({samplerProperty.binding})");
                 }
             }
 
@@ -675,7 +675,7 @@ namespace Rendering.Vulkan
             }
         }
 
-        public bool BeginRender(Color clearColor)
+        public bool BeginRender(Vector4 clearColor)
         {
             World world = destination.entity.world;
             Fence submitFence = submitFences[frameIndex];
@@ -702,7 +702,7 @@ namespace Rendering.Vulkan
 
             Framebuffer framebuffer = surfaceFramebuffers[imageIndex];
             Vector4 area = new(0, 0, framebuffer.width, framebuffer.height);
-            commandBuffer.BeginRenderPass(renderPass, framebuffer, area, clearColor.AsVector4());
+            commandBuffer.BeginRenderPass(renderPass, framebuffer, area, clearColor);
 
             Vector4 viewport = new(0, framebuffer.height, framebuffer.width, -framebuffer.height);
             commandBuffer.SetViewport(viewport);
@@ -1163,14 +1163,14 @@ namespace Rendering.Vulkan
             return false;
         }
 
-        private static VkShaderStageFlags GetShaderStage(ShaderStage shaderStage)
+        private static VkShaderStageFlags GetShaderStage(RenderStage shaderStage)
         {
             return shaderStage switch
             {
-                ShaderStage.Vertex => VkShaderStageFlags.Vertex,
-                ShaderStage.Fragment => VkShaderStageFlags.Fragment,
-                ShaderStage.Geometry => VkShaderStageFlags.Geometry,
-                ShaderStage.Compute => VkShaderStageFlags.Compute,
+                RenderStage.Vertex => VkShaderStageFlags.Vertex,
+                RenderStage.Fragment => VkShaderStageFlags.Fragment,
+                RenderStage.Geometry => VkShaderStageFlags.Geometry,
+                RenderStage.Compute => VkShaderStageFlags.Compute,
                 _ => throw new ArgumentOutOfRangeException(nameof(shaderStage), shaderStage, null),
             };
         }

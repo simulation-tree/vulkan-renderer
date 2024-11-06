@@ -1,5 +1,5 @@
-﻿using Data;
-using Rendering.Functions;
+﻿using Rendering.Functions;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Unmanaged;
 using Vulkan;
@@ -38,7 +38,7 @@ namespace Rendering.Vulkan
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static uint BeginRender(Allocation system, Color clearColor)
+        private unsafe static uint BeginRender(Allocation system, Vector4 clearColor)
         {
             ref VulkanRendererSystem renderer = ref system.Read<VulkanRendererSystem>();
             return renderer.BeginRender(clearColor) ? (uint)0 : 1;

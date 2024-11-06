@@ -1,14 +1,13 @@
-﻿using Shaders;
-using Unmanaged;
+﻿using Unmanaged;
 
 namespace Rendering.Vulkan
 {
     public readonly struct CompiledPushConstant
     {
         public readonly RuntimeType componentType;
-        public readonly ShaderStage stage;
+        public readonly RenderStage stage;
 
-        public CompiledPushConstant(RuntimeType componentType, ShaderStage stage)
+        public CompiledPushConstant(RuntimeType componentType, RenderStage stage)
         {
             this.componentType = componentType;
             this.stage = stage;
