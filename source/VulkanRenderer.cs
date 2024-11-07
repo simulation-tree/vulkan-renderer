@@ -12,7 +12,7 @@ namespace Rendering.Vulkan
 
         readonly FixedString IRenderer.Label => "vulkan";
         readonly CreateFunction IRenderer.Create => new(&Create);
-        readonly DisposeFunction IRenderer.Dispose => new(&Dispose);
+        readonly DisposeFunction IRenderer.Dispose => new(&CleanUp);
         readonly FinishFunction IRenderer.Finish => new(&Finish);
         readonly SurfaceCreatedFunction IRenderer.SurfaceCreated => new(&SurfaceCreated);
         readonly BeginRenderFunction IRenderer.BeginRender => new(&BeginRender);
@@ -30,7 +30,7 @@ namespace Rendering.Vulkan
         }
 
         [UnmanagedCallersOnly]
-        private unsafe static void Dispose(Allocation system)
+        private unsafe static void CleanUp(Allocation system)
         {
             ref VulkanRendererSystem renderer = ref system.Read<VulkanRendererSystem>();
             renderer.Dispose();
