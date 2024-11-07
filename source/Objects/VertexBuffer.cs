@@ -12,7 +12,7 @@ namespace Vulkan
 
         public VertexBuffer(Queue graphicsQueue, CommandPool commandPool, USpan<float> data)
         {
-            uint byteCount = (uint)(data.Length * sizeof(float));
+            uint byteCount = data.Length * sizeof(float);
             VkPhysicalDeviceLimits limits = graphicsQueue.logicalDevice.physicalDevice.GetLimits();
             byteCount = (uint)(Math.Ceiling(byteCount / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
             using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);

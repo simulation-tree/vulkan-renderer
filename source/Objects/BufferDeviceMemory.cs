@@ -38,7 +38,7 @@ namespace Vulkan
         {
             nint pointer = Map();
             uint size = buffer.size;
-            uint elementSize = USpan<T>.ElementSize;
+            uint elementSize = TypeInfo<T>.size;
             return new USpan<T>((void*)pointer, size / elementSize);
         }
 
@@ -71,7 +71,7 @@ namespace Vulkan
         {
             nint pointer = Map();
             uint size = buffer.size;
-            uint elementSize = USpan<T>.ElementSize;
+            uint elementSize = TypeInfo<T>.size;
             USpan<T> span = new((void*)pointer, size / elementSize);
             data.CopyTo(span);
             Unmap();
