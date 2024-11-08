@@ -7,6 +7,7 @@ using Shaders;
 using Shaders.Components;
 using Simulation;
 using System;
+using System.Diagnostics;
 using System.Numerics;
 using Textures;
 using Textures.Components;
@@ -71,7 +72,7 @@ namespace Rendering.Vulkan
             if (TryGetBestPhysicalDevice(instance.PhysicalDevices, ["VK_KHR_swapchain"], out uint index))
             {
                 physicalDevice = instance.PhysicalDevices[index];
-                Console.WriteLine($"Vulkan instance created for `{destination}`");
+                Debug.WriteLine($"Vulkan instance created for `{destination}`");
             }
             else
             {
@@ -134,7 +135,7 @@ namespace Rendering.Vulkan
             }
 
             instance.Dispose();
-            Console.WriteLine($"Vulkan instance finished for `{destination}`");
+            Debug.WriteLine($"Vulkan instance finished for `{destination}`");
         }
 
         private readonly void DisposeRenderers()
