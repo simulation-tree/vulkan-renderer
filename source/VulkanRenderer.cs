@@ -17,7 +17,7 @@ namespace Rendering.Vulkan
         readonly SurfaceCreatedFunction IRenderer.SurfaceCreated => new(&SurfaceCreated);
         readonly BeginRenderFunction IRenderer.BeginRender => new(&BeginRender);
         readonly RenderFunction IRenderer.Render => new(&Render);
-        readonly SystemFunction IRenderer.EndRender => new(&EndRender);
+        readonly EndRenderFunction IRenderer.EndRender => new(&EndRender);
 
         [UnmanagedCallersOnly]
         private unsafe static CreateResult Create(Destination destination, FixedString* names, uint nameCount)
