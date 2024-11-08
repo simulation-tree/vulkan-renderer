@@ -72,7 +72,7 @@ namespace Rendering.Vulkan
             if (TryGetBestPhysicalDevice(instance.PhysicalDevices, ["VK_KHR_swapchain"], out uint index))
             {
                 physicalDevice = instance.PhysicalDevices[index];
-                Debug.WriteLine($"Vulkan instance created for `{destination}`");
+                Trace.WriteLine($"Vulkan instance created for `{destination}`");
             }
             else
             {
@@ -135,7 +135,7 @@ namespace Rendering.Vulkan
             }
 
             instance.Dispose();
-            Debug.WriteLine($"Vulkan instance finished for `{destination}`");
+            Trace.WriteLine($"Vulkan instance finished for `{destination}`");
         }
 
         private readonly void DisposeRenderers()

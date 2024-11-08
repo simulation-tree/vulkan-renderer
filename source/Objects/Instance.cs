@@ -120,11 +120,11 @@ namespace Vulkan
 
                     remaining.RemoveAt(remaining.Count - 1);
                     remaining.RemoveAt(remaining.Count - 1);
-                    Debug.WriteLine("No suitable validation layers found, there were instead:\n" + remaining);
+                    Trace.WriteLine("No suitable validation layers found, there were instead:\n" + remaining);
                 }
                 else
                 {
-                    Debug.WriteLine("No global layers found");
+                    Trace.WriteLine("No global layers found");
                 }
             }
 
@@ -342,11 +342,11 @@ namespace Vulkan
 
             if (messageTypes == VkDebugUtilsMessageTypeFlagsEXT.Validation)
             {
-                Debug.WriteLine($"[Vulkan]: Validation: {messageSeverity} - {str}");
+                Trace.WriteLine($"[Vulkan]: Validation: {messageSeverity} - {str}");
             }
             else
             {
-                Debug.WriteLine($"[Vulkan]: {messageSeverity} - {str}");
+                Trace.WriteLine($"[Vulkan]: {messageSeverity} - {str}");
             }
 
             return VK_FALSE;
