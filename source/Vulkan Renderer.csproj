@@ -28,6 +28,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\rendering\source\Rendering.csproj" />
+		<ProjectReference Include="..\..\textures\source\Textures.csproj" />
 	</ItemGroup>
 
 </Project>
