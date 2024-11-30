@@ -13,7 +13,7 @@ namespace Rendering.Vulkan
         readonly FixedString IRenderer.Label => "vulkan";
         readonly CreateFunction IRenderer.Create => new(&Create);
         readonly DisposeFunction IRenderer.Dispose => new(&CleanUp);
-        readonly FinishFunction IRenderer.Finish => new(&Finish);
+        readonly FinishRenderer IRenderer.Finish => new(&Finish);
         readonly SurfaceCreatedFunction IRenderer.SurfaceCreated => new(&SurfaceCreated);
         readonly BeginRenderFunction IRenderer.BeginRender => new(&BeginRender);
         readonly RenderFunction IRenderer.Render => new(&Render);
