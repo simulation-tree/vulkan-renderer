@@ -37,8 +37,6 @@ namespace Rendering.Vulkan
         private readonly Array<Semaphore> pushSemaphores;
         private readonly List<(uint, uint, uint)> previouslyRenderedGroups;
         private readonly List<uint> previouslyRenderedEntities;
-
-        private readonly ComponentQuery<RendererScissor> scissorsQuery;
         private readonly Array<Vector4> scissors;
 
         private DateTime lastUnusuedCheck;
@@ -92,15 +90,12 @@ namespace Rendering.Vulkan
             previouslyRenderedEntities = new();
             meshes = new();
             components = new();
-
-            scissorsQuery = new();
             scissors = new();
         }
 
         public readonly void Dispose()
         {
             scissors.Dispose();
-            scissorsQuery.Dispose();
 
             if (surface != default)
             {
@@ -501,7 +496,7 @@ namespace Rendering.Vulkan
             if (!knownPushConstants.TryGetValue(materialEntity, out Array<CompiledPushConstant> pushConstantArray))
             {
                 pushConstantArray = new();
-                knownPushConstants.TryAdd(materialEntity, pushConstantArray);
+                knownPushConstants.Add(materialEntity, pushConstantArray);
             }
 
             if (pushBindings.Length > 0)
@@ -542,7 +537,7 @@ namespace Rendering.Vulkan
                     VkMemoryPropertyFlags flags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
                     BufferDeviceMemory buffer = new(logicalDevice, bufferSize, usage, flags);
                     componentBuffer = new(materialEntity, binding.entity, componentType, buffer);
-                    components.TryAdd(componentHash, componentBuffer);
+                    components.Add(componentHash, componentBuffer);
                 }
             }
 
@@ -565,7 +560,7 @@ namespace Rendering.Vulkan
                 {
                     uint textureVersion = world.GetComponent<IsTexture>(textureEntity).version;
                     compiledImage = CompileImage(materialEntity, textureVersion, binding);
-                    images.TryAdd(textureHash, compiledImage);
+                    images.Add(textureHash, compiledImage);
                 }
             }
 
@@ -713,15 +708,21 @@ namespace Rendering.Vulkan
 
             UpdateComponentBuffers(world);
             UpdateTextureBuffers(world);
-            scissorsQuery.Update(world);
+
             scissors.Length = world.MaxEntityValue + 1;
             scissors.Fill(new Vector4(0, 0, framebuffer.width, framebuffer.height));
-            foreach (var s in scissorsQuery)
-            {
-                scissors[s.entity] = s.Component1.region;
-            }
-
+            ReadScissorValues(world);
             return true;
+        }
+
+        private readonly void ReadScissorValues(World world)
+        {
+            ComponentQuery<RendererScissor> query = new(world);
+            foreach (var r in query)
+            {
+                ref RendererScissor scissor = ref r.component1;
+                scissors[r.entity] = scissor.region;
+            }
         }
 
         public readonly void Render(USpan<uint> renderEntities, uint materialEntity, uint shaderEntity, uint meshEntity)
@@ -733,7 +734,7 @@ namespace Rendering.Vulkan
             if (!shaders.TryGetValue(shaderEntity, out CompiledShader compiledShader))
             {
                 compiledShader = CompileShader(world, shaderEntity);
-                shaders.TryAdd(shaderEntity, compiledShader);
+                shaders.Add(shaderEntity, compiledShader);
             }
 
             bool shaderChanged = compiledShader.version != shaderComponent.version;
@@ -751,7 +752,7 @@ namespace Rendering.Vulkan
             if (!meshes.TryGetValue(groupHash, out CompiledMesh compiledMesh))
             {
                 compiledMesh = CompileMesh(world, shaderEntity, meshEntity);
-                meshes.TryAdd(groupHash, compiledMesh);
+                meshes.Add(groupHash, compiledMesh);
             }
 
             bool meshChanged = compiledMesh.version != meshVersion;
@@ -767,7 +768,7 @@ namespace Rendering.Vulkan
             if (!pipelines.TryGetValue(groupHash, out CompiledPipeline compiledPipeline))
             {
                 compiledPipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
-                pipelines.TryAdd(groupHash, compiledPipeline);
+                pipelines.Add(groupHash, compiledPipeline);
             }
 
             //update images of bindings that change
@@ -816,7 +817,7 @@ namespace Rendering.Vulkan
                 {
                     DescriptorSet descriptorSet = compiledPipeline.Allocate();
                     CompiledRenderer renderer = new(descriptorSet);
-                    renderers.TryAdd(entity, renderer);
+                    renderers.Add(entity, renderer);
                     UpdateDescriptorSet(materialEntity, renderer.descriptorSet, compiledPipeline);
                 }
             }
