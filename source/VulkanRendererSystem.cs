@@ -27,8 +27,8 @@ namespace Rendering.Vulkan
         private readonly Dictionary<uint, CompiledShader> shaders;
         private readonly Dictionary<uint, Array<CompiledPushConstant>> knownPushConstants;
         private readonly Dictionary<uint, CompiledRenderer> renderers;
-        private readonly Dictionary<int, CompiledPipeline> pipelines;
-        private readonly Dictionary<int, CompiledMesh> meshes;
+        private readonly Dictionary<RendererKey, CompiledPipeline> pipelines;
+        private readonly Dictionary<RendererKey, CompiledMesh> meshes;
         private readonly Dictionary<int, CompiledComponentBuffer> components;
         private readonly Dictionary<int, CompiledImage> images;
         private readonly Array<CommandBuffer> commandBuffers;
@@ -157,7 +157,7 @@ namespace Rendering.Vulkan
 
         private readonly void DisposePipelines()
         {
-            foreach (int hash in pipelines.Keys)
+            foreach (RendererKey hash in pipelines.Keys)
             {
                 ref CompiledPipeline pipeline = ref pipelines[hash];
                 pipeline.Dispose();
@@ -201,9 +201,9 @@ namespace Rendering.Vulkan
 
         private readonly void DisposeMeshes()
         {
-            foreach (int groupHash in meshes.Keys)
+            foreach (RendererKey key in meshes.Keys)
             {
-                ref CompiledMesh compiledMesh = ref meshes[groupHash];
+                ref CompiledMesh compiledMesh = ref meshes[key];
                 compiledMesh.Dispose();
             }
 
@@ -565,7 +565,6 @@ namespace Rendering.Vulkan
                 }
             }
 
-            Trace.WriteLine($"Compiled pipeline for material `{materialEntity}` with shader `{shaderEntity}`");
             return new(pipeline, pipelineLayout, poolTypes.Slice(0, poolCount), setLayout, setLayoutBindings.Slice(0, bindingCount));
         }
 
@@ -746,12 +745,13 @@ namespace Rendering.Vulkan
             }
 
             //make sure a processed mesh exists for this combination of shader entity and mesh entity, also rebuild it when it changes
-            int groupHash = GetGroupHash(materialEntity, meshEntity);
+            RendererKey key = new(materialEntity, meshEntity);
             uint meshVersion = world.GetComponent<IsMesh>(meshEntity).version;
-            if (!meshes.TryGetValue(groupHash, out CompiledMesh compiledMesh))
+            ref CompiledMesh compiledMesh = ref meshes.TryGetValue(key, out bool containsMesh);
+            if (!containsMesh)
             {
-                compiledMesh = CompileMesh(world, shaderEntity, meshEntity);
-                meshes.Add(groupHash, compiledMesh);
+                CompiledMesh newCompiledMesh = CompileMesh(world, shaderEntity, meshEntity);
+                compiledMesh = ref meshes.Add(key, newCompiledMesh);
             }
 
             bool meshChanged = compiledMesh.version != meshVersion;
@@ -760,14 +760,15 @@ namespace Rendering.Vulkan
                 logicalDevice.Wait();
                 compiledMesh.Dispose();
                 compiledMesh = CompileMesh(world, shaderEntity, meshEntity);
-                meshes[groupHash] = compiledMesh;
             }
 
             //make sure a pipeline exists, the same way a compiled mesh is
-            if (!pipelines.TryGetValue(groupHash, out CompiledPipeline compiledPipeline))
+            ref CompiledPipeline compiledPipeline = ref pipelines.TryGetValue(key, out bool containsPipeline);
+            if (!containsPipeline)
             {
-                compiledPipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
-                pipelines.Add(groupHash, compiledPipeline);
+                Trace.WriteLine($"Creating pipeline for material `{materialEntity}` with shader `{shaderEntity}` and mesh `{meshEntity}` for the first time");
+                CompiledPipeline newCompiledPipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
+                compiledPipeline = ref pipelines.Add(key, newCompiledPipeline);
             }
 
             //update images of bindings that change
@@ -804,9 +805,9 @@ namespace Rendering.Vulkan
                     }
                 }
 
+                Trace.WriteLine($"Rebuilding pipeline for material `{materialEntity}` with shader `{shaderEntity}` and mesh `{meshEntity}`");
                 compiledPipeline.Dispose();
                 compiledPipeline = CompilePipeline(materialEntity, shaderEntity, world, compiledShader, compiledMesh);
-                pipelines[groupHash] = compiledPipeline;
             }
 
             //update descriptor sets if needed
@@ -948,13 +949,12 @@ namespace Rendering.Vulkan
             }
 
             //dispose unused meshes
-            foreach (int groupHash in meshes.Keys)
+            foreach (RendererKey key in meshes.Keys)
             {
                 bool used = false;
                 foreach ((uint materialEntity, uint shaderEntity, uint meshEntity) in previouslyRenderedGroups)
                 {
-                    int usedGroupHash = GetGroupHash(materialEntity, meshEntity);
-                    if (usedGroupHash == groupHash)
+                    if (new RendererKey(materialEntity, meshEntity) == key)
                     {
                         used = true;
                         break;
@@ -964,19 +964,18 @@ namespace Rendering.Vulkan
                 if (!used)
                 {
                     logicalDevice.Wait();
-                    CompiledMesh mesh = meshes.Remove(groupHash);
+                    CompiledMesh mesh = meshes.Remove(key);
                     mesh.Dispose();
                 }
             }
 
             //dispose unused pipelines
-            foreach (int groupHash in pipelines.Keys)
+            foreach (RendererKey key in pipelines.Keys)
             {
                 bool used = false;
                 foreach ((uint materialEntity, uint shaderEntity, uint meshEntity) in previouslyRenderedGroups)
                 {
-                    int usedGroupHash = GetGroupHash(materialEntity, meshEntity);
-                    if (usedGroupHash == groupHash)
+                    if (new RendererKey(materialEntity, meshEntity) == key)
                     {
                         used = true;
                         break;
@@ -986,7 +985,7 @@ namespace Rendering.Vulkan
                 if (!used)
                 {
                     logicalDevice.Wait();
-                    CompiledPipeline pipeline = pipelines.Remove(groupHash);
+                    CompiledPipeline pipeline = pipelines.Remove(key);
                     pipeline.Dispose();
                 }
             }
@@ -1021,11 +1020,6 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Unsupported descriptor type `{type}`");
                 }
             }
-        }
-
-        private static int GetGroupHash(uint materialEntity, uint meshEntity)
-        {
-            return HashCode.Combine(materialEntity, meshEntity);
         }
 
         private static int GetTextureHash(uint materialEntity, MaterialTextureBinding binding)

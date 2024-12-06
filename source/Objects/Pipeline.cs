@@ -73,27 +73,40 @@ namespace Vulkan
             VkPipelineViewportStateCreateInfo viewportState = new(1, 1);
             VkPipelineRasterizationStateCreateInfo rasterizationState = VkPipelineRasterizationStateCreateInfo.CullClockwise;
             VkPipelineMultisampleStateCreateInfo multisampleState = VkPipelineMultisampleStateCreateInfo.Default;
+
             VkPipelineDepthStencilStateCreateInfo depthStencilState = default;
             depthStencilState.sType = VkStructureType.PipelineDepthStencilStateCreateInfo;
             depthStencilState.depthTestEnable = true;
             depthStencilState.depthWriteEnable = true;
-            depthStencilState.depthCompareOp = VkCompareOp.LessOrEqual;
+            depthStencilState.depthCompareOp = VkCompareOp.Less;
             depthStencilState.depthBoundsTestEnable = false;
             depthStencilState.stencilTestEnable = false;
             depthStencilState.minDepthBounds = 0f;
             depthStencilState.maxDepthBounds = 1f;
 
+            bool supportsAlpha = true;
             VkPipelineColorBlendAttachmentState blendAttachmentState = default;
-            blendAttachmentState.blendEnable = true;
-            blendAttachmentState.srcColorBlendFactor = VkBlendFactor.SrcAlpha;
-            blendAttachmentState.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-            blendAttachmentState.colorBlendOp = VkBlendOp.Add;
-            blendAttachmentState.srcAlphaBlendFactor = VkBlendFactor.One;
-            blendAttachmentState.dstAlphaBlendFactor = VkBlendFactor.Zero;
-            blendAttachmentState.alphaBlendOp = VkBlendOp.Add;
+            blendAttachmentState.blendEnable = supportsAlpha;
+            if (supportsAlpha)
+            {
+                blendAttachmentState.srcColorBlendFactor = VkBlendFactor.SrcAlpha;
+                blendAttachmentState.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
+                blendAttachmentState.colorBlendOp = VkBlendOp.Add;
+                blendAttachmentState.srcAlphaBlendFactor = VkBlendFactor.One;
+                blendAttachmentState.dstAlphaBlendFactor = VkBlendFactor.Zero;
+                blendAttachmentState.alphaBlendOp = VkBlendOp.Add;
+            }
+
             blendAttachmentState.colorWriteMask = VkColorComponentFlags.R | VkColorComponentFlags.G | VkColorComponentFlags.B | VkColorComponentFlags.A;
 
-            VkPipelineColorBlendStateCreateInfo colorBlendState = new(blendAttachmentState);
+            VkPipelineColorBlendStateCreateInfo colorBlending = new(blendAttachmentState);
+            colorBlending.logicOpEnable = false;
+            colorBlending.logicOp = VkLogicOp.Copy;
+            colorBlending.blendConstants[0] = 0f;
+            colorBlending.blendConstants[1] = 0f;
+            colorBlending.blendConstants[2] = 0f;
+            colorBlending.blendConstants[3] = 0f;
+
             VkDynamicState* dynamicStateEnables = stackalloc VkDynamicState[2];
             dynamicStateEnables[0] = VkDynamicState.Viewport;
             dynamicStateEnables[1] = VkDynamicState.Scissor;
@@ -115,7 +128,7 @@ namespace Vulkan
                 pRasterizationState = &rasterizationState,
                 pMultisampleState = &multisampleState,
                 pDepthStencilState = &depthStencilState,
-                pColorBlendState = &colorBlendState,
+                pColorBlendState = &colorBlending,
                 pDynamicState = &dynamicState,
                 layout = layout.Value,
                 renderPass = input.renderPass.Value
