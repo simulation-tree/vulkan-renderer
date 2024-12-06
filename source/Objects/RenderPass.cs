@@ -46,14 +46,14 @@ namespace Vulkan
                 attachmentsPointer[i] = new(format, samples, load, store, stencilLoad, stencilStore, initialLayout, finalLayout, flags);
             }
 
-            VkAttachmentReference attachmentReference = new(0, VkImageLayout.ColorAttachmentOptimal);
-            VkAttachmentReference depthReference = new(1, VkImageLayout.DepthStencilAttachmentOptimal);
+            VkAttachmentReference colorAttachment = new(0, VkImageLayout.ColorAttachmentOptimal);
+            VkAttachmentReference depthAttachment = new(1, VkImageLayout.DepthStencilAttachmentOptimal);
             VkSubpassDescription subPass = new()
             {
                 pipelineBindPoint = VkPipelineBindPoint.Graphics,
                 colorAttachmentCount = 1,
-                pColorAttachments = &attachmentReference,
-                pDepthStencilAttachment = &depthReference
+                pColorAttachments = &colorAttachment,
+                pDepthStencilAttachment = &depthAttachment
             };
 
             USpan<VkSubpassDependency> dependencies =

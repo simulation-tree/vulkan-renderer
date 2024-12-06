@@ -120,12 +120,12 @@ namespace Vulkan
             vkCmdSetScissor(value, 0, 1, &rectValue);
         }
 
-        public readonly void TransitionImageLayout(Image image, VkImageLayout currentLayout, VkImageLayout newLayout, VkImageAspectFlags aspects = VkImageAspectFlags.Color)
+        public readonly void TransitionImageLayout(Image image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageAspectFlags aspects = VkImageAspectFlags.Color)
         {
             ThrowIfDisposed();
             VkImageMemoryBarrier barrier = new()
             {
-                oldLayout = currentLayout,
+                oldLayout = oldLayout,
                 newLayout = newLayout,
                 srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -136,33 +136,37 @@ namespace Vulkan
             VkPipelineStageFlags sourceStage;
             VkPipelineStageFlags destinationStage;
 
-            if (currentLayout == VkImageLayout.Undefined && newLayout == VkImageLayout.TransferDstOptimal)
+            if (oldLayout == VkImageLayout.Undefined)
             {
-                barrier.srcAccessMask = 0;
-                barrier.dstAccessMask = VkAccessFlags.TransferWrite;
-
-                sourceStage = VkPipelineStageFlags.TopOfPipe;
-                destinationStage = VkPipelineStageFlags.Transfer;
+                if (newLayout == VkImageLayout.TransferDstOptimal)
+                {
+                    barrier.srcAccessMask = 0;
+                    barrier.dstAccessMask = VkAccessFlags.TransferWrite;
+                    sourceStage = VkPipelineStageFlags.TopOfPipe;
+                    destinationStage = VkPipelineStageFlags.Transfer;
+                }
+                else if (newLayout == VkImageLayout.DepthStencilAttachmentOptimal)
+                {
+                    barrier.srcAccessMask = 0;
+                    barrier.dstAccessMask = VkAccessFlags.DepthStencilAttachmentWrite;
+                    sourceStage = VkPipelineStageFlags.TopOfPipe;
+                    destinationStage = VkPipelineStageFlags.EarlyFragmentTests;
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Unsupported layout transition {oldLayout} -> {newLayout}");
+                }
             }
-            else if (currentLayout == VkImageLayout.Undefined && newLayout == VkImageLayout.DepthStencilAttachmentOptimal)
-            {
-                barrier.srcAccessMask = 0;
-                barrier.dstAccessMask = VkAccessFlags.DepthStencilAttachmentRead | VkAccessFlags.DepthStencilAttachmentWrite;
-
-                sourceStage = VkPipelineStageFlags.TopOfPipe;
-                destinationStage = VkPipelineStageFlags.EarlyFragmentTests;
-            }
-            else if (currentLayout == VkImageLayout.TransferDstOptimal && newLayout == VkImageLayout.ShaderReadOnlyOptimal)
+            else if (oldLayout == VkImageLayout.TransferDstOptimal && newLayout == VkImageLayout.ShaderReadOnlyOptimal)
             {
                 barrier.srcAccessMask = VkAccessFlags.TransferWrite;
                 barrier.dstAccessMask = VkAccessFlags.ShaderRead;
-
                 sourceStage = VkPipelineStageFlags.Transfer;
                 destinationStage = VkPipelineStageFlags.FragmentShader;
             }
             else
             {
-                throw new InvalidOperationException("Unsupported layout transition");
+                throw new InvalidOperationException($"Unsupported layout transition {oldLayout} -> {newLayout}");
             }
 
             vkCmdPipelineBarrier(value, sourceStage, destinationStage, 0, 0, null, 0, null, 1, &barrier);

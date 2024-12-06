@@ -32,16 +32,16 @@ namespace Rendering.Vulkan
         private readonly Dictionary<int, CompiledComponentBuffer> components;
         private readonly Dictionary<int, CompiledImage> images;
         private readonly Array<CommandBuffer> commandBuffers;
-        private readonly Array<Fence> submitFences;
-        private readonly Array<Semaphore> pullSemaphores;
-        private readonly Array<Semaphore> pushSemaphores;
+        private readonly Array<Fence> inFlightFences;
+        private readonly Array<Semaphore> imageAvailableSemaphores;
+        private readonly Array<Semaphore> renderFinishedSemaphores;
         private readonly List<(uint, uint, uint)> previouslyRenderedGroups;
         private readonly List<uint> previouslyRenderedEntities;
         private readonly Array<Vector4> scissors;
 
         private DateTime lastUnusuedCheck;
         private Array<ImageView> surfaceImageViews;
-        private Array<Framebuffer> surfaceFramebuffers;
+        private Array<Framebuffer> swapChainFramebuffers;
         private LogicalDevice logicalDevice;
         private Surface surface;
         private Swapchain swapchain;
@@ -50,7 +50,7 @@ namespace Rendering.Vulkan
         private RenderPass renderPass;
         private CommandPool commandPool;
         private DepthImage depthImage;
-        private uint frameIndex;
+        private uint currentFrame;
         private uint imageIndex;
         private uint destinationWidth;
         private uint destinationHeight;
@@ -83,9 +83,9 @@ namespace Rendering.Vulkan
             renderers = new();
             pipelines = new();
             commandBuffers = new();
-            submitFences = new();
-            pullSemaphores = new();
-            pushSemaphores = new();
+            inFlightFences = new();
+            imageAvailableSemaphores = new();
+            renderFinishedSemaphores = new();
             previouslyRenderedGroups = new();
             previouslyRenderedEntities = new();
             meshes = new();
@@ -112,15 +112,15 @@ namespace Rendering.Vulkan
                 for (uint i = 0; i < MaxFramesInFlight; i++)
                 {
                     commandBuffers[i].Dispose();
-                    submitFences[i].Dispose();
-                    pullSemaphores[i].Dispose();
-                    pushSemaphores[i].Dispose();
+                    inFlightFences[i].Dispose();
+                    imageAvailableSemaphores[i].Dispose();
+                    renderFinishedSemaphores[i].Dispose();
                 }
 
                 commandBuffers.Dispose();
-                submitFences.Dispose();
-                pullSemaphores.Dispose();
-                pushSemaphores.Dispose();
+                inFlightFences.Dispose();
+                imageAvailableSemaphores.Dispose();
+                renderFinishedSemaphores.Dispose();
                 previouslyRenderedEntities.Dispose();
                 previouslyRenderedGroups.Dispose();
 
@@ -137,7 +137,7 @@ namespace Rendering.Vulkan
         {
             foreach (uint rendererEntity in renderers.Keys)
             {
-                CompiledRenderer renderer = renderers[rendererEntity];
+                ref CompiledRenderer renderer = ref renderers[rendererEntity];
                 renderer.Dispose();
             }
 
@@ -159,7 +159,7 @@ namespace Rendering.Vulkan
         {
             foreach (int hash in pipelines.Keys)
             {
-                CompiledPipeline pipeline = pipelines[hash];
+                ref CompiledPipeline pipeline = ref pipelines[hash];
                 pipeline.Dispose();
             }
 
@@ -170,7 +170,7 @@ namespace Rendering.Vulkan
         {
             foreach (uint shaderEntity in shaders.Keys)
             {
-                CompiledShader shaderModule = shaders[shaderEntity];
+                ref CompiledShader shaderModule = ref shaders[shaderEntity];
                 shaderModule.Dispose();
             }
 
@@ -181,7 +181,7 @@ namespace Rendering.Vulkan
         {
             foreach (int componentHash in components.Keys)
             {
-                CompiledComponentBuffer componentBuffer = components[componentHash];
+                ref CompiledComponentBuffer componentBuffer = ref components[componentHash];
                 componentBuffer.Dispose();
             }
 
@@ -192,7 +192,7 @@ namespace Rendering.Vulkan
         {
             foreach (int textureHash in images.Keys)
             {
-                CompiledImage image = images[textureHash];
+                ref CompiledImage image = ref images[textureHash];
                 image.Dispose();
             }
 
@@ -203,7 +203,7 @@ namespace Rendering.Vulkan
         {
             foreach (int groupHash in meshes.Keys)
             {
-                CompiledMesh compiledMesh = meshes[groupHash];
+                ref CompiledMesh compiledMesh = ref meshes[groupHash];
                 compiledMesh.Dispose();
             }
 
@@ -212,12 +212,12 @@ namespace Rendering.Vulkan
 
         private readonly void DisposeSwapchain()
         {
-            foreach (Framebuffer framebuffer in surfaceFramebuffers)
+            foreach (Framebuffer framebuffer in swapChainFramebuffers)
             {
                 framebuffer.Dispose();
             }
 
-            surfaceFramebuffers.Dispose();
+            swapChainFramebuffers.Dispose();
 
             foreach (ImageView imageView in surfaceImageViews)
             {
@@ -249,31 +249,31 @@ namespace Rendering.Vulkan
             logicalDevice = new(physicalDevice, [graphicsFamily, presentationFamily], ["VK_KHR_swapchain"]);
             graphicsQueue = new(logicalDevice, graphicsFamily, 0);
             presentationQueue = new(logicalDevice, presentationFamily, 0);
-            CreateSwapchain(out uint width, out uint height);
+            CreateSwapchain(out destinationWidth, out destinationHeight);
             USpan<RenderPass.Attachment> attachments =
             [
                 new(swapchain.format, VkSampleCountFlags.Count1, VkAttachmentLoadOp.Clear, VkAttachmentStoreOp.Store, VkAttachmentLoadOp.DontCare,
                     VkAttachmentStoreOp.DontCare, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR),
                 new(logicalDevice.GetDepthFormat(), VkSampleCountFlags.Count1, VkAttachmentLoadOp.Clear, VkAttachmentStoreOp.DontCare, VkAttachmentLoadOp.DontCare,
-                    VkAttachmentStoreOp.DontCare, VkImageLayout.Undefined, VkImageLayout.DepthStencilAttachmentOptimal),
+                    VkAttachmentStoreOp.DontCare, VkImageLayout.DepthStencilAttachmentOptimal, VkImageLayout.DepthStencilAttachmentOptimal),
             ];
 
             renderPass = new(logicalDevice, attachments);
-            CreateImageViewsAndBuffers(width, height);
+            CreateImageViewsAndBuffers(destinationWidth, destinationHeight);
             commandPool = new(graphicsQueue, true);
 
             //create multiples of these, 1 for each concurrent frame
             commandBuffers.Length = MaxFramesInFlight;
-            submitFences.Length = MaxFramesInFlight;
-            pullSemaphores.Length = MaxFramesInFlight;
-            pushSemaphores.Length = MaxFramesInFlight;
+            inFlightFences.Length = MaxFramesInFlight;
+            imageAvailableSemaphores.Length = MaxFramesInFlight;
+            renderFinishedSemaphores.Length = MaxFramesInFlight;
             commandPool.CreateCommandBuffers(commandBuffers.AsSpan());
 
             for (uint i = 0; i < MaxFramesInFlight; i++)
             {
-                submitFences[i] = new(logicalDevice);
-                pullSemaphores[i] = new(logicalDevice);
-                pushSemaphores[i] = new(logicalDevice);
+                inFlightFences[i] = new(logicalDevice);
+                imageAvailableSemaphores[i] = new(logicalDevice);
+                renderFinishedSemaphores[i] = new(logicalDevice);
             }
         }
 
@@ -300,13 +300,13 @@ namespace Rendering.Vulkan
             USpan<Image> images = stackalloc Image[8];
             uint imageCount = swapchain.CopyImagesTo(images);
             surfaceImageViews = new(imageCount);
-            surfaceFramebuffers = new(imageCount);
+            swapChainFramebuffers = new(imageCount);
             for (uint i = 0; i < imageCount; i++)
             {
                 ImageView imageView = new(images[i]);
                 Framebuffer framebuffer = new(renderPass, [imageView, depthImage.imageView], width, height);
                 surfaceImageViews[i] = imageView;
-                surfaceFramebuffers[i] = framebuffer;
+                swapChainFramebuffers[i] = framebuffer;
             }
         }
 
@@ -332,7 +332,7 @@ namespace Rendering.Vulkan
             USpan<Mesh.Channel> channels = stackalloc Mesh.Channel[(int)shaderVertexAttributes.Length];
             for (uint i = 0; i < shaderVertexAttributes.Length; i++)
             {
-                ShaderVertexInputAttribute vertexAttribute = shaderVertexAttributes[i];
+                ref ShaderVertexInputAttribute vertexAttribute = ref shaderVertexAttributes[i];
                 if (TryDeduceMeshChannel(vertexAttribute, out Mesh.Channel channel))
                 {
                     if (!meshEntity.ContainsChannel(channel))
@@ -373,6 +373,7 @@ namespace Rendering.Vulkan
             uint indexCount = meshEntity.IndexCount;
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
             IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.Indices);
+            Trace.WriteLine($"Compiled mesh `{mesh}` with `{vertexCount}` vertices and `{indexCount}` indices");
             return new(meshEntity.Version, indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
         }
 
@@ -383,7 +384,7 @@ namespace Rendering.Vulkan
             USpan<VertexInputAttribute> vertexAttributes = stackalloc VertexInputAttribute[(int)shaderVertexAttributes.Length];
             for (uint i = 0; i < shaderVertexAttributes.Length; i++)
             {
-                ShaderVertexInputAttribute shaderVertexAttribute = shaderVertexAttributes[i];
+                ref ShaderVertexInputAttribute shaderVertexAttribute = ref shaderVertexAttributes[i];
                 vertexAttributes[i] = new(shaderVertexAttribute);
             }
 
@@ -504,7 +505,7 @@ namespace Rendering.Vulkan
                 USpan<CompiledPushConstant> buffer = stackalloc CompiledPushConstant[(int)pushBindings.Length];
                 for (uint i = 0; i < pushBindings.Length; i++)
                 {
-                    MaterialPushBinding binding = pushBindings[i];
+                    ref MaterialPushBinding binding = ref pushBindings[i];
                     buffer[i] = new(binding.componentType, binding.stage);
                 }
 
@@ -564,8 +565,7 @@ namespace Rendering.Vulkan
                 }
             }
 
-            //uint maxSets = 32; //todo: fault: after 32 allocations it should fail, where another pool should be created????
-            //DescriptorPool descriptorPool = new(logicalDevice, poolTypes.Slice(0, poolCount), maxSets);
+            Trace.WriteLine($"Compiled pipeline for material `{materialEntity}` with shader `{shaderEntity}`");
             return new(pipeline, pipelineLayout, poolTypes.Slice(0, poolCount), setLayout, setLayoutBindings.Slice(0, bindingCount));
         }
 
@@ -620,6 +620,7 @@ namespace Rendering.Vulkan
             samplerParameters.minFilter = binding.Filter == TextureFiltering.Linear ? VkFilter.Linear : VkFilter.Nearest;
             samplerParameters.magFilter = samplerParameters.minFilter;
             Sampler sampler = new(logicalDevice, samplerParameters);
+            Trace.WriteLine($"Compiled image for material `{materialEntity}` with `{width}`x`{height}` pixels");
             return new(materialEntity, textureVersion, binding, image, imageView, imageMemory, sampler);
         }
 
@@ -674,14 +675,12 @@ namespace Rendering.Vulkan
         public bool BeginRender(Vector4 clearColor)
         {
             World world = destination.GetWorld();
-            Fence submitFence = submitFences[frameIndex];
-            Semaphore pullSemaphore = pullSemaphores[frameIndex];
-            //Semaphore pushSemaphore = pushSemaphores[frameIndex];
-            CommandBuffer commandBuffer = commandBuffers[frameIndex];
+            ref Fence submitFence = ref inFlightFences[currentFrame];
+            ref CommandBuffer commandBuffer = ref commandBuffers[currentFrame];
 
             submitFence.Wait();
 
-            VkResult result = logicalDevice.TryAcquireNextImage(swapchain, pullSemaphore, default, out imageIndex);
+            VkResult result = logicalDevice.TryAcquireNextImage(swapchain, imageAvailableSemaphores[currentFrame], default, out imageIndex);
             if (result == VkResult.ErrorOutOfDateKHR)
             {
                 RebuildSwapchain();
@@ -696,7 +695,7 @@ namespace Rendering.Vulkan
             commandBuffer.Reset();
             commandBuffer.Begin();
 
-            Framebuffer framebuffer = surfaceFramebuffers[imageIndex];
+            ref Framebuffer framebuffer = ref swapChainFramebuffers[imageIndex];
             Vector4 area = new(0, 0, framebuffer.width, framebuffer.height);
             commandBuffer.BeginRenderPass(renderPass, framebuffer, area, clearColor);
 
@@ -823,7 +822,7 @@ namespace Rendering.Vulkan
             }
 
             //finally draw everything
-            CommandBuffer commandBuffer = commandBuffers[frameIndex];
+            ref CommandBuffer commandBuffer = ref commandBuffers[currentFrame];
             commandBuffer.BindPipeline(compiledPipeline.pipeline, VkPipelineBindPoint.Graphics);
             commandBuffer.BindVertexBuffer(compiledMesh.vertexBuffer);
             commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
@@ -832,7 +831,7 @@ namespace Rendering.Vulkan
             foreach (uint rendererEntity in renderEntities)
             {
                 //apply scissor
-                Vector4 scissor = scissors[rendererEntity];
+                ref Vector4 scissor = ref scissors[rendererEntity];
                 commandBuffer.SetScissor(scissor);
 
                 //push constants
@@ -847,7 +846,7 @@ namespace Rendering.Vulkan
                     }
                 }
 
-                CompiledRenderer renderer = renderers[rendererEntity];
+                ref CompiledRenderer renderer = ref renderers[rendererEntity];
                 commandBuffer.BindDescriptorSet(compiledPipeline.pipelineLayout, renderer.descriptorSet);
                 commandBuffer.DrawIndexed(compiledMesh.indexCount, 1, 0, 0, 0);
 
@@ -859,16 +858,16 @@ namespace Rendering.Vulkan
 
         public void EndRender()
         {
-            Fence submitFence = submitFences[frameIndex];
-            Semaphore pullSemaphore = pullSemaphores[frameIndex];
-            Semaphore pushSemaphore = pushSemaphores[frameIndex];
-            CommandBuffer commandBuffer = commandBuffers[frameIndex];
+            ref Semaphore signalSemaphore = ref renderFinishedSemaphores[currentFrame];
+            ref Semaphore waitSemaphore = ref imageAvailableSemaphores[currentFrame];
+            ref CommandBuffer commandBuffer = ref commandBuffers[currentFrame];
 
             commandBuffer.EndRenderPass();
             commandBuffer.End();
 
-            graphicsQueue.Submit(commandBuffer, pullSemaphore, VkPipelineStageFlags.ColorAttachmentOutput, pushSemaphore, submitFence);
-            VkResult result = presentationQueue.TryPresent(pushSemaphore, swapchain, imageIndex);
+            graphicsQueue.Submit(commandBuffer, waitSemaphore, VkPipelineStageFlags.ColorAttachmentOutput, signalSemaphore, inFlightFences[currentFrame]);
+
+            VkResult result = presentationQueue.TryPresent(signalSemaphore, swapchain, imageIndex);
             if (result == VkResult.ErrorOutOfDateKHR || result == VkResult.SuboptimalKHR || IsDestinationResized())
             {
                 RebuildSwapchain();
@@ -878,7 +877,7 @@ namespace Rendering.Vulkan
                 throw new InvalidOperationException($"Failed to present image: {result}");
             }
 
-            frameIndex = (frameIndex + 1) % MaxFramesInFlight;
+            currentFrame = (currentFrame + 1) % MaxFramesInFlight;
 
             //check for undisposed objects every 3 seconds
             DateTime now = DateTime.UtcNow;
@@ -895,7 +894,7 @@ namespace Rendering.Vulkan
             //dispose unusued buffers
             foreach (int componentHash in components.Keys)
             {
-                CompiledComponentBuffer component = components[componentHash];
+                ref CompiledComponentBuffer component = ref components[componentHash];
                 bool used = false;
                 foreach ((uint materialEntity, uint shaderEntity, uint meshEntity) in previouslyRenderedGroups)
                 {
@@ -917,7 +916,7 @@ namespace Rendering.Vulkan
             //dispose unused textures
             foreach (int textureHash in images.Keys)
             {
-                CompiledImage image = images[textureHash];
+                ref CompiledImage image = ref images[textureHash];
                 bool used = false;
                 foreach ((uint materialEntity, uint shaderEntity, uint meshEntity) in previouslyRenderedGroups)
                 {
@@ -1007,14 +1006,14 @@ namespace Rendering.Vulkan
                 {
                     MaterialTextureBinding textureBinding = material.GetTextureBindingRef(binding, set);
                     int textureHash = GetTextureHash(materialEntity, textureBinding);
-                    CompiledImage image = images[textureHash];
+                    ref CompiledImage image = ref images[textureHash];
                     descriptorSet.Update(image.imageView, image.sampler, binding);
                 }
                 else if (type == VkDescriptorType.UniformBuffer)
                 {
                     MaterialComponentBinding componentBinding = material.GetComponentBindingRef(binding, set);
                     int componentHash = GetComponentHash(materialEntity, componentBinding);
-                    CompiledComponentBuffer componentBuffer = components[componentHash];
+                    ref CompiledComponentBuffer componentBuffer = ref components[componentHash];
                     descriptorSet.Update(componentBuffer.buffer.buffer, binding);
                 }
                 else

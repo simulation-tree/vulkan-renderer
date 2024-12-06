@@ -14,17 +14,17 @@ namespace Vulkan
 
         public DepthImage(Swapchain swapchain, Queue graphics)
         {
-            VkFormat format = swapchain.device.GetDepthFormat();
-            image = new(swapchain.device, swapchain.width, swapchain.height, 1, format, VkImageUsageFlags.DepthStencilAttachment);
+            VkFormat depthFormat = swapchain.device.GetDepthFormat();
+            image = new(swapchain.device, swapchain.width, swapchain.height, 1, depthFormat, VkImageUsageFlags.DepthStencilAttachment);
             imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
             imageView = new(image, VkImageAspectFlags.Depth);
-
-            using CommandPool tempPool = new(graphics, false);
-            using CommandBuffer tempBuffer = tempPool.CreateCommandBuffer();
-            tempBuffer.Begin();
-            tempBuffer.TransitionImageLayout(image, VkImageLayout.Undefined, VkImageLayout.DepthStencilAttachmentOptimal, VkImageAspectFlags.Depth);
-            tempBuffer.End();
-            graphics.Submit(tempBuffer);
+            
+            using CommandPool tempPool = new(graphics, true);
+            using CommandBuffer commandBuffer = tempPool.CreateCommandBuffer();
+            commandBuffer.Begin();
+            commandBuffer.TransitionImageLayout(image, VkImageLayout.Undefined, VkImageLayout.DepthStencilAttachmentOptimal, VkImageAspectFlags.Depth);
+            commandBuffer.End();
+            graphics.Submit(commandBuffer);
             graphics.Wait();
         }
 
