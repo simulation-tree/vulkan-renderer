@@ -6,18 +6,18 @@ using Vulkan;
 
 namespace Rendering.Vulkan
 {
-    public unsafe readonly struct VulkanRenderer : IRenderer
+    public unsafe readonly struct VulkanRenderer : IRenderingBackend
     {
         private static Library library;
 
-        readonly FixedString IRenderer.Label => "vulkan";
-        readonly CreateFunction IRenderer.Create => new(&Create);
-        readonly DisposeFunction IRenderer.Dispose => new(&CleanUp);
-        readonly FinishRenderer IRenderer.Finish => new(&Finish);
-        readonly SurfaceCreatedFunction IRenderer.SurfaceCreated => new(&SurfaceCreated);
-        readonly BeginRenderFunction IRenderer.BeginRender => new(&BeginRender);
-        readonly RenderFunction IRenderer.Render => new(&Render);
-        readonly EndRenderFunction IRenderer.EndRender => new(&EndRender);
+        readonly FixedString IRenderingBackend.Label => "vulkan";
+        readonly CreateFunction IRenderingBackend.Create => new(&Create);
+        readonly DisposeFunction IRenderingBackend.Dispose => new(&CleanUp);
+        readonly FinishRenderer IRenderingBackend.Finish => new(&Finish);
+        readonly SurfaceCreatedFunction IRenderingBackend.SurfaceCreated => new(&SurfaceCreated);
+        readonly BeginRenderFunction IRenderingBackend.BeginRender => new(&BeginRender);
+        readonly RenderFunction IRenderingBackend.Render => new(&Render);
+        readonly EndRenderFunction IRenderingBackend.EndRender => new(&EndRender);
 
         [UnmanagedCallersOnly]
         private unsafe static CreateResult Create(Destination destination, FixedString* names, uint nameCount)

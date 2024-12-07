@@ -706,20 +706,24 @@ namespace Rendering.Vulkan
 
             UpdateComponentBuffers(world);
             UpdateTextureBuffers(world);
-
-            scissors.Length = world.MaxEntityValue + 1;
-            scissors.Fill(new Vector4(0, 0, framebuffer.width, framebuffer.height));
-            ReadScissorValues(world);
+            ReadScissorValues(world, area);
             return true;
         }
 
-        private readonly void ReadScissorValues(World world)
+        private readonly void ReadScissorValues(World world, Vector4 area)
         {
-            ComponentQuery<RendererScissor> query = new(world);
+            uint capacity = Allocations.GetNextPowerOf2(world.MaxEntityValue + 1);
+            if (scissors.Length < capacity)
+            {
+                scissors.Length = capacity;
+            }
+
+            scissors.Fill(area);
+            ComponentQuery<WorldRendererScissor> query = new(world);
             foreach (var r in query)
             {
-                ref RendererScissor scissor = ref r.component1;
-                scissors[r.entity] = scissor.region;
+                ref WorldRendererScissor scissor = ref r.component1;
+                scissors[r.entity] = scissor.value;
             }
         }
 
