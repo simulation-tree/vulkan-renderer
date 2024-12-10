@@ -724,28 +724,22 @@ namespace Rendering.Vulkan
             ComponentQuery<WorldRendererScissor> query = new(world);
             foreach (var r in query)
             {
-                Entity entity = new(world, r.entity);
                 ref WorldRendererScissor scissor = ref r.component1;
                 scissors[r.entity] = scissor.value;
+
+                //propagate this scissor down to descendants
                 stack.Add(r.entity);
-            }
-
-            while (stack.Count > 0)
-            {
-                uint entity = stack.RemoveAt(0);
-                USpan<uint> children = world.GetChildren(entity);
-                foreach (uint child in children)
+                while (stack.Count > 0)
                 {
-                    scissors[child] = scissors[entity];
+                    uint entity = stack.RemoveAt(0);
+                    USpan<uint> children = world.GetChildren(entity);
+                    foreach (uint child in children)
+                    {
+                        scissors[child] = scissor.value;
+                    }
+
+                    stack.AddRange(children);
                 }
-
-                stack.AddRange(children);
-            }
-
-            foreach (var r in query)
-            {
-                ref WorldRendererScissor scissor = ref r.component1;
-                scissors[r.entity] = scissor.value;
             }
         }
 
