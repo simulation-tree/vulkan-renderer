@@ -741,6 +741,12 @@ namespace Rendering.Vulkan
                     stack.AddRange(children);
                 }
             }
+
+            foreach (var r in query)
+            {
+                ref WorldRendererScissor scissor = ref r.component1;
+                scissors[r.entity] = scissor.value;
+            }
         }
 
         public readonly void Render(USpan<uint> renderEntities, uint materialEntity, uint shaderEntity, uint meshEntity)
