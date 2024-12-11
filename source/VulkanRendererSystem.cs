@@ -327,7 +327,7 @@ namespace Rendering.Vulkan
         private readonly CompiledMesh CompileMesh(World world, uint shader, uint mesh)
         {
             Mesh meshEntity = new Entity(world, mesh).As<Mesh>();
-            uint vertexCount = meshEntity.VertexCount;
+            uint vertexCount = meshEntity.GetVertexCount();
             USpan<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetArray<ShaderVertexInputAttribute>(shader);
             USpan<Mesh.Channel> channels = stackalloc Mesh.Channel[(int)shaderVertexAttributes.Length];
             for (uint i = 0; i < shaderVertexAttributes.Length; i++)
@@ -340,7 +340,7 @@ namespace Rendering.Vulkan
                         if (channel == Mesh.Channel.Color)
                         {
                             //safe to assume (1, 1, 1, 1) is default for colors if needed and its missing
-                            USpan<Color> defaultColors = meshEntity.CreateColors(vertexCount);
+                            USpan<Vector4> defaultColors = meshEntity.CreateColors(vertexCount);
                             for (uint v = 0; v < vertexCount; v++)
                             {
                                 defaultColors[v] = Color.White;
@@ -370,11 +370,11 @@ namespace Rendering.Vulkan
 
             using List<float> vertexData = new();
             meshEntity.Assemble(vertexData, channels);
-            uint indexCount = meshEntity.IndexCount;
+            uint indexCount = meshEntity.GetIndexCount();
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
-            IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.Indices);
+            IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.GetIndices());
             Trace.WriteLine($"Compiled mesh `{mesh}` with `{vertexCount}` vertices and `{indexCount}` indices");
-            return new(meshEntity.Version, indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
+            return new(meshEntity.GetVersion(), indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
         }
 
         private readonly CompiledPipeline CompilePipeline(uint materialEntity, uint shaderEntity, World world, CompiledShader compiledShader, CompiledMesh compiledMesh)
