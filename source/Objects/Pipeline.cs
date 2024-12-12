@@ -84,7 +84,7 @@ namespace Vulkan
             depthStencilState.minDepthBounds = 0f;
             depthStencilState.maxDepthBounds = 1f;
 
-            bool supportsAlpha = true;
+            bool supportsAlpha = false;
             VkPipelineColorBlendAttachmentState blendAttachmentState = default;
             blendAttachmentState.blendEnable = supportsAlpha;
             if (supportsAlpha)
