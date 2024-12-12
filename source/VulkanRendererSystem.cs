@@ -753,6 +753,16 @@ namespace Rendering.Vulkan
         {
             World world = destination.GetWorld();
             IsShader shaderComponent = world.GetComponent<IsShader>(shaderEntity);
+            bool deviceWaited = false;
+
+            void Wait(LogicalDevice logicalDevice)
+            {
+                if (!deviceWaited)
+                {
+                    deviceWaited = true;
+                    logicalDevice.Wait();
+                }
+            }
 
             //make sure a shader exists for this shader entity, also rebuild it when version changes
             if (!shaders.TryGetValue(shaderEntity, out CompiledShader compiledShader))
@@ -764,7 +774,7 @@ namespace Rendering.Vulkan
             bool shaderChanged = compiledShader.version != shaderComponent.version;
             if (shaderChanged)
             {
-                logicalDevice.Wait();
+                Wait(logicalDevice);
                 compiledShader.Dispose();
                 compiledShader = CompileShader(world, shaderEntity);
                 shaders[shaderEntity] = compiledShader;
@@ -783,7 +793,7 @@ namespace Rendering.Vulkan
             bool meshChanged = compiledMesh.version != meshVersion;
             if (meshChanged || shaderChanged)
             {
-                logicalDevice.Wait();
+                Wait(logicalDevice);
                 compiledMesh.Dispose();
                 compiledMesh = CompileMesh(world, shaderEntity, meshEntity);
             }
@@ -809,7 +819,7 @@ namespace Rendering.Vulkan
                     ref CompiledImage image = ref images[textureHash];
                     if (image.binding.Version != textureBinding.Version)
                     {
-                        logicalDevice.Wait();
+                        Wait(logicalDevice);
                         image.Dispose();
                         uint textureVersion = world.GetComponent<IsTexture>(textureBinding.TextureEntity).version;
                         image = CompileImage(materialEntity, textureVersion, textureBinding);
@@ -820,8 +830,9 @@ namespace Rendering.Vulkan
 
             if (meshChanged || shaderChanged || updateDescriptorSet)
             {
-                logicalDevice.Wait();
+                Wait(logicalDevice);
 
+                //todo: handle possible cases where a pipeline rebuild isnt needed, for example: mesh only and within alloc size
                 //need to dispose the descriptor sets before the descriptor pool is gone
                 foreach (uint entity in renderEntities)
                 {

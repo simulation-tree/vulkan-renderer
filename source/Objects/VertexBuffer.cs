@@ -15,8 +15,8 @@ namespace Vulkan
             uint byteCount = data.Length * sizeof(float);
             VkPhysicalDeviceLimits limits = graphicsQueue.logicalDevice.physicalDevice.GetLimits();
             byteCount = (uint)(Math.Ceiling(byteCount / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
-            using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);
 
+            using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);
             USpan<float> destinationData = stagingBuffer.Map<float>();
             data.CopyTo(destinationData);
             stagingBuffer.Unmap();
