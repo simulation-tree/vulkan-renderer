@@ -75,7 +75,7 @@ namespace Vulkan
 
             VkDescriptorPoolCreateInfo createInfo = new()
             {
-                poolSizeCount = (uint)pools.Length,
+                poolSizeCount = pools.Length,
                 pPoolSizes = poolSizes,
                 maxSets = maxSets,
                 flags = VkDescriptorPoolCreateFlags.FreeDescriptorSet

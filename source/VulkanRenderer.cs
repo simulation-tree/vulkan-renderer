@@ -22,7 +22,11 @@ namespace Rendering.Vulkan
         [UnmanagedCallersOnly]
         private unsafe static CreateResult Create(Destination destination, FixedString* names, uint nameCount)
         {
-            library = new();
+            if (library == default)
+            {
+                library = new();
+            }
+
             USpan<FixedString> namesSpan = new(names, nameCount);
             Instance instance = library.CreateInstance("Game", "Engine", namesSpan);
             VulkanRendererSystem renderer = new(destination, instance);

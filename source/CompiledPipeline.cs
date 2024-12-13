@@ -8,7 +8,7 @@ namespace Rendering.Vulkan
 {
     public readonly struct CompiledPipeline : IDisposable
     {
-        public const uint DescriptorSets = 64;
+        public const uint DescriptorSets = 1024;
 
         public readonly Pipeline pipeline;
         public readonly PipelineLayout pipelineLayout;

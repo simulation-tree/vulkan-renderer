@@ -7,7 +7,7 @@ using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
-    public readonly unsafe struct Library : IDisposable
+    public readonly unsafe struct Library : IDisposable, IEquatable<Library>
     {
         public readonly VkVersion version;
 
@@ -144,6 +144,31 @@ namespace Vulkan
             {
                 return new();
             }
+        }
+
+        public readonly override bool Equals(object? obj)
+        {
+            return obj is Library library && Equals(library);
+        }
+
+        public readonly bool Equals(Library other)
+        {
+            return version.Equals(other.version) && name.Equals(other.name);
+        }
+
+        public readonly override int GetHashCode()
+        {
+            return HashCode.Combine(version, name);
+        }
+
+        public static bool operator ==(Library left, Library right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(Library left, Library right)
+        {
+            return !(left == right);
         }
     }
 }
