@@ -38,6 +38,7 @@ namespace Rendering.Vulkan
         private readonly List<(uint, uint, uint)> previouslyRenderedGroups;
         private readonly List<uint> previouslyRenderedEntities;
         private readonly Array<Vector4> scissors;
+        private readonly List<uint> stack;
 
         private DateTime lastUnusuedCheck;
         private Array<ImageView> surfaceImageViews;
@@ -91,10 +92,12 @@ namespace Rendering.Vulkan
             meshes = new();
             components = new();
             scissors = new();
+            stack = new();
         }
 
         public readonly void Dispose()
         {
+            stack.Dispose();
             scissors.Dispose();
 
             if (surface != default)
@@ -359,17 +362,18 @@ namespace Rendering.Vulkan
                             throw new InvalidOperationException($"Mesh entity `{mesh}` is missing required `{channel}` channel");
                         }
                     }
-
-                    channels[i] = channel;
                 }
                 else
                 {
                     throw new InvalidOperationException($"Unable to deduce the mesh channel from property name `{vertexAttribute.name}`, name is too ambiguous");
                 }
+
+                channels[i] = channel;
             }
 
-            using List<float> vertexData = new();
-            meshEntity.Assemble(vertexData, channels);
+            uint vertexSize = channels.GetVertexSize();
+            using Array<float> vertexData = new(vertexCount * vertexSize);
+            meshEntity.Assemble(vertexData.AsSpan(), channels);
             uint indexCount = meshEntity.GetIndexCount();
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
             IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.GetIndices());
@@ -719,8 +723,7 @@ namespace Rendering.Vulkan
             }
 
             scissors.Fill(area);
-
-            using List<uint> stack = new(capacity);
+            stack.Clear(capacity);
             ComponentQuery<WorldRendererScissor> query = new(world);
             foreach (var r in query)
             {
