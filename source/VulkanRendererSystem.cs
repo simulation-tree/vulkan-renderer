@@ -411,6 +411,7 @@ namespace Rendering.Vulkan
             //todo: fault: ^^^ what if theres fragment push constants? or geometry push constants? this will break
             if (pushConstants.Length > 0)
             {
+                Schema schema = world.Schema;
                 uint start = 0;
                 uint size = 0;
                 foreach (ShaderPushConstant pushConstant in pushConstants)
@@ -420,7 +421,8 @@ namespace Rendering.Vulkan
                     bool containsPush = false;
                     foreach (MaterialPushBinding pushBinding in pushBindings)
                     {
-                        if (pushBinding.componentType.Size == pushConstant.size && pushBinding.start == pushConstant.offset)
+                        ushort componentSize = schema.GetComponentSize(pushBinding.componentType);
+                        if (componentSize == pushConstant.size && pushBinding.start == pushConstant.offset)
                         {
                             containsPush = true;
                             break;
@@ -536,8 +538,8 @@ namespace Rendering.Vulkan
                 int componentHash = GetComponentHash(materialEntity, binding);
                 if (!components.TryGetValue(componentHash, out CompiledComponentBuffer componentBuffer))
                 {
-                    uint typeSize = componentType.Size;
-                    uint bufferSize = (uint)(Math.Ceiling(typeSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
+                    ushort componentSize = world.Schema.GetComponentSize(componentType);
+                    uint bufferSize = (uint)(Math.Ceiling(componentSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
                     VkBufferUsageFlags usage = VkBufferUsageFlags.UniformBuffer;
                     VkMemoryPropertyFlags flags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
                     BufferDeviceMemory buffer = new(logicalDevice, bufferSize, usage, flags);
