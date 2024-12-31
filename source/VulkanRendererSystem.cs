@@ -1,5 +1,4 @@
 ﻿using Collections;
-using Data;
 using Meshes;
 using Meshes.Components;
 using Rendering.Components;
@@ -346,7 +345,7 @@ namespace Rendering.Vulkan
                             USpan<Vector4> defaultColors = meshEntity.CreateColors(vertexCount);
                             for (uint v = 0; v < vertexCount; v++)
                             {
-                                defaultColors[v] = Color.White;
+                                defaultColors[v] = new(1, 1, 1, 1);
                             }
                         }
                         else if (channel == Mesh.Channel.Normal)
