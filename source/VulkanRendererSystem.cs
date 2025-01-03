@@ -526,12 +526,12 @@ namespace Rendering.Vulkan
                 ComponentType componentType = binding.componentType;
                 if (!world.ContainsEntity(componentEntity))
                 {
-                    throw new InvalidOperationException($"Material `{materialEntity}` references missing entity `{componentEntity}` for component `{componentType}`");
+                    throw new InvalidOperationException($"Material `{materialEntity}` references missing entity `{componentEntity}` for component `{componentType.ToString(world.Schema)}`");
                 }
 
                 if (!world.ContainsComponent(componentEntity, componentType))
                 {
-                    throw new InvalidOperationException($"Material `{materialEntity}` references entity `{componentEntity}` for a missing component `{componentType}`");
+                    throw new InvalidOperationException($"Material `{materialEntity}` references entity `{componentEntity}` for a missing component `{componentType.ToString(world.Schema)}`");
                 }
 
                 int componentHash = GetComponentHash(materialEntity, binding);
@@ -640,12 +640,12 @@ namespace Rendering.Vulkan
                 ComponentType componentType = componentBuffer.componentType;
                 if (!world.ContainsEntity(entity))
                 {
-                    throw new InvalidOperationException($"Entity `{entity}` that contained component `{componentType}` with data for a uniform buffer has been lost");
+                    throw new InvalidOperationException($"Entity `{entity}` that contained component `{componentType.ToString(world.Schema)}` with data for a uniform buffer has been lost");
                 }
 
                 if (!world.ContainsComponent(entity, componentType))
                 {
-                    throw new InvalidOperationException($"Component `{componentType}` on entity `{entity}` that used to contained data for a uniform buffer has been lost");
+                    throw new InvalidOperationException($"Component `{componentType.ToString(world.Schema)}` on entity `{entity}` that used to contained data for a uniform buffer has been lost");
                 }
 
                 USpan<byte> componentData = world.GetComponentBytes(entity, componentType);
