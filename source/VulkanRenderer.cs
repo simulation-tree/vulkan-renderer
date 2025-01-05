@@ -53,7 +53,6 @@ namespace Rendering.Vulkan
             vulkanRenderer.Render(entities, material, shader, mesh);
         }
 
-
         void IRenderingBackend.EndRender(in Allocation renderer)
         {
             ref VulkanRendererSystem vulkanRenderer = ref renderer.Read<VulkanRendererSystem>();

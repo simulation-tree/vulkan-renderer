@@ -325,8 +325,8 @@ namespace Rendering.Vulkan
         private readonly CompiledShader CompileShader(World world, uint shader)
         {
             Shader shaderEntity = new(world, shader);
-            ShaderModule vertexShader = new(logicalDevice, shaderEntity.GetVertexBytes());
-            ShaderModule fragmentShader = new(logicalDevice, shaderEntity.GetFragmentBytes());
+            ShaderModule vertexShader = new(logicalDevice, shaderEntity.VertexBytes);
+            ShaderModule fragmentShader = new(logicalDevice, shaderEntity.FragmentBytes);
             return new(shaderEntity.GetVersion(), vertexShader, fragmentShader);
         }
 
