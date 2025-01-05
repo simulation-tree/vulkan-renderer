@@ -4,6 +4,7 @@ using Meshes.Components;
 using Rendering.Components;
 using Shaders;
 using Shaders.Components;
+using Simulation;
 using System;
 using System.Diagnostics;
 using System.Numerics;
@@ -55,7 +56,7 @@ namespace Rendering.Vulkan
         private uint destinationWidth;
         private uint destinationHeight;
 
-        public readonly nint Library => instance.Value.Handle;
+        public readonly Allocation Instance => new(instance.Value.Handle);
 
         public VulkanRendererSystem(Destination destination, Instance instance)
         {
@@ -94,6 +95,9 @@ namespace Rendering.Vulkan
             stack = new();
         }
 
+        /// <summary>
+        /// Cleans up everything that the vulkan renderer created.
+        /// </summary>
         public readonly void Dispose()
         {
             stack.Dispose();
@@ -244,10 +248,10 @@ namespace Rendering.Vulkan
             CreateImageViewsAndBuffers(destinationWidth, destinationHeight);
         }
 
-        public void SurfaceCreated(nint surfaceAddress)
+        public void SurfaceCreated(Allocation surface)
         {
-            surface = new(instance, surfaceAddress);
-            (uint graphicsFamily, uint presentationFamily) = physicalDevice.GetQueueFamilies(surface);
+            this.surface = new(instance, surface);
+            (uint graphicsFamily, uint presentationFamily) = physicalDevice.GetQueueFamilies(this.surface);
             logicalDevice = new(physicalDevice, [graphicsFamily, presentationFamily], ["VK_KHR_swapchain"]);
             graphicsQueue = new(logicalDevice, graphicsFamily, 0);
             presentationQueue = new(logicalDevice, presentationFamily, 0);
@@ -676,7 +680,7 @@ namespace Rendering.Vulkan
             }
         }
 
-        public bool BeginRender(Vector4 clearColor)
+        public StatusCode BeginRender(Vector4 clearColor)
         {
             World world = destination.GetWorld();
             ref Fence submitFence = ref inFlightFences[currentFrame];
@@ -688,7 +692,7 @@ namespace Rendering.Vulkan
             if (result == VkResult.ErrorOutOfDateKHR)
             {
                 RebuildSwapchain();
-                return false;
+                return StatusCode.Success(0);
             }
             else if (result != VkResult.Success && result != VkResult.SuboptimalKHR)
             {
@@ -712,7 +716,7 @@ namespace Rendering.Vulkan
             UpdateComponentBuffers(world);
             UpdateTextureBuffers(world);
             ReadScissorValues(world, area);
-            return true;
+            return StatusCode.Continue;
         }
 
         private readonly void ReadScissorValues(World world, Vector4 area)

@@ -1,79 +1,63 @@
-﻿using Rendering.Functions;
+﻿using Simulation;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using Unmanaged;
 using Vulkan;
 
 namespace Rendering.Vulkan
 {
-    public unsafe readonly struct VulkanRenderer : IRenderingBackend
+    public readonly partial struct VulkanRenderer : IRenderingBackend
     {
         private static Library library;
 
         readonly FixedString IRenderingBackend.Label => "vulkan";
-        readonly CreateFunction IRenderingBackend.Create => new(&Create);
-        readonly DisposeFunction IRenderingBackend.Dispose => new(&CleanUp);
-        readonly FinishRenderer IRenderingBackend.Finish => new(&Finish);
-        readonly SurfaceCreatedFunction IRenderingBackend.SurfaceCreated => new(&SurfaceCreated);
-        readonly BeginRenderFunction IRenderingBackend.BeginRender => new(&BeginRender);
-        readonly RenderFunction IRenderingBackend.Render => new(&Render);
-        readonly EndRenderFunction IRenderingBackend.EndRender => new(&EndRender);
 
-        [UnmanagedCallersOnly]
-        private unsafe static CreateResult Create(Destination destination, FixedString* names, uint nameCount)
-        {
-            if (library == default)
-            {
-                library = new();
-            }
-
-            USpan<FixedString> namesSpan = new(names, nameCount);
-            Instance instance = library.CreateInstance("Game", "Engine", namesSpan);
-            VulkanRendererSystem renderer = new(destination, instance);
-            return CreateResult.Create(renderer, renderer.Library);
-        }
-
-        [UnmanagedCallersOnly]
-        private unsafe static void CleanUp(Allocation system)
-        {
-            ref VulkanRendererSystem renderer = ref system.Read<VulkanRendererSystem>();
-            renderer.Dispose();
-            system.Dispose();
-        }
-
-        [UnmanagedCallersOnly]
-        private unsafe static uint BeginRender(Allocation system, Vector4 clearColor)
-        {
-            ref VulkanRendererSystem renderer = ref system.Read<VulkanRendererSystem>();
-            return renderer.BeginRender(clearColor) ? (uint)0 : 1;
-        }
-
-        [UnmanagedCallersOnly]
-        private unsafe static void Render(RenderFunction.Input input)
-        {
-            ref VulkanRendererSystem renderer = ref input.system.Read<VulkanRendererSystem>();
-            renderer.Render(input.Renderers, input.material, input.shader, input.mesh);
-        }
-
-        [UnmanagedCallersOnly]
-        private unsafe static uint EndRender(Allocation system)
-        {
-            ref VulkanRendererSystem renderer = ref system.Read<VulkanRendererSystem>();
-            renderer.EndRender();
-            return 0;
-        }
-
-        [UnmanagedCallersOnly]
-        private static void Finish()
+        void IRenderingBackend.Finalize()
         {
             library.Dispose();
         }
 
-        [UnmanagedCallersOnly]
-        private static void SurfaceCreated(Allocation allocation, nint surface)
+        void IRenderingBackend.Initialize()
         {
-            ref VulkanRendererSystem renderer = ref allocation.Read<VulkanRendererSystem>();
-            renderer.SurfaceCreated(surface);
+            library = new();
+        }
+
+        (Allocation renderer, Allocation instance) IRenderingBackend.Create(in Destination destination, in USpan<FixedString> extensionNames)
+        {
+            Instance instance = library.CreateInstance("Game", "Engine", extensionNames);
+            VulkanRendererSystem renderer = new(destination, instance);
+            return (Allocation.Create(renderer), renderer.Instance);
+        }
+
+        void IRenderingBackend.Dispose(in Allocation renderer)
+        {
+            ref VulkanRendererSystem vulkanRenderer = ref renderer.Read<VulkanRendererSystem>();
+            vulkanRenderer.Dispose();
+            renderer.Dispose();
+        }
+
+        void IRenderingBackend.SurfaceCreated(in Allocation renderer, Allocation surface)
+        {
+            ref VulkanRendererSystem vulkanRenderer = ref renderer.Read<VulkanRendererSystem>();
+            vulkanRenderer.SurfaceCreated(surface);
+        }
+
+        StatusCode IRenderingBackend.BeginRender(in Allocation renderer, in Vector4 clearColor)
+        {
+            ref VulkanRendererSystem vulkanRenderer = ref renderer.Read<VulkanRendererSystem>();
+            return vulkanRenderer.BeginRender(clearColor);
+        }
+
+        void IRenderingBackend.Render(in Allocation renderer, in USpan<uint> entities, in uint material, in uint shader, in uint mesh)
+        {
+            ref VulkanRendererSystem vulkanRenderer = ref renderer.Read<VulkanRendererSystem>();
+            vulkanRenderer.Render(entities, material, shader, mesh);
+        }
+
+
+        void IRenderingBackend.EndRender(in Allocation renderer)
+        {
+            ref VulkanRendererSystem vulkanRenderer = ref renderer.Read<VulkanRendererSystem>();
+            vulkanRenderer.EndRender();
         }
     }
 }
