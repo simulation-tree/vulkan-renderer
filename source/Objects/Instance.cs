@@ -39,8 +39,8 @@ namespace Vulkan
 
         private readonly Array<PhysicalDevice> physicalDevices;
         private readonly VkInstance value;
-        private readonly Array<char> applicationName;
-        private readonly Array<char> engineName;
+        private readonly Text applicationName;
+        private readonly Text engineName;
         private bool valid;
 
         public readonly VkInstance Value
@@ -108,19 +108,19 @@ namespace Vulkan
             {
                 if (globalLayers.Length > 0)
                 {
-                    using List<char> remaining = new();
+                    using Text remaining = new();
                     USpan<char> buffer = stackalloc char[(int)FixedString.Capacity];
                     foreach (FixedString layer in globalLayers)
                     {
                         uint length = layer.CopyTo(buffer);
-                        remaining.AddRange(buffer.Slice(0, length));
-                        remaining.Add(',');
-                        remaining.Add(' ');
+                        remaining.Append(buffer.Slice(0, length));
+                        remaining.Append(',');
+                        remaining.Append(' ');
                     }
 
-                    remaining.RemoveAt(remaining.Count - 1);
-                    remaining.RemoveAt(remaining.Count - 1);
-                    Trace.WriteLine("No suitable validation layers found, there were instead:\n" + remaining);
+                    remaining.RemoveAt(remaining.Length - 1);
+                    remaining.RemoveAt(remaining.Length - 1);
+                    Trace.WriteLine($"No suitable validation layers found, there were instead:\n{remaining}");
                 }
                 else
                 {

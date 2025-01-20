@@ -38,7 +38,7 @@ namespace Rendering.Vulkan
         private readonly List<RendererCombination> previouslyRenderedGroups;
         private readonly List<uint> previouslyRenderedEntities;
         private readonly Array<Vector4> scissors;
-        private readonly List<uint> stack;
+        private readonly Stack<uint> stack;
 
         private Array<ImageView> surfaceImageViews;
         private Array<Framebuffer> swapChainFramebuffers;
@@ -324,9 +324,10 @@ namespace Rendering.Vulkan
         private readonly CompiledShader CompileShader(World world, uint shader)
         {
             Shader shaderEntity = new(world, shader);
-            ShaderModule vertexShader = new(logicalDevice, shaderEntity.VertexBytes);
-            ShaderModule fragmentShader = new(logicalDevice, shaderEntity.FragmentBytes);
-            return new(shaderEntity.GetVersion(), vertexShader, fragmentShader);
+            uint version = shaderEntity.GetBytes(out USpan<byte> vertex, out USpan<byte> fragment);
+            ShaderModule vertexShader = new(logicalDevice, vertex);
+            ShaderModule fragmentShader = new(logicalDevice, fragment);
+            return new(version, vertexShader, fragmentShader);
         }
 
         private readonly CompiledMesh CompileMesh(World world, uint shader, uint mesh)
@@ -423,7 +424,7 @@ namespace Rendering.Vulkan
                     bool containsPush = false;
                     foreach (MaterialPushBinding pushBinding in pushBindings)
                     {
-                        ushort componentSize = schema.GetSize(pushBinding.componentType);
+                        ushort componentSize = pushBinding.componentType.Size;
                         if (componentSize == pushConstant.size && pushBinding.start == pushConstant.offset)
                         {
                             containsPush = true;
@@ -482,7 +483,7 @@ namespace Rendering.Vulkan
                 }
             }
 
-            ///create pipeline
+            //create pipeline
             DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings.Slice(0, bindingCount));
             PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader, vertexAttributes);
             PipelineLayout pipelineLayout = new(logicalDevice, setLayout, pushConstantsBuffer.Slice(0, pushConstantsCount));
@@ -526,7 +527,7 @@ namespace Rendering.Vulkan
             foreach (MaterialComponentBinding binding in uniformBindings)
             {
                 uint componentEntity = binding.entity;
-                ComponentType componentType = binding.componentType;
+                DataType componentType = binding.componentType;
                 if (!world.ContainsEntity(componentEntity))
                 {
                     throw new InvalidOperationException($"Material `{materialEntity}` references missing entity `{componentEntity}` for component `{componentType.ToString(world.Schema)}`");
@@ -540,7 +541,7 @@ namespace Rendering.Vulkan
                 uint componentHash = GetComponentHash(materialEntity, binding);
                 if (!components.TryGetValue(componentHash, out CompiledComponentBuffer componentBuffer))
                 {
-                    ushort componentSize = world.Schema.GetSize(componentType);
+                    ushort componentSize = componentType.Size;
                     uint bufferSize = (uint)(Math.Ceiling(componentSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
                     VkBufferUsageFlags usage = VkBufferUsageFlags.UniformBuffer;
                     VkMemoryPropertyFlags flags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
@@ -640,7 +641,7 @@ namespace Rendering.Vulkan
             {
                 ref CompiledComponentBuffer componentBuffer = ref components[componentHash];
                 uint entity = componentBuffer.containerEntity;
-                ComponentType componentType = componentBuffer.componentType;
+                DataType componentType = componentBuffer.componentType;
                 if (!world.ContainsEntity(entity))
                 {
                     throw new InvalidOperationException($"Entity `{entity}` that contained component `{componentType.ToString(world.Schema)}` with data for a uniform buffer has been lost");
@@ -735,17 +736,17 @@ namespace Rendering.Vulkan
                 scissors[r.entity] = scissor.value;
 
                 //propagate this scissor down to descendants
-                stack.Add(r.entity);
+                stack.Push(r.entity);
                 while (stack.Count > 0)
                 {
-                    uint entity = stack.RemoveAt(0);
+                    uint entity = stack.Pop();
                     USpan<uint> children = world.GetChildren(entity);
                     foreach (uint child in children)
                     {
                         scissors[child] = scissor.value;
                     }
 
-                    stack.AddRange(children);
+                    stack.PushRange(children);
                 }
             }
 

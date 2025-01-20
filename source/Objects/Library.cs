@@ -11,7 +11,7 @@ namespace Vulkan
     {
         public readonly VkVersion version;
 
-        private readonly Array<char> name;
+        private readonly Text name;
 
         public readonly bool IsDisposed => name.IsDisposed;
         public readonly USpan<char> Name => name.AsSpan();

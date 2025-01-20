@@ -8,10 +8,10 @@ namespace Rendering.Vulkan
     {
         public readonly uint materialEntity;
         public readonly uint containerEntity;
-        public readonly ComponentType componentType;
+        public readonly DataType componentType;
         public readonly BufferDeviceMemory buffer;
 
-        public CompiledComponentBuffer(uint materialEntity, uint containerEntity, ComponentType componentType, BufferDeviceMemory buffer)
+        public CompiledComponentBuffer(uint materialEntity, uint containerEntity, DataType componentType, BufferDeviceMemory buffer)
         {
             this.materialEntity = materialEntity;
             this.containerEntity = containerEntity;
