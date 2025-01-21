@@ -27,7 +27,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\rendering\source\Rendering.csproj" />
+		<ProjectReference Include="..\..\rendering\core\Rendering.Core.csproj" />
 		<ProjectReference Include="..\..\textures\source\Textures.csproj" />
 		<ProjectReference Include="..\..\rendering\generator\Rendering.Generator.csproj">
 			<OutputItemType>Analyzer</OutputItemType>
