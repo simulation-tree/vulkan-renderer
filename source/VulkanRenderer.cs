@@ -35,7 +35,7 @@ namespace Rendering.Vulkan
         private readonly Array<Fence> inFlightFences;
         private readonly Array<Semaphore> imageAvailableSemaphores;
         private readonly Array<Semaphore> renderFinishedSemaphores;
-        private readonly List<RendererCombination> previouslyRenderedGroups;
+        private readonly List<(uint, uint, uint)> previouslyRenderedGroups;
         private readonly List<uint> previouslyRenderedEntities;
         private readonly Array<Vector4> scissors;
         private readonly Stack<uint> stack;
@@ -321,10 +321,10 @@ namespace Rendering.Vulkan
             return width != this.destinationWidth || height != this.destinationHeight;
         }
 
-        private readonly CompiledShader CompileShader(World world, uint shader)
+        private readonly CompiledShader CompileShader(World world, uint shader, uint version)
         {
             Shader shaderEntity = new(world, shader);
-            uint version = shaderEntity.GetBytes(out USpan<byte> vertex, out USpan<byte> fragment);
+            shaderEntity.GetBytes(out USpan<byte> vertex, out USpan<byte> fragment);
             ShaderModule vertexShader = new(logicalDevice, vertex);
             ShaderModule fragmentShader = new(logicalDevice, fragment);
             return new(version, vertexShader, fragmentShader);
@@ -377,9 +377,10 @@ namespace Rendering.Vulkan
             uint vertexSize = channels.GetVertexSize();
             using Array<float> vertexData = new(vertexCount * vertexSize);
             meshEntity.Assemble(vertexData.AsSpan(), channels);
-            uint indexCount = meshEntity.GetIndexCount();
+            USpan<uint> indices = meshEntity.GetIndices();
+            uint indexCount = indices.Length;
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
-            IndexBuffer indexBuffer = new(graphicsQueue, commandPool, meshEntity.GetIndices());
+            IndexBuffer indexBuffer = new(graphicsQueue, commandPool, indices);
             Trace.WriteLine($"Compiled mesh `{mesh}` with `{vertexCount}` vertices and `{indexCount}` indices");
             return new(meshEntity.GetVersion(), indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
         }
@@ -757,10 +758,12 @@ namespace Rendering.Vulkan
             }
         }
 
-        public readonly void Render(USpan<uint> renderEntities, uint materialEntity, uint shaderEntity, uint meshEntity)
+        public readonly void Render(USpan<uint> renderEntities, RendererData material, RendererData shader, RendererData mesh)
         {
             World world = destination.GetWorld();
-            IsShader shaderComponent = world.GetComponent<IsShader>(shaderEntity);
+            uint materialEntity = material.entity;
+            uint shaderEntity = shader.entity;
+            uint meshEntity = mesh.entity;
             bool deviceWaited = false;
 
             void Wait(LogicalDevice logicalDevice)
@@ -773,24 +776,26 @@ namespace Rendering.Vulkan
             }
 
             //make sure a shader exists for this shader entity, also rebuild it when version changes
+            bool shaderChanged = false;
             if (!shaders.TryGetValue(shaderEntity, out CompiledShader compiledShader))
             {
-                compiledShader = CompileShader(world, shaderEntity);
+                compiledShader = CompileShader(world, shaderEntity, shader.version);
                 shaders.Add(shaderEntity, compiledShader);
             }
-
-            bool shaderChanged = compiledShader.version != shaderComponent.version;
-            if (shaderChanged)
+            else
             {
-                Wait(logicalDevice);
-                compiledShader.Dispose();
-                compiledShader = CompileShader(world, shaderEntity);
-                shaders[shaderEntity] = compiledShader;
+                shaderChanged = compiledShader.version != shader.version;
+                if (shaderChanged)
+                {
+                    Wait(logicalDevice);
+                    compiledShader.Dispose();
+                    compiledShader = CompileShader(world, shaderEntity, shader.version);
+                    shaders[shaderEntity] = compiledShader;
+                }
             }
 
             //make sure a processed mesh exists for this combination of shader entity and mesh entity, also rebuild it when it changes
             RendererKey key = new(materialEntity, meshEntity);
-            uint meshVersion = world.GetComponent<IsMesh>(meshEntity).version;
             ref CompiledMesh compiledMesh = ref meshes.TryGetValue(key, out bool containsMesh);
             if (!containsMesh)
             {
@@ -798,7 +803,7 @@ namespace Rendering.Vulkan
                 compiledMesh = ref meshes.Add(key, newCompiledMesh);
             }
 
-            bool meshChanged = compiledMesh.version != meshVersion;
+            bool meshChanged = compiledMesh.version != mesh.version;
             if (meshChanged || shaderChanged)
             {
                 Wait(logicalDevice);
@@ -936,7 +941,7 @@ namespace Rendering.Vulkan
             {
                 ref CompiledComponentBuffer component = ref components[componentHash];
                 bool used = false;
-                foreach (RendererCombination combination in previouslyRenderedGroups)
+                foreach ((uint material, uint shader, uint mesh) combination in previouslyRenderedGroups)
                 {
                     if (combination.material == component.materialEntity)
                     {
@@ -968,7 +973,7 @@ namespace Rendering.Vulkan
             {
                 ref CompiledImage image = ref images[textureHash];
                 bool used = false;
-                foreach (RendererCombination combination in previouslyRenderedGroups)
+                foreach ((uint material, uint shader, uint mesh) combination in previouslyRenderedGroups)
                 {
                     if (combination.material == image.materialEntity)
                     {
@@ -1022,7 +1027,7 @@ namespace Rendering.Vulkan
             foreach (RendererKey key in meshes.Keys)
             {
                 bool used = false;
-                foreach (RendererCombination combination in previouslyRenderedGroups)
+                foreach ((uint material, uint shader, uint mesh) combination in previouslyRenderedGroups)
                 {
                     if (new RendererKey(combination.material, combination.mesh) == key)
                     {
@@ -1053,7 +1058,7 @@ namespace Rendering.Vulkan
             foreach (RendererKey key in pipelines.Keys)
             {
                 bool used = false;
-                foreach (RendererCombination combination in previouslyRenderedGroups)
+                foreach ((uint material, uint shader, uint mesh) combination in previouslyRenderedGroups)
                 {
                     if (new RendererKey(combination.material, combination.mesh) == key)
                     {
