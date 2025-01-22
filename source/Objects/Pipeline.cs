@@ -23,7 +23,7 @@ namespace Vulkan
         public readonly bool IsDisposed => !valid;
 
         public Pipeline(PipelineCreateInput input, PipelineLayout layout, string entryPoint)
-            : this(input, layout, entryPoint.AsUSpan())
+            : this(input, layout, entryPoint.AsSpan())
         {
         }
 

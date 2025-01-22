@@ -178,9 +178,9 @@ namespace Vulkan
             }
 
             VkApplicationInfo appInfo = new();
-            appInfo.pApplicationName = new VkUtf8ReadOnlyString(applicationNameBytes.AsSystemSpan());
+            appInfo.pApplicationName = new VkUtf8ReadOnlyString(applicationNameBytes);
             appInfo.applicationVersion = VkVersion.Version_1_0;
-            appInfo.pEngineName = new VkUtf8ReadOnlyString(engineNameBytes.AsSystemSpan());
+            appInfo.pEngineName = new VkUtf8ReadOnlyString(engineNameBytes);
             appInfo.engineVersion = VkVersion.Version_1_0;
             appInfo.apiVersion = VkVersion.Version_1_3;
 

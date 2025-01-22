@@ -30,7 +30,7 @@ namespace Vulkan
         public ShaderModule(LogicalDevice device, USpan<byte> code)
         {
             this.logicalDevice = device;
-            VkResult result = vkCreateShaderModule(device.Value, code.AsSystemSpan(), null, out value);
+            VkResult result = vkCreateShaderModule(device.Value, code, null, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to create shader module: {result}");

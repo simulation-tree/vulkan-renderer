@@ -1223,7 +1223,7 @@ namespace Rendering.Vulkan
 
             if (attribute.Type == typeof(Vector2))
             {
-                if (nameBuffer.Slice(0, length).Contains("uv".AsUSpan()))
+                if (nameBuffer.Slice(0, length).Contains("uv".AsSpan()))
                 {
                     channel = Mesh.Channel.UV;
                     return true;
@@ -1231,22 +1231,22 @@ namespace Rendering.Vulkan
             }
             else if (attribute.Type == typeof(Vector3))
             {
-                if (nameBuffer.Slice(0, length).Contains("normal".AsUSpan()))
+                if (nameBuffer.Slice(0, length).Contains("normal".AsSpan()))
                 {
                     channel = Mesh.Channel.Normal;
                     return true;
                 }
-                else if (nameBuffer.Slice(0, length).Contains("tangent".AsUSpan()))
+                else if (nameBuffer.Slice(0, length).Contains("tangent".AsSpan()))
                 {
                     channel = Mesh.Channel.Tangent;
                     return true;
                 }
-                else if (nameBuffer.Slice(0, length).Contains("position".AsUSpan()))
+                else if (nameBuffer.Slice(0, length).Contains("position".AsSpan()))
                 {
                     channel = Mesh.Channel.Position;
                     return true;
                 }
-                else if (nameBuffer.Slice(0, length).Contains("bitangent".AsUSpan()))
+                else if (nameBuffer.Slice(0, length).Contains("bitangent".AsSpan()))
                 {
                     channel = Mesh.Channel.BiTangent;
                     return true;
@@ -1254,7 +1254,7 @@ namespace Rendering.Vulkan
             }
             else if (attribute.Type == typeof(Vector4))
             {
-                if (nameBuffer.Slice(0, length).Contains("color".AsUSpan()))
+                if (nameBuffer.Slice(0, length).Contains("color".AsSpan()))
                 {
                     channel = Mesh.Channel.Color;
                     return true;

@@ -68,12 +68,12 @@ namespace Vulkan
 
         public readonly Instance CreateInstance(string applicationName, string engineName, IEnumerable<FixedString>? extensions = null)
         {
-            return CreateInstance(applicationName.AsUSpan(), engineName.AsUSpan(), extensions);
+            return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
         }
 
         public readonly Instance CreateInstance(string applicationName, string engineName, USpan<FixedString> extensions)
         {
-            return CreateInstance(applicationName.AsUSpan(), engineName.AsUSpan(), extensions);
+            return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
         }
 
         /// <summary>
