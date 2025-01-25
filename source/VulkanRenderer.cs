@@ -55,7 +55,7 @@ namespace Rendering.Vulkan
         private uint destinationWidth;
         private uint destinationHeight;
 
-        public readonly Allocation Instance => new(instance.Value.Handle);
+        public unsafe readonly Allocation Instance => new((void*)instance.Value.Handle);
 
         public VulkanRenderer(Destination destination, Instance instance)
         {
