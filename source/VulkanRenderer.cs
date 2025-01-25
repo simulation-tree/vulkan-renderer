@@ -323,7 +323,7 @@ namespace Rendering.Vulkan
 
         private readonly CompiledShader CompileShader(World world, uint shader, uint version)
         {
-            Shader shaderEntity = new(world, shader);
+            Shader shaderEntity = new Entity(world, shader).As<Shader>();
             shaderEntity.GetBytes(out USpan<byte> vertex, out USpan<byte> fragment);
             ShaderModule vertexShader = new(logicalDevice, vertex);
             ShaderModule fragmentShader = new(logicalDevice, fragment);
