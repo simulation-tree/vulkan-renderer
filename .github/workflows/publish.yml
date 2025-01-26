@@ -64,6 +64,13 @@ jobs:
           token: ${{ secrets.PAT }}
           path: shaders
 
+      - name: Pull `bin-packer` dependency
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/bin-packer
+          token: ${{ secrets.PAT }}
+          path: bin-packer
+
       - name: Pull `meshes` dependency
         uses: actions/checkout@v4.1.2
         with:
