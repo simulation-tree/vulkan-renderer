@@ -47,10 +47,10 @@ namespace Rendering.Vulkan
             return vulkanRenderer.BeginRender(clearColor);
         }
 
-        void IRenderingBackend.Render(in Allocation renderer, in USpan<uint> entities, in RendererData material, in RendererData shader, in RendererData mesh)
+        void IRenderingBackend.Render(in Allocation renderer, in USpan<uint> entities, in MaterialData material, in MeshData mesh, in VertexShaderData vertexShader, in FragmentShaderData fragmentShader)
         {
             ref VulkanRenderer vulkanRenderer = ref renderer.Read<VulkanRenderer>();
-            vulkanRenderer.Render(entities, material, shader, mesh);
+            vulkanRenderer.Render(entities, material, mesh, vertexShader, fragmentShader);
         }
 
         void IRenderingBackend.EndRender(in Allocation renderer)

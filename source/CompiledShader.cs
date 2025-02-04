@@ -5,13 +5,15 @@ namespace Rendering.Vulkan
 {
     public readonly struct CompiledShader : IDisposable, IEquatable<CompiledShader>
     {
-        public readonly uint version;
+        public readonly uint vertexVersion;
+        public readonly uint fragmentVersion;
         public readonly ShaderModule vertexShader;
         public readonly ShaderModule fragmentShader;
 
-        public CompiledShader(uint version, ShaderModule vertexShader, ShaderModule fragmentShader)
+        public CompiledShader(uint vertexVersion, uint fragmentVersion, ShaderModule vertexShader, ShaderModule fragmentShader)
         {
-            this.version = version;
+            this.vertexVersion = vertexVersion;
+            this.fragmentVersion = fragmentVersion;
             this.vertexShader = vertexShader;
             this.fragmentShader = fragmentShader;
         }
@@ -29,12 +31,12 @@ namespace Rendering.Vulkan
 
         public readonly bool Equals(CompiledShader other)
         {
-            return version == other.version && vertexShader.Equals(other.vertexShader) && fragmentShader.Equals(other.fragmentShader);
+            return vertexVersion == other.vertexVersion && fragmentVersion == other.fragmentVersion && vertexShader.Equals(other.vertexShader) && fragmentShader.Equals(other.fragmentShader);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(version, vertexShader, fragmentShader);
+            return HashCode.Combine(vertexVersion, vertexShader, fragmentShader);
         }
 
         public static bool operator ==(CompiledShader left, CompiledShader right)

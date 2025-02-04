@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Materials.Components;
+using System;
 using Vulkan;
 
 namespace Rendering.Vulkan
@@ -7,13 +8,13 @@ namespace Rendering.Vulkan
     {
         public readonly uint materialEntity;
         public readonly uint textureVersion;
-        public readonly MaterialTextureBinding binding;
+        public readonly TextureBinding binding;
         public readonly Image image;
         public readonly ImageView imageView;
         public readonly DeviceMemory imageMemory;
         public readonly Sampler sampler;
 
-        public CompiledImage(uint materialEntity, uint textureVersion, MaterialTextureBinding binding, Image image, ImageView imageView, DeviceMemory imageMemory, Sampler sampler)
+        public CompiledImage(uint materialEntity, uint textureVersion, TextureBinding binding, Image image, ImageView imageView, DeviceMemory imageMemory, Sampler sampler)
         {
             this.materialEntity = materialEntity;
             this.textureVersion = textureVersion;
