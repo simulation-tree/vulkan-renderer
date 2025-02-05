@@ -14,116 +14,119 @@ jobs:
         uses: actions/checkout@v4.1.2
         with:
           path: ${{ github.event.repository.name }}
-
-      - name: Pull `unmanaged` dependency
+            
+      - name: Checkout `rendering-systems`
         uses: actions/checkout@v4.1.2
         with:
-          repository: game-simulations/unmanaged
+          repository: game-simulations/rendering-systems
           token: ${{ secrets.PAT }}
-          path: unmanaged
-
-      - name: Pull `worlds` dependency
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: game-simulations/worlds
-          token: ${{ secrets.PAT }}
-          path: worlds
-
-      - name: Pull `collections` dependency
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: game-simulations/collections
-          token: ${{ secrets.PAT }}
-          path: collections
-
-      - name: Pull `types` dependency
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: game-simulations/types
-          token: ${{ secrets.PAT }}
-          path: types
-
-      - name: Pull `rendering` dependency
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: game-simulations/rendering
-          token: ${{ secrets.PAT }}
-          path: rendering
-
-      - name: Pull `simulation` dependency
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: game-simulations/simulation
-          token: ${{ secrets.PAT }}
-          path: simulation
-
-      - name: Pull `shaders` dependency
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: game-simulations/shaders
-          token: ${{ secrets.PAT }}
-          path: shaders
-
-      - name: Pull `bin-packer` dependency
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: game-simulations/bin-packer
-          token: ${{ secrets.PAT }}
-          path: bin-packer
-
-      - name: Pull `meshes` dependency
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: game-simulations/meshes
-          token: ${{ secrets.PAT }}
-          path: meshes
-
-      - name: Pull `textures` dependency
+          path: rendering-systems
+      
+      - name: Checkout `textures`
         uses: actions/checkout@v4.1.2
         with:
           repository: game-simulations/textures
           token: ${{ secrets.PAT }}
           path: textures
-
-      - name: Pull `serialization` dependency
+      
+      - name: Checkout `worlds`
         uses: actions/checkout@v4.1.2
         with:
-          repository: game-simulations/serialization
+          repository: game-simulations/worlds
           token: ${{ secrets.PAT }}
-          path: serialization
-
-      - name: Pull `data` dependency
+          path: worlds
+      
+      - name: Checkout `types`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/types
+          token: ${{ secrets.PAT }}
+          path: types
+      
+      - name: Checkout `unmanaged`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/unmanaged
+          token: ${{ secrets.PAT }}
+          path: unmanaged
+      
+      - name: Checkout `bin-packer`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/bin-packer
+          token: ${{ secrets.PAT }}
+          path: bin-packer
+      
+      - name: Checkout `collections`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/collections
+          token: ${{ secrets.PAT }}
+          path: collections
+      
+      - name: Checkout `simulation`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/simulation
+          token: ${{ secrets.PAT }}
+          path: simulation
+      
+      - name: Checkout `shaders`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/shaders
+          token: ${{ secrets.PAT }}
+          path: shaders
+      
+      - name: Checkout `rendering`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/rendering
+          token: ${{ secrets.PAT }}
+          path: rendering
+      
+      - name: Checkout `meshes`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/meshes
+          token: ${{ secrets.PAT }}
+          path: meshes
+      
+      - name: Checkout `materials`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: game-simulations/materials
+          token: ${{ secrets.PAT }}
+          path: materials
+      
+      - name: Checkout `data`
         uses: actions/checkout@v4.1.2
         with:
           repository: game-simulations/data
           token: ${{ secrets.PAT }}
           path: data
-
-      - name: Pull `windows` dependency
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: game-simulations/windows
-          token: ${{ secrets.PAT }}
-          path: windows
-
-      - name: Setup dotnet
+            
+      - name: Setup
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
       - name: Set VERSION variable from tag
         run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
-
-      - name: Build Source
+            
+      - name: Build `VulkanRenderer`
         run: dotnet build "${{ github.event.repository.name }}/source" -c Release /p:Version=${VERSION}
-      
-      - name: Pack Source
+            
+      - name: Test
+        run: dotnet test "${{ github.event.repository.name }}/tests" -c Release --logger "trx"
+            
+      - name: Pack `VulkanRenderer`
         run: dotnet pack "${{ github.event.repository.name }}/source" -c Release /p:Version=${VERSION} --no-build --output .
 
-      - name: Add source
+      - name: Add NuGet Source
         run: dotnet nuget add source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --name github --username ${{ github.repository_owner }} --password ${{ github.token }} --store-password-in-clear-text
-      
-      - name: Push Source
+            
+      - name: Publish `VulkanRenderer`
         run: dotnet nuget push VulkanRenderer.${VERSION}.nupkg --source github --api-key ${NUGET_TOKEN}
         env:
           NUGET_TOKEN: ${{ secrets.NUGET_TOKEN }}
