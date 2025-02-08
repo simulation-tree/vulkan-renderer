@@ -730,31 +730,57 @@ namespace Rendering.Vulkan
 
             scissors.Fill(area);
             stack.Clear(capacity);
-            ComponentQuery<WorldRendererScissor> query = new(world);
-            foreach (var r in query)
+
+            ComponentType worldScissorType = world.Schema.GetComponent<WorldRendererScissor>();
+            USpan<Chunk> chunks = stackalloc Chunk[64]; //todo: fault: this can possibly fail if there are more than 64 chunks that fit the requirement
+            uint chunkCount = 0;
+            foreach (Chunk chunk in world.Chunks)
             {
-                ref WorldRendererScissor scissor = ref r.component1;
-                scissors[r.entity] = scissor.value;
-
-                //propagate this scissor down to descendants
-                stack.Push(r.entity);
-                while (stack.Count > 0)
+                if (chunk.Definition.Contains(worldScissorType))
                 {
-                    uint entity = stack.Pop();
-                    USpan<uint> children = world.GetChildren(entity);
-                    foreach (uint child in children)
-                    {
-                        scissors[child] = scissor.value;
-                    }
-
-                    stack.PushRange(children);
+                    chunks[chunkCount++] = chunk;
                 }
             }
 
-            foreach (var r in query)
+            //propagate scissors down to descendants
+            for (uint c = 0; c < chunkCount; c++)
             {
-                ref WorldRendererScissor scissor = ref r.component1;
-                scissors[r.entity] = scissor.value;
+                Chunk chunk = chunks[c];
+                USpan<uint> entities = chunk.Entities;
+                USpan<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldScissorType);
+                for (uint i = 0; i < entities.Length; i++)
+                {
+                    ref WorldRendererScissor scissor = ref components[i];
+                    uint entity = entities[i];
+                    scissors[entity] = scissor.value;
+
+                    stack.Push(entity);
+                    while (stack.Count > 0)
+                    {
+                        uint current = stack.Pop();
+                        USpan<uint> children = world.GetChildren(current);
+                        foreach (uint child in children)
+                        {
+                            scissors[child] = scissor.value;
+                        }
+
+                        stack.PushRange(children);
+                    }
+                }
+            }
+
+            //hard assign the roots back to the original scissor
+            for (uint c = 0; c < chunkCount; c++)
+            {
+                Chunk chunk = chunks[c];
+                USpan<uint> entities = chunk.Entities;
+                USpan<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldScissorType);
+                for (uint i = 0; i < entities.Length; i++)
+                {
+                    ref WorldRendererScissor scissor = ref components[i];
+                    uint entity = entities[i];
+                    scissors[entity] = scissor.value;
+                }
             }
         }
 
