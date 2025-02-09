@@ -425,7 +425,7 @@ namespace Rendering.Vulkan
                     bool containsPush = false;
                     foreach (PushBinding pushBinding in pushBindings)
                     {
-                        ushort componentSize = pushBinding.componentType.Size;
+                        ushort componentSize = pushBinding.componentType.size;
                         if (componentSize == pushConstant.size && pushBinding.start == pushConstant.offset)
                         {
                             containsPush = true;
@@ -542,7 +542,7 @@ namespace Rendering.Vulkan
                 uint componentHash = GetComponentHash(materialEntity, binding);
                 if (!components.TryGetValue(componentHash, out CompiledComponentBuffer componentBuffer))
                 {
-                    ushort componentSize = componentType.Size;
+                    ushort componentSize = componentType.size;
                     uint bufferSize = (uint)(Math.Ceiling(componentSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
                     VkBufferUsageFlags usage = VkBufferUsageFlags.UniformBuffer;
                     VkMemoryPropertyFlags flags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
