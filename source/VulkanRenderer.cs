@@ -857,7 +857,7 @@ namespace Rendering.Vulkan
                 if (images.ContainsKey(textureHash))
                 {
                     ref CompiledImage image = ref images[textureHash];
-                    if (image.binding.Version != textureBinding.Version)
+                    if (image.binding.Version != textureBinding.Version || image.binding.Region != textureBinding.Region)
                     {
                         TryWait(logicalDevice);
                         image.Dispose();
