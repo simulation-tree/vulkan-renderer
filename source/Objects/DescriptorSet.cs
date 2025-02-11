@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
+    [SkipLocalsInit]
     public unsafe struct DescriptorSet : IEquatable<DescriptorSet>, IDisposable
     {
         public readonly DescriptorPool pool;
@@ -18,6 +20,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -27,6 +30,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return pool.logicalDevice;
             }
         }
@@ -55,12 +59,13 @@ namespace Vulkan
         public readonly void Update(Buffer buffer, byte binding = 0)
         {
             ThrowIfDisposed();
+
             VkDescriptorBufferInfo bufferInfo = new();
             bufferInfo.buffer = buffer.Value;
             bufferInfo.offset = 0;
             bufferInfo.range = buffer.size;
 
-            VkWriteDescriptorSet* descriptorWrite = stackalloc VkWriteDescriptorSet[1];
+            USpan<VkWriteDescriptorSet> descriptorWrite = stackalloc VkWriteDescriptorSet[1];
             descriptorWrite[0] = new()
             {
                 dstSet = value,
@@ -80,12 +85,13 @@ namespace Vulkan
         public readonly void Update(ImageView imageView, Sampler sampler, byte binding = 0)
         {
             ThrowIfDisposed();
+
             VkDescriptorImageInfo imageInfo = new();
             imageInfo.imageView = imageView.Value;
             imageInfo.imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
             imageInfo.sampler = sampler.Value;
 
-            VkWriteDescriptorSet* descriptorWrite = stackalloc VkWriteDescriptorSet[1];
+            USpan<VkWriteDescriptorSet> descriptorWrite = stackalloc VkWriteDescriptorSet[1];
             descriptorWrite[0] = new()
             {
                 dstSet = value,
@@ -105,7 +111,8 @@ namespace Vulkan
         public readonly void Update(USpan<Buffer> buffers, byte startBinding = 0)
         {
             ThrowIfDisposed();
-            VkWriteDescriptorSet* descriptorWrite = stackalloc VkWriteDescriptorSet[(int)buffers.Length];
+
+            USpan<VkWriteDescriptorSet> descriptorWrite = stackalloc VkWriteDescriptorSet[(int)buffers.Length];
             for (uint i = 0; i < buffers.Length; i++)
             {
                 Buffer buffer = buffers[i];
@@ -136,7 +143,8 @@ namespace Vulkan
         public readonly void Update(USpan<ImageView> imageViews, USpan<Sampler> samplers, byte startBinding = 0)
         {
             ThrowIfDisposed();
-            VkWriteDescriptorSet* descriptorWrite = stackalloc VkWriteDescriptorSet[(int)imageViews.Length];
+
+            USpan<VkWriteDescriptorSet> descriptorWrite = stackalloc VkWriteDescriptorSet[(int)imageViews.Length];
             for (uint i = 0; i < imageViews.Length; i++)
             {
                 VkDescriptorImageInfo imageInfo = new();
@@ -163,6 +171,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkFreeDescriptorSets(pool.logicalDevice.Value, pool.Value, value);
             valid = false;
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
@@ -9,6 +10,7 @@ namespace Vulkan
     /// <summary>
     /// Contains image state for the render target.
     /// </summary>
+    [SkipLocalsInit]
     public unsafe struct RenderPass : IDisposable
     {
         public readonly LogicalDevice logicalDevice;
@@ -21,6 +23,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -30,7 +33,7 @@ namespace Vulkan
         public RenderPass(LogicalDevice logicalDevice, USpan<Attachment> attachments)
         {
             this.logicalDevice = logicalDevice;
-            VkAttachmentDescription* attachmentsPointer = stackalloc VkAttachmentDescription[(int)attachments.Length];
+            USpan<VkAttachmentDescription> attachmentsPointer = stackalloc VkAttachmentDescription[(int)attachments.Length];
             for (uint i = 0; i < attachments.Length; i++)
             {
                 Attachment attachment = attachments[i];
@@ -77,7 +80,7 @@ namespace Vulkan
                 subpassCount = 1,
                 pSubpasses = &subPass,
                 dependencyCount = dependencies.Length,
-                pDependencies = (VkSubpassDependency*)dependencies.Address
+                pDependencies = dependencies
             };
 
             VkResult result = vkCreateRenderPass(logicalDevice.Value, &renderPassCreateInfo, null, out value);
@@ -92,6 +95,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkDestroyRenderPass(logicalDevice.Value, value);
             valid = false;
         }

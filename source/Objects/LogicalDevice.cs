@@ -1,12 +1,14 @@
 ﻿using Collections;
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
+    [SkipLocalsInit]
     public unsafe struct LogicalDevice : IDisposable, IEquatable<LogicalDevice>
     {
 #if DEBUG
@@ -36,22 +38,23 @@ namespace Vulkan
         {
             this.physicalDevice = physicalDevice;
             float priority = 1f;
-            uint queueCount = 0;
-            VkDeviceQueueCreateInfo* queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[(int)queueFamilies.Length];
-            foreach (uint queueFamily in queueFamilies)
+            USpan<VkDeviceQueueCreateInfo> queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[(int)queueFamilies.Length];
+            for (uint i = 0; i < queueFamilies.Length; i++)
             {
+                uint queueFamily = queueFamilies[i];
                 VkDeviceQueueCreateInfo queueCreateInfo = new();
                 queueCreateInfo.queueFamilyIndex = queueFamily;
                 queueCreateInfo.queueCount = 1;
                 queueCreateInfo.pQueuePriorities = &priority;
-                queueCreateInfos[queueCount++] = queueCreateInfo;
+                queueCreateInfos[i] = queueCreateInfo;
             }
 
             VkPhysicalDeviceFeatures features = new();
             features.samplerAnisotropy = true;
 
             using Array<VkUtf8String> vkDeviceExtensions = new(deviceExtensions.Length);
-            USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.Capacity];
+            USpan<byte> nameBuffer = stackalloc byte[FixedString.Capacity];
+            nameBuffer.Clear();
             for (uint i = 0; i < deviceExtensions.Length; i++)
             {
                 FixedString extension = deviceExtensions[i];
@@ -62,7 +65,7 @@ namespace Vulkan
             using VkStringArray deviceExtensionNames = new(vkDeviceExtensions);
             VkDeviceCreateInfo createInfo = new()
             {
-                queueCreateInfoCount = queueCount,
+                queueCreateInfoCount = queueCreateInfos.Length,
                 pQueueCreateInfos = queueCreateInfos,
                 enabledExtensionCount = deviceExtensionNames.Length,
                 ppEnabledExtensionNames = deviceExtensionNames,

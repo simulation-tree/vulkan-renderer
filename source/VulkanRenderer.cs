@@ -8,6 +8,7 @@ using Simulation;
 using System;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Textures;
 using Textures.Components;
 using Unmanaged;
@@ -17,6 +18,7 @@ using Worlds;
 
 namespace Rendering.Vulkan
 {
+    [SkipLocalsInit]
     public struct VulkanRenderer : IDisposable
     {
         private const uint MaxFramesInFlight = 2;
@@ -35,7 +37,7 @@ namespace Rendering.Vulkan
         private readonly Array<Fence> inFlightFences;
         private readonly Array<Semaphore> imageAvailableSemaphores;
         private readonly Array<Semaphore> renderFinishedSemaphores;
-        private readonly List<(uint, uint, uint, uint)> previouslyRenderedGroups;
+        private readonly List<RendererCombination> previouslyRenderedGroups;
         private readonly List<uint> previouslyRenderedEntities;
         private readonly Array<Vector4> scissors;
         private readonly Stack<uint> stack;
@@ -874,8 +876,9 @@ namespace Rendering.Vulkan
 
                 //todo: handle possible cases where a pipeline rebuild isnt needed, for example: mesh only and within alloc size
                 //need to dispose the descriptor sets before the descriptor pool is gone
-                foreach (uint entity in renderEntities)
+                for (uint i = 0; i < renderEntities.Length; i++)
                 {
+                    uint entity = renderEntities[i];
                     if (renderers.TryRemove(entity, out CompiledRenderer renderer))
                     {
                         renderer.Dispose();
@@ -888,8 +891,9 @@ namespace Rendering.Vulkan
             }
 
             //update descriptor sets if needed
-            foreach (uint entity in renderEntities)
+            for (uint i = 0; i < renderEntities.Length; i++)
             {
+                uint entity = renderEntities[i];
                 if (!renderers.ContainsKey(entity))
                 {
                     DescriptorSet descriptorSet = compiledPipeline.Allocate();
@@ -906,10 +910,11 @@ namespace Rendering.Vulkan
             commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
 
             bool hasPushConstants = knownPushConstants.TryGetValue(materialEntity, out Array<CompiledPushConstant> pushConstants);
-            foreach (uint rendererEntity in renderEntities)
+            for (uint i = 0; i < renderEntities.Length; i++)
             {
                 //apply scissor
-                ref Vector4 scissor = ref scissors[rendererEntity];
+                uint entity = renderEntities[i];
+                ref Vector4 scissor = ref scissors[entity];
                 commandBuffer.SetScissor(scissor);
 
                 //push constants
@@ -918,20 +923,20 @@ namespace Rendering.Vulkan
                     uint pushOffset = 0;
                     foreach (CompiledPushConstant pushConstant in pushConstants)
                     {
-                        USpan<byte> componentBytes = world.GetComponentBytes(rendererEntity, pushConstant.componentType);
+                        USpan<byte> componentBytes = world.GetComponentBytes(entity, pushConstant.componentType);
                         commandBuffer.PushConstants(compiledPipeline.pipelineLayout, GetShaderStage(pushConstant.stage), componentBytes, pushOffset);
                         pushOffset += componentBytes.Length;
                     }
                 }
 
-                ref CompiledRenderer renderer = ref renderers[rendererEntity];
+                ref CompiledRenderer renderer = ref renderers[entity];
                 commandBuffer.BindDescriptorSet(compiledPipeline.pipelineLayout, renderer.descriptorSet);
                 commandBuffer.DrawIndexed(compiledMesh.indexCount, 1, 0, 0, 0);
 
-                previouslyRenderedEntities.TryAdd(rendererEntity);
+                previouslyRenderedEntities.TryAdd(entity);
             }
 
-            previouslyRenderedGroups.TryAdd((materialEntity, vertexShaderEntity, fragmentShaderEntity, meshEntity));
+            previouslyRenderedGroups.TryAdd(new(materialEntity, meshEntity, vertexShaderEntity, fragmentShaderEntity));
         }
 
         public void EndRender()
@@ -968,7 +973,7 @@ namespace Rendering.Vulkan
             {
                 ref CompiledComponentBuffer component = ref components[componentHash];
                 bool used = false;
-                foreach ((uint material, uint vertexShader, uint fragmentShader, uint mesh) combination in previouslyRenderedGroups)
+                foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
                     if (combination.material == component.materialEntity)
                     {
@@ -1000,7 +1005,7 @@ namespace Rendering.Vulkan
             {
                 ref CompiledImage image = ref images[textureHash];
                 bool used = false;
-                foreach ((uint material, uint vertexShader, uint fragmentShader, uint mesh) combination in previouslyRenderedGroups)
+                foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
                     if (combination.material == image.materialEntity)
                     {
@@ -1054,7 +1059,7 @@ namespace Rendering.Vulkan
             foreach (RendererKey key in meshes.Keys)
             {
                 bool used = false;
-                foreach ((uint material, uint vertexShader, uint fragmentShader, uint mesh) combination in previouslyRenderedGroups)
+                foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
                     if (new RendererKey(combination.material, combination.mesh) == key)
                     {
@@ -1085,7 +1090,7 @@ namespace Rendering.Vulkan
             foreach (RendererKey key in pipelines.Keys)
             {
                 bool used = false;
-                foreach ((uint material, uint vertexShader, uint fragmentShader, uint mesh) combination in previouslyRenderedGroups)
+                foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
                     if (new RendererKey(combination.material, combination.mesh) == key)
                     {
@@ -1150,9 +1155,9 @@ namespace Rendering.Vulkan
             unchecked
             {
                 int hash = 17;
-                hash = hash * 23 + materialEntity.GetHashCode();
+                hash = hash * 23 + (int)materialEntity;
                 hash = hash * 23 + binding.key.GetHashCode();
-                hash = hash * 23 + binding.Entity.GetHashCode();
+                hash = hash * 23 + (int)binding.Entity;
                 return (uint)hash;
             }
         }
@@ -1161,10 +1166,10 @@ namespace Rendering.Vulkan
         {
             unchecked
             {
-                uint hash = 17;
-                hash = hash * 23 + materialEntity;
-                hash = hash * 23 + (uint)binding.GetHashCode();
-                return hash;
+                int hash = 17;
+                hash = hash * 23 + (int)materialEntity;
+                hash = hash * 23 + binding.GetHashCode();
+                return (uint)hash;
             }
         }
 
@@ -1243,7 +1248,7 @@ namespace Rendering.Vulkan
         private static bool TryDeduceMeshChannel(ShaderVertexInputAttribute attribute, out MeshChannel channel)
         {
             //get lowercase version
-            USpan<char> nameBuffer = stackalloc char[(int)FixedString.Capacity]; //<- only int allowed so cringe
+            USpan<char> nameBuffer = stackalloc char[FixedString.Capacity];
             uint length = attribute.name.CopyTo(nameBuffer);
             for (uint i = 0; i < length; i++)
             {

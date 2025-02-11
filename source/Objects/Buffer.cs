@@ -24,6 +24,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return buffer;
             }
         }
@@ -56,6 +57,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkDestroyBuffer(logicalDevice.Value, buffer);
             valid = false;
         }

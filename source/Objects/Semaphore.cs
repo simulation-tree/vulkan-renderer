@@ -7,7 +7,7 @@ namespace Vulkan
 {
     public unsafe struct Semaphore : IDisposable, IEquatable<Semaphore>
     {
-        public readonly LogicalDevice device;
+        public readonly LogicalDevice logicalDevice;
 
         private readonly VkSemaphore value;
         private bool valid;
@@ -17,6 +17,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -29,10 +30,10 @@ namespace Vulkan
             throw new NotImplementedException();
         }
 
-        public Semaphore(LogicalDevice device)
+        public Semaphore(LogicalDevice logicalDevice)
         {
-            this.device = device;
-            VkResult result = vkCreateSemaphore(device.Value, out value);
+            this.logicalDevice = logicalDevice;
+            VkResult result = vkCreateSemaphore(logicalDevice.Value, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception(result.ToString());
@@ -53,7 +54,8 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
-            vkDestroySemaphore(device.Value, value);
+
+            vkDestroySemaphore(logicalDevice.Value, value);
             valid = false;
         }
 

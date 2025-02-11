@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
+    [SkipLocalsInit]
     public unsafe struct DescriptorSetLayout : IDisposable, IEquatable<DescriptorSetLayout>
     {
         public readonly LogicalDevice logicalDevice;
@@ -18,17 +20,18 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
 
         public readonly bool IsDisposed => !valid;
 
-        public DescriptorSetLayout(LogicalDevice device, USpan<(byte binding, VkDescriptorType type, VkShaderStageFlags stage)> bindings)
+        public DescriptorSetLayout(LogicalDevice logicalDevice, USpan<(byte binding, VkDescriptorType type, VkShaderStageFlags stage)> bindings)
         {
-            this.logicalDevice = device;
+            this.logicalDevice = logicalDevice;
 
-            VkDescriptorSetLayoutBinding* layoutBindings = stackalloc VkDescriptorSetLayoutBinding[(int)bindings.Length];
+            USpan<VkDescriptorSetLayoutBinding> layoutBindings = stackalloc VkDescriptorSetLayoutBinding[(int)bindings.Length];
             for (uint i = 0; i < bindings.Length; i++)
             {
                 (byte binding, VkDescriptorType type, VkShaderStageFlags stage) = bindings[i];
@@ -45,7 +48,7 @@ namespace Vulkan
             createInfo.bindingCount = bindings.Length;
             createInfo.pBindings = layoutBindings;
 
-            VkResult result = vkCreateDescriptorSetLayout(device.Value, &createInfo, null, out value);
+            VkResult result = vkCreateDescriptorSetLayout(logicalDevice.Value, &createInfo, null, out value);
             if (result != VkResult.Success)
             {
                 throw new InvalidOperationException("Failed to create descriptor set layout");
@@ -54,9 +57,9 @@ namespace Vulkan
             valid = true;
         }
 
-        public DescriptorSetLayout(LogicalDevice device, uint binding, VkDescriptorType type, VkShaderStageFlags stageFlags)
+        public DescriptorSetLayout(LogicalDevice logicalDevice, uint binding, VkDescriptorType type, VkShaderStageFlags stageFlags)
         {
-            this.logicalDevice = device;
+            this.logicalDevice = logicalDevice;
 
             VkDescriptorSetLayoutBinding layoutBinding = new()
             {
@@ -70,7 +73,7 @@ namespace Vulkan
             createInfo.bindingCount = 1;
             createInfo.pBindings = &layoutBinding;
 
-            VkResult result = vkCreateDescriptorSetLayout(device.Value, &createInfo, null, out value);
+            VkResult result = vkCreateDescriptorSetLayout(logicalDevice.Value, &createInfo, null, out value);
             if (result != VkResult.Success)
             {
                 throw new InvalidOperationException("Failed to create descriptor set layout");
@@ -91,6 +94,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkDestroyDescriptorSetLayout(logicalDevice.Value, value);
             valid = false;
         }

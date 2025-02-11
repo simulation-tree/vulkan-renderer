@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
+    [SkipLocalsInit]
     public unsafe struct PipelineLayout : IDisposable
     {
         public readonly LogicalDevice logicalDevice;
@@ -18,6 +20,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -48,7 +51,7 @@ namespace Vulkan
             VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new();
             if (setLayouts.Length > 0)
             {
-                VkDescriptorSetLayout* layouts = stackalloc VkDescriptorSetLayout[(int)setLayouts.Length];
+                USpan<VkDescriptorSetLayout> layouts = stackalloc VkDescriptorSetLayout[(int)setLayouts.Length];
                 for (uint i = 0; i < setLayouts.Length; i++)
                 {
                     layouts[i] = setLayouts[i].Value;
@@ -60,7 +63,7 @@ namespace Vulkan
 
             if (pushConstants.Length > 0)
             {
-                VkPushConstantRange* constants = stackalloc VkPushConstantRange[(int)pushConstants.Length];
+                USpan<VkPushConstantRange> constants = stackalloc VkPushConstantRange[(int)pushConstants.Length];
                 for (uint i = 0; i < pushConstants.Length; i++)
                 {
                     PushConstant constant = pushConstants[i];
@@ -97,6 +100,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkDestroyPipelineLayout(logicalDevice.Value, value);
             valid = false;
         }

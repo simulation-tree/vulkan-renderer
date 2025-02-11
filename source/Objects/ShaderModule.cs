@@ -18,6 +18,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -27,10 +28,10 @@ namespace Vulkan
         /// <summary>
         /// Creates a shader module from the given SPV bytecode.
         /// </summary>
-        public ShaderModule(LogicalDevice device, USpan<byte> code)
+        public ShaderModule(LogicalDevice logicalDevice, USpan<byte> code)
         {
-            this.logicalDevice = device;
-            VkResult result = vkCreateShaderModule(device.Value, code, null, out value);
+            this.logicalDevice = logicalDevice;
+            VkResult result = vkCreateShaderModule(logicalDevice.Value, code, null, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to create shader module: {result}");
@@ -42,6 +43,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkDestroyShaderModule(logicalDevice.Value, value);
             valid = false;
         }

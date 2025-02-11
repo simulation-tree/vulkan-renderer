@@ -1,6 +1,7 @@
 ﻿using Collections;
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
@@ -11,6 +12,7 @@ namespace Vulkan
     /// Maintains a pool of descriptors, from which <see cref="DescriptorSet"/>
     /// instances are allocated.
     /// </summary>
+    [SkipLocalsInit]
     public unsafe struct DescriptorPool : IDisposable, IEquatable<DescriptorPool>
     {
         public readonly LogicalDevice logicalDevice;
@@ -40,7 +42,7 @@ namespace Vulkan
             }
 
             this.logicalDevice = logicalDevice;
-            VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[1] { new(type, maxAllocations) };
+            USpan<VkDescriptorPoolSize> poolSizes = stackalloc VkDescriptorPoolSize[1] { new(type, maxAllocations) };
             VkDescriptorPoolCreateInfo createInfo = new()
             {
                 poolSizeCount = poolSizeCount,
@@ -66,7 +68,7 @@ namespace Vulkan
             }
 
             this.logicalDevice = logicalDevice;
-            VkDescriptorPoolSize* poolSizes = stackalloc VkDescriptorPoolSize[(int)pools.Length];
+            USpan<VkDescriptorPoolSize> poolSizes = stackalloc VkDescriptorPoolSize[(int)pools.Length];
             for (uint i = 0; i < pools.Length; i++)
             {
                 (VkDescriptorType type, uint descriptorCount) = pools[i];
@@ -112,7 +114,8 @@ namespace Vulkan
         public readonly Array<DescriptorSet> Allocate(USpan<DescriptorSetLayout> layouts)
         {
             ThrowIfDisposed();
-            VkDescriptorSetLayout* layoutPointers = stackalloc VkDescriptorSetLayout[(int)layouts.Length];
+
+            USpan<VkDescriptorSetLayout> layoutPointers = stackalloc VkDescriptorSetLayout[(int)layouts.Length];
             for (uint i = 0; i < layouts.Length; i++)
             {
                 layoutPointers[i] = layouts[i].Value;
@@ -125,7 +128,7 @@ namespace Vulkan
                 pSetLayouts = layoutPointers
             };
 
-            VkDescriptorSet* descriptorSet = stackalloc VkDescriptorSet[(int)layouts.Length];
+            USpan<VkDescriptorSet> descriptorSet = stackalloc VkDescriptorSet[(int)layouts.Length];
             VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, descriptorSet);
             if (result != VkResult.Success)
             {
@@ -144,6 +147,7 @@ namespace Vulkan
         public readonly DescriptorSet Allocate(DescriptorSetLayout setLayout)
         {
             ThrowIfDisposed();
+
             VkDescriptorSetLayout layout = setLayout.Value;
             VkDescriptorSetAllocateInfo allocateInfo = new()
             {
@@ -170,6 +174,7 @@ namespace Vulkan
         public readonly bool TryAllocate(DescriptorSetLayout layout, out DescriptorSet set)
         {
             ThrowIfDisposed();
+
             VkDescriptorSetLayout vkValue = layout.Value;
             VkDescriptorSetAllocateInfo allocateInfo = new()
             {

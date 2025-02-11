@@ -20,6 +20,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -69,6 +70,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             logicalDevice.Wait();
             vkDestroyImage(logicalDevice.Value, value);
             valid = false;

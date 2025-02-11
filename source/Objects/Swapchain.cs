@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
+    [SkipLocalsInit]
     public unsafe struct Swapchain : IDisposable, IEquatable<Swapchain>
     {
         public readonly LogicalDevice device;
@@ -21,6 +23,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -56,7 +59,7 @@ namespace Vulkan
             (uint graphics, uint present) = device.physicalDevice.GetQueueFamilies(surface);
             if (graphics != present)
             {
-                uint* queueFamilies = stackalloc uint[2] { graphics, present };
+                USpan<uint> queueFamilies = stackalloc uint[2] { graphics, present };
                 swapchainCreateInfo.imageSharingMode = VkSharingMode.Concurrent;
                 swapchainCreateInfo.queueFamilyIndexCount = 2;
                 swapchainCreateInfo.pQueueFamilyIndices = queueFamilies;
@@ -83,6 +86,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkDestroySwapchainKHR(device.Value, value);
             valid = false;
         }
@@ -99,6 +103,7 @@ namespace Vulkan
         public readonly uint CopyImagesTo(USpan<Image> buffer)
         {
             ThrowIfDisposed();
+
             USpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(device.Value, value);
             for (uint i = 0; i < imageSpan.Length; i++)
             {

@@ -18,6 +18,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -105,6 +106,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkFreeMemory(logicalDevice.Value, value);
             valid = false;
         }
@@ -112,6 +114,7 @@ namespace Vulkan
         public readonly nint Map()
         {
             ThrowIfDisposed();
+
             void* data;
             VkResult result = vkMapMemory(logicalDevice.Value, value, 0, size, 0, &data);
             if (result != VkResult.Success)
@@ -125,6 +128,7 @@ namespace Vulkan
         public readonly void Unmap()
         {
             ThrowIfDisposed();
+
             vkUnmapMemory(logicalDevice.Value, value);
         }
 

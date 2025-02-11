@@ -7,7 +7,7 @@ namespace Vulkan
 {
     public unsafe struct Fence : IDisposable, IEquatable<Fence>
     {
-        public readonly LogicalDevice device;
+        public readonly LogicalDevice logicalDevice;
 
         private readonly VkFence value;
         private bool valid;
@@ -17,6 +17,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -29,10 +30,10 @@ namespace Vulkan
             throw new NotImplementedException();
         }
 
-        public Fence(LogicalDevice device, bool isSignaled = true)
+        public Fence(LogicalDevice logicalDevice, bool isSignaled = true)
         {
-            this.device = device;
-            VkResult result = vkCreateFence(device.Value, isSignaled ? VkFenceCreateFlags.Signaled : VkFenceCreateFlags.None, out value);
+            this.logicalDevice = logicalDevice;
+            VkResult result = vkCreateFence(logicalDevice.Value, isSignaled ? VkFenceCreateFlags.Signaled : VkFenceCreateFlags.None, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception(result.ToString());
@@ -53,7 +54,8 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
-            vkDestroyFence(device.Value, value);
+
+            vkDestroyFence(logicalDevice.Value, value);
             valid = false;
         }
 
@@ -65,7 +67,7 @@ namespace Vulkan
             ThrowIfDisposed();
             fixed (VkFence* pFence = &value)
             {
-                vkWaitForFences(device.Value, 1, pFence, true, timeout);
+                vkWaitForFences(logicalDevice.Value, 1, pFence, true, timeout);
             }
         }
 
@@ -77,7 +79,7 @@ namespace Vulkan
             ThrowIfDisposed();
             fixed (VkFence* pFence = &value)
             {
-                vkResetFences(device.Value, 1, pFence);
+                vkResetFences(logicalDevice.Value, 1, pFence);
             }
         }
 

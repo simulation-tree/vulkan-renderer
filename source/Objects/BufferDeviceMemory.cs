@@ -71,7 +71,7 @@ namespace Vulkan
         {
             nint pointer = Map();
             uint size = buffer.size;
-            uint elementSize = TypeInfo<T>.size;
+            uint elementSize = (uint)sizeof(T);
             USpan<T> span = new((void*)pointer, size / elementSize);
             data.CopyTo(span);
             Unmap();

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
@@ -9,6 +10,7 @@ namespace Vulkan
     /// <summary>
     /// Represents a collection of specific memory attachments that are used by a <see cref="RenderPass"/> instance.
     /// </summary>
+    [SkipLocalsInit]
     public unsafe struct Framebuffer : IDisposable
     {
         public readonly LogicalDevice logicalDevice;
@@ -23,6 +25,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -40,7 +43,7 @@ namespace Vulkan
             this.width = width;
             this.height = height;
 
-            VkImageView* images = stackalloc VkImageView[(int)imageViews.Length];
+            USpan<VkImageView> images = stackalloc VkImageView[(int)imageViews.Length];
             for (uint i = 0; i < imageViews.Length; i++)
             {
                 images[i] = imageViews[i].Value;
@@ -66,6 +69,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkDestroyFramebuffer(logicalDevice.Value, value);
             valid = false;
         }

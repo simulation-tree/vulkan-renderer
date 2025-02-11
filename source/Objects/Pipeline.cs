@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
+using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
+    [SkipLocalsInit]
     public unsafe struct Pipeline : IDisposable, IEquatable<Pipeline>
     {
         private readonly VkPipeline value;
@@ -16,6 +19,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -30,13 +34,14 @@ namespace Vulkan
         public Pipeline(PipelineCreateInput input, PipelineLayout layout, USpan<char> entryPoint)
         {
             logicalDevice = input.LogicalDevice;
-            byte* nameBuffer = stackalloc byte[(int)entryPoint.Length];
+            USpan<byte> nameBuffer = stackalloc byte[(int)entryPoint.Length + 1];
             for (uint i = 0; i < entryPoint.Length; i++)
             {
                 nameBuffer[i] = (byte)entryPoint[i];
             }
 
-            VkPipelineShaderStageCreateInfo* shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
+            nameBuffer[entryPoint.Length] = 0;
+            USpan<VkPipelineShaderStageCreateInfo> shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
             shaderStages[0] = new()
             {
                 stage = VkShaderStageFlags.Vertex,
@@ -51,7 +56,7 @@ namespace Vulkan
                 pName = nameBuffer
             };
 
-            VkVertexInputAttributeDescription* attributes = stackalloc VkVertexInputAttributeDescription[(int)input.vertexAttributes.Length];
+            USpan<VkVertexInputAttributeDescription> attributes = stackalloc VkVertexInputAttributeDescription[(int)input.vertexAttributes.Length];
             uint offset = 0;
             for (uint i = 0; i < input.vertexAttributes.Length; i++)
             {
@@ -107,7 +112,7 @@ namespace Vulkan
             colorBlending.blendConstants[2] = 0f;
             colorBlending.blendConstants[3] = 0f;
 
-            VkDynamicState* dynamicStateEnables = stackalloc VkDynamicState[2];
+            USpan<VkDynamicState> dynamicStateEnables = stackalloc VkDynamicState[2];
             dynamicStateEnables[0] = VkDynamicState.Viewport;
             dynamicStateEnables[1] = VkDynamicState.Scissor;
 
@@ -134,7 +139,7 @@ namespace Vulkan
                 renderPass = input.renderPass.Value
             };
 
-            VkResult result = Vortice.Vulkan.Vulkan.vkCreateGraphicsPipeline(logicalDevice.Value, pipelineCreateInfo, out value);
+            VkResult result = vkCreateGraphicsPipeline(logicalDevice.Value, pipelineCreateInfo, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to create graphics pipeline: {result}");
@@ -155,7 +160,8 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
-            Vortice.Vulkan.Vulkan.vkDestroyPipeline(logicalDevice.Value, value);
+            
+            vkDestroyPipeline(logicalDevice.Value, value);
             valid = false;
         }
 

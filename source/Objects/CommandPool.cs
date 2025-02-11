@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
@@ -10,6 +11,7 @@ namespace Vulkan
     /// A command buffers are allocated from.
     /// <para>Not thread safe.</para>
     /// </summary>
+    [SkipLocalsInit]
     public unsafe struct CommandPool : IDisposable, IEquatable<CommandPool>
     {
         public readonly LogicalDevice logicalDevice;
@@ -23,6 +25,7 @@ namespace Vulkan
             {
 
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -70,6 +73,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkDestroyCommandPool(logicalDevice.Value, value);
             valid = false;
         }
@@ -77,6 +81,7 @@ namespace Vulkan
         public readonly CommandBuffer CreateCommandBuffer(bool isPrimary = true)
         {
             ThrowIfDisposed();
+
             VkCommandBufferAllocateInfo commandBufferAllocateInfo = new()
             {
                 commandPool = value,
@@ -96,7 +101,8 @@ namespace Vulkan
         public readonly void CreateCommandBuffers(USpan<CommandBuffer> buffer, bool isPrimary = true)
         {
             ThrowIfDisposed();
-            VkCommandBuffer* newBuffers = stackalloc VkCommandBuffer[(int)buffer.Length];
+
+            USpan<VkCommandBuffer> newBuffers = stackalloc VkCommandBuffer[(int)buffer.Length];
             VkCommandBufferAllocateInfo allocateInfo = new()
             {
                 commandPool = value,
@@ -119,6 +125,7 @@ namespace Vulkan
         public readonly void Reset()
         {
             ThrowIfDisposed();
+
             vkResetCommandPool(logicalDevice.Value, value, VkCommandPoolResetFlags.None);
         }
 

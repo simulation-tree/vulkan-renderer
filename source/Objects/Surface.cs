@@ -18,6 +18,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -43,6 +44,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             valid = false;
             vkDestroySurfaceKHR(instance.Value, value);
         }
@@ -50,6 +52,7 @@ namespace Vulkan
         public readonly SwapchainCapabilities GetSwapchainInfo(PhysicalDevice physicalDevice)
         {
             ThrowIfDisposed();
+
             VkSurfaceCapabilitiesKHR capabilities = physicalDevice.GetSurfaceCapabilities(this);
             USpan<VkSurfaceFormatKHR> formats = physicalDevice.GetSurfaceFormats(this);
             USpan<VkPresentModeKHR> presentModes = physicalDevice.GetSurfacePresentModes(this);

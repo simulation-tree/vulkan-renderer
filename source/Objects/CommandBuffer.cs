@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
@@ -10,6 +11,7 @@ namespace Vulkan
     /// <summary>
     /// For recording commands that eventually get submitted to a <see cref="Queue"/>.
     /// </summary>
+    [SkipLocalsInit]
     public unsafe struct CommandBuffer : IDisposable, IEquatable<CommandBuffer>
     {
         public readonly CommandPool commandPool;
@@ -22,6 +24,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
@@ -47,6 +50,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkFreeCommandBuffers(commandPool.logicalDevice.Value, commandPool.Value, value);
             valid = false;
         }
@@ -57,6 +61,7 @@ namespace Vulkan
         public readonly void Reset()
         {
             ThrowIfDisposed();
+
             VkResult result = vkResetCommandBuffer(value, VkCommandBufferResetFlags.None);
             if (result != VkResult.Success)
             {
@@ -99,6 +104,7 @@ namespace Vulkan
         public readonly void End()
         {
             ThrowIfDisposed();
+
             VkResult result = vkEndCommandBuffer(value);
             if (result != VkResult.Success)
             {
@@ -109,6 +115,7 @@ namespace Vulkan
         public readonly void SetViewport(Vector4 rect, float minDepth = 0f, float maxDepth = 1f)
         {
             ThrowIfDisposed();
+
             VkViewport viewport = new(rect.X, rect.Y, rect.Z, rect.W, minDepth, maxDepth);
             vkCmdSetViewport(value, 0, 1, &viewport);
         }
@@ -116,6 +123,7 @@ namespace Vulkan
         public readonly void SetScissor(Vector4 rect)
         {
             ThrowIfDisposed();
+
             VkRect2D rectValue = new((int)rect.X, (int)rect.Y, (uint)rect.Z, (uint)rect.W);
             vkCmdSetScissor(value, 0, 1, &rectValue);
         }
@@ -123,6 +131,7 @@ namespace Vulkan
         public readonly void TransitionImageLayout(Image image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageAspectFlags aspects = VkImageAspectFlags.Color)
         {
             ThrowIfDisposed();
+
             VkImageMemoryBarrier barrier = new()
             {
                 oldLayout = oldLayout,
@@ -178,7 +187,8 @@ namespace Vulkan
         public readonly void BeginRenderPass(RenderPass renderPass, Framebuffer framebuffer, Vector4 area, Vector4 clearColor, bool withPrimary = true)
         {
             ThrowIfDisposed();
-            VkClearValue* clearValue = stackalloc VkClearValue[2];
+
+            USpan<VkClearValue> clearValue = stackalloc VkClearValue[2];
             clearValue[0].color = new VkClearColorValue(clearColor.X, clearColor.Y, clearColor.Z, clearColor.W);
             clearValue[1].depthStencil = new VkClearDepthStencilValue(1.0f, 0);
             VkRenderPassBeginInfo renderPassBeginInfo = new()
@@ -196,31 +206,36 @@ namespace Vulkan
         public readonly void EndRenderPass()
         {
             ThrowIfDisposed();
+
             vkCmdEndRenderPass(value);
         }
 
         public readonly void BindPipeline(Pipeline pipeline, VkPipelineBindPoint point)
         {
             ThrowIfDisposed();
+
             vkCmdBindPipeline(value, point, pipeline.Value);
         }
 
         public readonly void BindVertexBuffer(VertexBuffer vertexBuffer, uint binding = 0, uint offset = 0)
         {
             ThrowIfDisposed();
+
             vkCmdBindVertexBuffer(value, binding, vertexBuffer.bufferDeviceMemory.buffer.Value, offset);
         }
 
         public readonly void BindIndexBuffer(IndexBuffer indexBuffer, uint offset = 0)
         {
             ThrowIfDisposed();
+
             vkCmdBindIndexBuffer(value, indexBuffer.bufferDeviceMemory.buffer.Value, offset, VkIndexType.Uint32);
         }
 
         public readonly void BindDescriptorSets(PipelineLayout layout, USpan<DescriptorSet> descriptorSets, uint set = 0)
         {
             ThrowIfDisposed();
-            VkDescriptorSet* descriptorSetValue = stackalloc VkDescriptorSet[(int)descriptorSets.Length];
+
+            USpan<VkDescriptorSet> descriptorSetValue = stackalloc VkDescriptorSet[(int)descriptorSets.Length];
             for (uint i = 0; i < descriptorSets.Length; i++)
             {
                 descriptorSetValue[i] = descriptorSets[i].Value;
@@ -232,7 +247,8 @@ namespace Vulkan
         public readonly void BindDescriptorSet(PipelineLayout layout, DescriptorSet descriptorSet, uint set = 0)
         {
             ThrowIfDisposed();
-            VkDescriptorSet* descriptorSetValue = stackalloc VkDescriptorSet[1];
+
+            USpan<VkDescriptorSet> descriptorSetValue = stackalloc VkDescriptorSet[1];
             descriptorSetValue[0] = descriptorSet.Value;
             vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, 1));
         }
@@ -240,12 +256,14 @@ namespace Vulkan
         public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags stage, USpan<byte> data, uint offset = 0)
         {
             ThrowIfDisposed();
+
             vkCmdPushConstants(value, layout.Value, stage, offset, data.Length, (void*)data.Address);
         }
 
         public readonly void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)
         {
             ThrowIfDisposed();
+
             vkCmdDrawIndexed(value, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
 
@@ -264,6 +282,7 @@ namespace Vulkan
         public readonly void CopyBufferToImage(Buffer sourceBuffer, Image destinationImage, uint depth = 1)
         {
             ThrowIfDisposed();
+
             VkBufferImageCopy region = new()
             {
                 bufferOffset = 0,
@@ -286,6 +305,7 @@ namespace Vulkan
         public readonly void CopyBufferToImage(Buffer sourceBuffer, uint width, uint height, uint x, uint y, Image destinationImage, uint depth = 1)
         {
             ThrowIfDisposed();
+
             VkBufferImageCopy bufferImageCopy = new()
             {
                 bufferOffset = ((width * y) + x) * 4,
@@ -302,6 +322,7 @@ namespace Vulkan
         public readonly void CopyBufferTo(BufferDeviceMemory source, BufferDeviceMemory destination)
         {
             ThrowIfDisposed();
+
             VkBufferCopy region = default;
             region.dstOffset = 0;
             region.srcOffset = 0;
@@ -312,6 +333,7 @@ namespace Vulkan
         public readonly void CopyBufferTo(Buffer source, Buffer destination, ulong size)
         {
             ThrowIfDisposed();
+
             VkBufferCopy region = default;
             region.dstOffset = 0;
             region.srcOffset = 0;
@@ -322,6 +344,7 @@ namespace Vulkan
         public readonly void CopyBufferTo(BufferDeviceMemory source, BufferDeviceMemory destination, ulong size)
         {
             ThrowIfDisposed();
+
             VkBufferCopy region = default;
             region.dstOffset = 0;
             region.srcOffset = 0;

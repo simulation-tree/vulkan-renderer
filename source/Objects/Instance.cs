@@ -48,17 +48,19 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return value;
             }
         }
 
-        public readonly nint Address => (nint)value.Handle;
+        public readonly nint Address => value.Handle;
 
         public readonly USpan<PhysicalDevice> PhysicalDevices
         {
             get
             {
                 ThrowIfDisposed();
+
                 return physicalDevices.AsSpan();
             }
         }
@@ -70,6 +72,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return applicationName.AsSpan();
             }
         }
@@ -79,6 +82,7 @@ namespace Vulkan
             get
             {
                 ThrowIfDisposed();
+
                 return engineName.AsSpan();
             }
         }
@@ -284,6 +288,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             applicationName.Dispose();
             engineName.Dispose();
             physicalDevices.Dispose();
