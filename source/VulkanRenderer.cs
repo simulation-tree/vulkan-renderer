@@ -793,7 +793,7 @@ namespace Rendering.Vulkan
             uint fragmentShaderEntity = fragmentShader.entity;
             bool deviceWaited = false;
 
-            void Wait(LogicalDevice logicalDevice)
+            void TryWait(LogicalDevice logicalDevice)
             {
                 if (!deviceWaited)
                 {
@@ -814,7 +814,7 @@ namespace Rendering.Vulkan
                 shaderChanged = compiledShader.vertexVersion != vertexShader.version;
                 if (shaderChanged)
                 {
-                    Wait(logicalDevice);
+                    TryWait(logicalDevice);
                     compiledShader.Dispose();
                     compiledShader = CompileShader(world, vertexShader, fragmentShader);
                     shaders[(vertexShaderEntity, fragmentShaderEntity)] = compiledShader;
@@ -833,7 +833,7 @@ namespace Rendering.Vulkan
             bool meshChanged = compiledMesh.version != mesh.version;
             if (meshChanged || shaderChanged)
             {
-                Wait(logicalDevice);
+                TryWait(logicalDevice);
                 compiledMesh.Dispose();
                 compiledMesh = CompileMesh(world, meshEntity, vertexShaderEntity);
             }
@@ -859,7 +859,7 @@ namespace Rendering.Vulkan
                     ref CompiledImage image = ref images[textureHash];
                     if (image.binding.Version != textureBinding.Version)
                     {
-                        Wait(logicalDevice);
+                        TryWait(logicalDevice);
                         image.Dispose();
                         uint textureVersion = world.GetComponent<IsTexture>(textureBinding.Entity).version;
                         image = CompileImage(materialEntity, textureVersion, textureBinding);
@@ -870,7 +870,7 @@ namespace Rendering.Vulkan
 
             if (meshChanged || shaderChanged || updateDescriptorSet)
             {
-                Wait(logicalDevice);
+                TryWait(logicalDevice);
 
                 //todo: handle possible cases where a pipeline rebuild isnt needed, for example: mesh only and within alloc size
                 //need to dispose the descriptor sets before the descriptor pool is gone
@@ -1149,10 +1149,11 @@ namespace Rendering.Vulkan
         {
             unchecked
             {
-                uint hash = 17;
-                hash = hash * 23 + materialEntity;
-                hash = hash * 23 + (uint)binding.GetHashCode();
-                return hash;
+                int hash = 17;
+                hash = hash * 23 + materialEntity.GetHashCode();
+                hash = hash * 23 + binding.key.GetHashCode();
+                hash = hash * 23 + binding.Entity.GetHashCode();
+                return (uint)hash;
             }
         }
 
