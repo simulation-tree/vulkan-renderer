@@ -585,7 +585,7 @@ namespace Rendering.Vulkan
             World world = destination.world;
             uint depth = 1;
             VkImageUsageFlags usage = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled;
-            //VkFormat format = VkFormat.R8G8B8A8Srgb;
+            //VkFormat format = VkFormat.R8G8B8A8Srgb; //todo: why is this commented out again? i forget
             VkFormat format = VkFormat.R8G8B8A8Unorm;
             uint textureEntity = binding.Entity;
             IsTexture size = world.GetComponent<IsTexture>(textureEntity);
@@ -604,7 +604,7 @@ namespace Rendering.Vulkan
             DeviceMemory imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
             USpan<Pixel> pixels = world.GetArray<Pixel>(textureEntity);
 
-            //copy pixels from the entity, into the temporary buffer, then temporary buffer copies into the buffer
+            //copy pixels from the entity, into the temporary buffer, then temporary buffer copies into the buffer... yada yada yada
             using BufferDeviceMemory tempStagingBuffer = new(logicalDevice, pixels.Length * 4, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostCoherent | VkMemoryPropertyFlags.HostVisible);
             tempStagingBuffer.CopyFrom(pixels);
             VkImageLayout imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
