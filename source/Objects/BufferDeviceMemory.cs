@@ -34,11 +34,11 @@ namespace Vulkan
             memory.Unmap();
         }
 
-        public readonly USpan<T> Map<T>() where T : unmanaged
+        public unsafe readonly USpan<T> Map<T>() where T : unmanaged
         {
             nint pointer = Map();
             uint size = buffer.size;
-            uint elementSize = TypeInfo<T>.size;
+            uint elementSize = (uint)sizeof(T);
             return new USpan<T>((void*)pointer, size / elementSize);
         }
 
