@@ -183,9 +183,13 @@ namespace Vulkan
 
         public readonly bool Equals(DescriptorSet other)
         {
-            if (IsDisposed && other.IsDisposed)
+            if (!valid && !other.valid)
             {
                 return true;
+            }
+            else if (valid != other.valid)
+            {
+                return false;
             }
 
             return value == other.value;
@@ -193,7 +197,14 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return value.GetHashCode();
+            if (valid)
+            {
+                return value.GetHashCode();
+            }
+            else
+            {
+                return 0;
+            }
         }
 
         public static bool operator ==(DescriptorSet left, DescriptorSet right)
