@@ -1006,8 +1006,10 @@ namespace Rendering.Vulkan
 
         private readonly void DisposeUnusued()
         {
+            bool waited = false;
+
             //dispose unusued buffers
-            USpan<uint> toRemove = stackalloc uint[256];
+            USpan<uint> toRemove = stackalloc uint[512]; //todo: this can crash if not enough space
             uint removeCount = 0;
             foreach (uint componentHash in components.Keys)
             {
@@ -1030,7 +1032,12 @@ namespace Rendering.Vulkan
 
             if (removeCount > 0)
             {
-                logicalDevice.Wait();
+                if (!waited)
+                {
+                    waited = true;
+                    logicalDevice.Wait();
+                }
+
                 for (uint i = 0; i < removeCount; i++)
                 {
                     CompiledComponentBuffer component = components.Remove(toRemove[i]);
@@ -1062,7 +1069,12 @@ namespace Rendering.Vulkan
 
             if (removeCount > 0)
             {
-                logicalDevice.Wait();
+                if (!waited)
+                {
+                    waited = true;
+                    logicalDevice.Wait();
+                }
+
                 for (uint i = 0; i < removeCount; i++)
                 {
                     CompiledImage image = images.Remove(toRemove[i]);
@@ -1077,13 +1089,29 @@ namespace Rendering.Vulkan
             {
                 if (!previouslyRenderedEntities.Contains(e))
                 {
-                    ref CompiledRenderer renderer = ref renderers[e];
-                    if (renderer != default)
+                    if (renderers[e] != default)
                     {
-                        renderer.Dispose();
-                        renderer = default;
+                        toRemove[removeCount++] = e;
                     }
                 }
+            }
+
+            if (removeCount > 0)
+            {
+                if (!waited)
+                {
+                    waited = true;
+                    logicalDevice.Wait();
+                }
+
+                for (uint i = 0; i < removeCount; i++)
+                {
+                    ref CompiledRenderer renderer = ref renderers[toRemove[i]];
+                    renderer.Dispose();
+                    renderer = default;
+                }
+
+                removeCount = 0;
             }
 
             //dispose unused meshes
@@ -1108,7 +1136,12 @@ namespace Rendering.Vulkan
 
             if (removeCount > 0)
             {
-                logicalDevice.Wait();
+                if (!waited)
+                {
+                    waited = true;
+                    logicalDevice.Wait();
+                }
+
                 for (uint i = 0; i < removeCount; i++)
                 {
                     CompiledMesh mesh = meshes.Remove(toRemoveKeys[i]);
@@ -1139,7 +1172,12 @@ namespace Rendering.Vulkan
 
             if (removeCount > 0)
             {
-                logicalDevice.Wait();
+                if (!waited)
+                {
+                    waited = true;
+                    logicalDevice.Wait();
+                }
+
                 for (uint i = 0; i < removeCount; i++)
                 {
                     CompiledPipeline pipeline = pipelines.Remove(toRemoveKeys[i]);
