@@ -8,7 +8,7 @@ namespace Vulkan
     public unsafe struct ImageView : IDisposable, IEquatable<ImageView>
     {
         public readonly VkImageAspectFlags aspects;
-        public readonly LogicalDevice device;
+        public readonly LogicalDevice logicalDevice;
 
         private readonly VkImageView value;
         private bool valid;
@@ -25,12 +25,15 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public ImageView(Image image, VkImageAspectFlags aspects = VkImageAspectFlags.Color)
+        public ImageView(Image image, VkImageAspectFlags aspects = VkImageAspectFlags.Color, bool isCubemap = false)
         {
+            uint mipLevels = 1;
             this.aspects = aspects;
-            this.device = image.logicalDevice;
-            VkImageViewCreateInfo imageCreateInfo = new(image.Value, VkImageViewType.Image2D, image.format, VkComponentMapping.Rgba, new VkImageSubresourceRange(aspects, 0, 1, 0, 1));
-            VkResult result = vkCreateImageView(device.Value, &imageCreateInfo, null, out value);
+            this.logicalDevice = image.logicalDevice;
+            VkImageViewType viewType = isCubemap ? VkImageViewType.ImageCube : VkImageViewType.Image2D;
+            VkImageSubresourceRange range = new(aspects, 0, mipLevels, 0, isCubemap ? 6u : 1u);
+            VkImageViewCreateInfo imageCreateInfo = new(image.Value, viewType, image.format, VkComponentMapping.Rgba, range);
+            VkResult result = vkCreateImageView(logicalDevice.Value, &imageCreateInfo, null, out value);
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to create image view: {result}");
@@ -52,7 +55,7 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            vkDestroyImageView(device.Value, value);
+            vkDestroyImageView(logicalDevice.Value, value);
             valid = false;
         }
 

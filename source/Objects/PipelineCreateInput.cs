@@ -1,15 +1,19 @@
-﻿using System;
+﻿using Materials;
+using System;
 using Unmanaged;
 
 namespace Vulkan
 {
-    public readonly ref struct PipelineCreateInput
+    public ref struct PipelineCreateInput
     {
         public readonly RenderPass renderPass;
-        public readonly uint vertexBinding;
-        public readonly ShaderModule vertex;
-        public readonly ShaderModule fragment;
-        public readonly USpan<VertexInputAttribute> vertexAttributes;
+        public uint vertexBinding;
+        public ShaderModule vertexShader;
+        public ShaderModule fragmentShader;
+        public USpan<VertexInputAttribute> vertexAttributes;
+        public bool depthTestEnable;
+        public bool depthWriteEnable;
+        public CompareOperation depthCompareOperation;
 
         public readonly LogicalDevice LogicalDevice => renderPass.logicalDevice;
 
@@ -19,12 +23,15 @@ namespace Vulkan
             throw new NotImplementedException();
         }
 
-        public PipelineCreateInput(RenderPass renderPass, ShaderModule vertex, ShaderModule fragment, USpan<VertexInputAttribute> vertexAttributes)
+        public PipelineCreateInput(RenderPass renderPass, ShaderModule vertexShader, ShaderModule fragmentShader, USpan<VertexInputAttribute> vertexAttributes)
         {
             this.renderPass = renderPass;
-            this.vertex = vertex;
-            this.fragment = fragment;
+            this.vertexShader = vertexShader;
+            this.fragmentShader = fragmentShader;
             this.vertexAttributes = vertexAttributes;
+            depthCompareOperation = CompareOperation.Less;
+            depthWriteEnable = true;
+            depthTestEnable = true;
         }
     }
 }

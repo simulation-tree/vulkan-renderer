@@ -385,7 +385,7 @@ namespace Rendering.Vulkan
             uint indexCount = indices.Length;
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
             IndexBuffer indexBuffer = new(graphicsQueue, commandPool, indices);
-            Trace.WriteLine($"Compiled mesh `{meshEntity}` with `{vertexCount}` vertices and `{indexCount}` indices");
+            //Trace.WriteLine($"Compiled mesh `{meshEntity}` with `{vertexCount}` vertices and `{indexCount}` indices");
             return new(mesh.Version, indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
         }
 
@@ -491,6 +491,13 @@ namespace Rendering.Vulkan
             //create pipeline
             DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings.Slice(0, bindingCount));
             PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader, vertexAttributes);
+            MaterialFlags flags = material.Flags;
+            CompareOperation depthCompareOperation = material.DepthCompareOperation;
+
+            pipelineCreation.depthWriteEnable = (flags & MaterialFlags.DepthWrite) != 0;
+            pipelineCreation.depthTestEnable = (flags & MaterialFlags.DepthTest) != 0;
+            pipelineCreation.depthCompareOperation = depthCompareOperation;
+
             PipelineLayout pipelineLayout = new(logicalDevice, setLayout, pushConstantsBuffer.Slice(0, pushConstantsCount));
             Pipeline pipeline = new(pipelineCreation, pipelineLayout, "main");
 
@@ -549,8 +556,8 @@ namespace Rendering.Vulkan
                     ushort componentSize = componentType.size;
                     uint bufferSize = (uint)(Math.Ceiling(componentSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
                     VkBufferUsageFlags usage = VkBufferUsageFlags.UniformBuffer;
-                    VkMemoryPropertyFlags flags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
-                    BufferDeviceMemory buffer = new(logicalDevice, bufferSize, usage, flags);
+                    VkMemoryPropertyFlags propertyFlags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
+                    BufferDeviceMemory buffer = new(logicalDevice, bufferSize, usage, propertyFlags);
                     componentBuffer = new(materialEntity, binding.entity, componentType, buffer);
                     components.Add(componentHash, componentBuffer);
                 }
@@ -590,6 +597,7 @@ namespace Rendering.Vulkan
             //VkFormat format = VkFormat.R8G8B8A8Srgb; //todo: why is this commented out again? i forget
             VkFormat format = VkFormat.R8G8B8A8Unorm;
             uint textureEntity = binding.Entity;
+            bool isCubemap = world.ContainsTag<IsCubemapTexture>(textureEntity);
             Vector4 region = binding.Region;
             uint x = (uint)(region.X * component.width);
             uint y = (uint)(region.Y * component.height);
@@ -601,9 +609,10 @@ namespace Rendering.Vulkan
             uint maxY = Math.Max(y, w);
             uint width = maxX - minX;
             uint height = maxY - minY;
-            Image image = new(logicalDevice, width, height, depth, format, usage);
+            Image image = new(logicalDevice, width, height, depth, format, usage, isCubemap);
             DeviceMemory imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
             USpan<Pixel> pixels = world.GetArray<Pixel>(textureEntity);
+            uint layerCount = isCubemap ? 6u : 1u;
 
             //copy pixels from the entity, into the temporary buffer, then temporary buffer copies into the buffer... yada yada yada
             using BufferDeviceMemory tempStagingBuffer = new(logicalDevice, pixels.Length * 4, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostCoherent | VkMemoryPropertyFlags.HostVisible);
@@ -612,27 +621,27 @@ namespace Rendering.Vulkan
             using CommandPool tempPool = new(graphicsQueue, true);
             using CommandBuffer tempBuffer = tempPool.CreateCommandBuffer();
             tempBuffer.Begin();
-            tempBuffer.TransitionImageLayout(image, VkImageLayout.Undefined, VkImageLayout.TransferDstOptimal);
+            tempBuffer.TransitionImageLayout(image, VkImageLayout.Undefined, VkImageLayout.TransferDstOptimal, VkImageAspectFlags.Color, layerCount);
             tempBuffer.End();
             graphicsQueue.Submit(tempBuffer);
             graphicsQueue.Wait();
             tempBuffer.Begin();
-            tempBuffer.CopyBufferToImage(tempStagingBuffer.buffer, component.width, component.height, minX, minY, image, depth);
+            tempBuffer.CopyBufferToImage(tempStagingBuffer.buffer, component.width, component.height, minX, minY, image, depth, layerCount);
             tempBuffer.End();
             graphicsQueue.Submit(tempBuffer);
             graphicsQueue.Wait();
             tempBuffer.Begin();
-            tempBuffer.TransitionImageLayout(image, VkImageLayout.TransferDstOptimal, imageLayout);
+            tempBuffer.TransitionImageLayout(image, VkImageLayout.TransferDstOptimal, imageLayout, VkImageAspectFlags.Color, layerCount);
             tempBuffer.End();
             graphicsQueue.Submit(tempBuffer);
             graphicsQueue.Wait();
 
-            ImageView imageView = new(image);
+            ImageView imageView = new(image, VkImageAspectFlags.Color, isCubemap);
             SamplerCreateParameters samplerParameters = new();
             samplerParameters.minFilter = binding.Filter == TextureFiltering.Linear ? VkFilter.Linear : VkFilter.Nearest;
             samplerParameters.magFilter = samplerParameters.minFilter;
             Sampler sampler = new(logicalDevice, samplerParameters);
-            Trace.WriteLine($"Compiled image for material `{materialEntity}` with `{width}`x`{height}` pixels");
+            Trace.WriteLine($"Compiled image for material `{materialEntity}` with `{width}`x`{height}` pixels (cubemap: {isCubemap})");
             return new(materialEntity, component.version, binding, image, imageView, imageMemory, sampler);
         }
 

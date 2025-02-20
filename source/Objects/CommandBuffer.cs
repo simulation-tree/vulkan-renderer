@@ -128,7 +128,7 @@ namespace Vulkan
             vkCmdSetScissor(value, 0, 1, &rectValue);
         }
 
-        public readonly void TransitionImageLayout(Image image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageAspectFlags aspects = VkImageAspectFlags.Color)
+        public readonly void TransitionImageLayout(Image image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageAspectFlags aspects = VkImageAspectFlags.Color, uint layerCount = 1)
         {
             ThrowIfDisposed();
 
@@ -139,7 +139,7 @@ namespace Vulkan
                 srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 image = image.Value,
-                subresourceRange = new VkImageSubresourceRange(aspects, 0, 1, 0, 1)
+                subresourceRange = new VkImageSubresourceRange(aspects, 0, 1, 0, layerCount)
             };
 
             VkPipelineStageFlags sourceStage;
@@ -302,7 +302,7 @@ namespace Vulkan
         /// Assumes the source buffer is 4 bytes per pixel.
         /// </para>
         /// </summary>
-        public readonly void CopyBufferToImage(Buffer sourceBuffer, uint width, uint height, uint x, uint y, Image destinationImage, uint depth = 1)
+        public readonly void CopyBufferToImage(Buffer sourceBuffer, uint width, uint height, uint x, uint y, Image destinationImage, uint depth = 1, uint layerCount = 1)
         {
             ThrowIfDisposed();
 
@@ -311,7 +311,7 @@ namespace Vulkan
                 bufferOffset = ((width * y) + x) * 4,
                 bufferRowLength = width,
                 bufferImageHeight = height,
-                imageSubresource = new VkImageSubresourceLayers(VkImageAspectFlags.Color, 0, 0, 1),
+                imageSubresource = new VkImageSubresourceLayers(VkImageAspectFlags.Color, 0, 0, layerCount),
                 imageOffset = new VkOffset3D(0, 0, 0),
                 imageExtent = new VkExtent3D(destinationImage.width, destinationImage.height, depth)
             };

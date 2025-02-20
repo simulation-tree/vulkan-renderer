@@ -90,8 +90,9 @@ namespace Vulkan
         internal Instance(Library library, USpan<char> applicationName, USpan<char> engineName, USpan<FixedString> extensions)
         {
             using List<FixedString> inputLayers = new();
-            using Array<FixedString> globalLayers = library.GetGlobalLayers();
 
+#if DEBUG
+            using Array<FixedString> globalLayers = library.GetGlobalLayers();
             if (ContainsAll(globalLayers.AsSpan(), preferredValidationLayers))
             {
                 inputLayers.AddRange(preferredValidationLayers);
@@ -113,7 +114,7 @@ namespace Vulkan
                 if (globalLayers.Length > 0)
                 {
                     using Text remaining = new();
-                    USpan<char> buffer = stackalloc char[(int)FixedString.Capacity];
+                    USpan<char> buffer = stackalloc char[FixedString.Capacity];
                     foreach (FixedString layer in globalLayers)
                     {
                         uint length = layer.CopyTo(buffer);
@@ -154,6 +155,7 @@ namespace Vulkan
 
                 return true;
             }
+#endif
 
             using Array<FixedString> globalExtensions = library.GetGlobalExtensions();
             using List<FixedString> inputExtensions = new(extensions);
@@ -190,7 +192,7 @@ namespace Vulkan
 
             using List<VkUtf8String> vkInstanceLayers = new(inputLayers.Count);
             using List<nint> tempAllocations = new();
-            USpan<byte> nameBuffer = stackalloc byte[(int)FixedString.Capacity];
+            USpan<byte> nameBuffer = stackalloc byte[FixedString.Capacity];
             foreach (FixedString instanceLayer in inputLayers)
             {
                 uint length = instanceLayer.CopyTo(nameBuffer) + 1;

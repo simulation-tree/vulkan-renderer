@@ -45,14 +45,14 @@ namespace Vulkan
             shaderStages[0] = new()
             {
                 stage = VkShaderStageFlags.Vertex,
-                module = input.vertex.Value,
+                module = input.vertexShader.Value,
                 pName = nameBuffer
             };
 
             shaderStages[1] = new()
             {
                 stage = VkShaderStageFlags.Fragment,
-                module = input.fragment.Value,
+                module = input.fragmentShader.Value,
                 pName = nameBuffer
             };
 
@@ -81,9 +81,9 @@ namespace Vulkan
 
             VkPipelineDepthStencilStateCreateInfo depthStencilState = default;
             depthStencilState.sType = VkStructureType.PipelineDepthStencilStateCreateInfo;
-            depthStencilState.depthTestEnable = true;
-            depthStencilState.depthWriteEnable = true;
-            depthStencilState.depthCompareOp = VkCompareOp.Less;
+            depthStencilState.depthTestEnable = input.depthTestEnable;
+            depthStencilState.depthWriteEnable = input.depthWriteEnable;
+            depthStencilState.depthCompareOp = (VkCompareOp)input.depthCompareOperation;
             depthStencilState.depthBoundsTestEnable = false;
             depthStencilState.stencilTestEnable = false;
             depthStencilState.minDepthBounds = 0f;
@@ -160,7 +160,7 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
-            
+
             vkDestroyPipeline(logicalDevice.Value, value);
             valid = false;
         }

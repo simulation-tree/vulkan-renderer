@@ -32,7 +32,7 @@ namespace Vulkan
             vkCreateInfo.mipmapMode = createInfo.mipmapMode;
             vkCreateInfo.addressModeU = createInfo.addressModeX;
             vkCreateInfo.addressModeV = createInfo.addressModeY;
-            vkCreateInfo.addressModeW = VkSamplerAddressMode.Repeat;
+            vkCreateInfo.addressModeW = createInfo.addressModeW;
             vkCreateInfo.anisotropyEnable = createInfo.anisotropy;
 
             VkPhysicalDeviceProperties properties = device.physicalDevice.GetProperties();
@@ -40,7 +40,7 @@ namespace Vulkan
             vkCreateInfo.borderColor = VkBorderColor.IntOpaqueBlack;
             vkCreateInfo.unnormalizedCoordinates = false;
             vkCreateInfo.compareEnable = createInfo.compareEnable;
-            vkCreateInfo.compareOp = createInfo.compareOp;
+            vkCreateInfo.compareOp = (VkCompareOp)createInfo.compareOperation;
             vkCreateInfo.mipLodBias = createInfo.mipLoadBias;
             vkCreateInfo.minLod = createInfo.minLod;
             vkCreateInfo.maxLod = createInfo.maxLod;

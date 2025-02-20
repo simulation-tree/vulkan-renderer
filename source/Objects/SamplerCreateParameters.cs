@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Materials;
+using System;
 using Vortice.Vulkan;
 
 namespace Vulkan
@@ -12,10 +13,11 @@ namespace Vulkan
         public float maxAnisotropy;
         public VkSamplerAddressMode addressModeX;
         public VkSamplerAddressMode addressModeY;
+        public VkSamplerAddressMode addressModeW;
         public float mipLoadBias;
         public float minLod;
         public float maxLod;
-        public VkCompareOp compareOp;
+        public CompareOperation compareOperation;
         public bool compareEnable;
 
         /// <summary>
@@ -28,19 +30,20 @@ namespace Vulkan
         /// <summary>
         /// Default paremeters for sampler creation.
         /// </summary>
-        public SamplerCreateParameters(VkFilter filter, VkSamplerAddressMode repeat)
+        public SamplerCreateParameters(VkFilter filter, VkSamplerAddressMode addressMode)
         {
             minFilter = filter;
             magFilter = filter;
             mipmapMode = filter == VkFilter.Nearest ? VkSamplerMipmapMode.Nearest : VkSamplerMipmapMode.Linear;
             anisotropy = true;
             maxAnisotropy = 16.0f;
-            addressModeX = repeat;
-            addressModeY = repeat;
+            addressModeX = addressMode;
+            addressModeY = addressMode;
+            addressModeW = addressMode;
             mipLoadBias = 0.0f;
             minLod = 0.0f;
             maxLod = 0.0f;
-            compareOp = VkCompareOp.Always;
+            compareOperation = CompareOperation.Always;
         }
 
         public readonly override bool Equals(object? obj)
@@ -60,7 +63,7 @@ namespace Vulkan
                    mipLoadBias == other.mipLoadBias &&
                    minLod == other.minLod &&
                    maxLod == other.maxLod &&
-                   compareOp == other.compareOp &&
+                   compareOperation == other.compareOperation &&
                    compareEnable == other.compareEnable;
         }
 
@@ -79,7 +82,7 @@ namespace Vulkan
                 hash = hash * 23 + mipLoadBias.GetHashCode();
                 hash = hash * 23 + minLod.GetHashCode();
                 hash = hash * 23 + maxLod.GetHashCode();
-                hash = hash * 23 + compareOp.GetHashCode();
+                hash = hash * 23 + compareOperation.GetHashCode();
                 hash = hash * 23 + compareEnable.GetHashCode();
                 return hash;
             }

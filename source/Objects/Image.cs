@@ -37,7 +37,7 @@ namespace Vulkan
             valid = true;
         }
 
-        public Image(LogicalDevice logicalDevice, uint width, uint height, uint depth, VkFormat format, VkImageUsageFlags usage)
+        public Image(LogicalDevice logicalDevice, uint width, uint height, uint depth, VkFormat format, VkImageUsageFlags usage, bool isCubemap = false)
         {
             this.logicalDevice = logicalDevice;
             this.format = format;
@@ -50,11 +50,12 @@ namespace Vulkan
             createInfo.extent.height = height;
             createInfo.extent.depth = depth;
             createInfo.mipLevels = 1;
-            createInfo.arrayLayers = 1;
+            createInfo.arrayLayers = isCubemap ? 6u : 1u;
             createInfo.format = format;
             createInfo.tiling = VkImageTiling.Optimal;
             createInfo.initialLayout = VkImageLayout.Undefined;
             createInfo.usage = usage;
+            createInfo.flags = isCubemap ? VkImageCreateFlags.CubeCompatible : default;
             createInfo.samples = VkSampleCountFlags.Count1;
             createInfo.sharingMode = VkSharingMode.Exclusive;
 
