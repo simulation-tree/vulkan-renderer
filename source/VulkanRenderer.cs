@@ -827,6 +827,7 @@ namespace Rendering.Vulkan
             }
 
             //make sure a processed mesh exists for this combination of shader entity and mesh entity, also rebuild it when it changes
+            bool meshChanged = false;
             RendererKey key = new(materialEntity, meshEntity);
             ref CompiledMesh compiledMesh = ref meshes.TryGetValue(key, out bool containsMesh);
             if (!containsMesh)
@@ -834,13 +835,15 @@ namespace Rendering.Vulkan
                 CompiledMesh newCompiledMesh = CompileMesh(world, meshEntity, vertexShaderEntity);
                 compiledMesh = ref meshes.Add(key, newCompiledMesh);
             }
-
-            bool meshChanged = compiledMesh.version != mesh.version;
-            if (meshChanged || shaderChanged)
+            else
             {
-                TryWait(logicalDevice);
-                compiledMesh.Dispose();
-                compiledMesh = CompileMesh(world, meshEntity, vertexShaderEntity);
+                meshChanged = compiledMesh.version != mesh.version;
+                if (meshChanged || shaderChanged)
+                {
+                    TryWait(logicalDevice);
+                    compiledMesh.Dispose();
+                    compiledMesh = CompileMesh(world, meshEntity, vertexShaderEntity);
+                }
             }
 
             //make sure a pipeline exists, the same way a compiled mesh is
@@ -874,7 +877,7 @@ namespace Rendering.Vulkan
                 }
             }
 
-            if (meshChanged || shaderChanged || updateDescriptorSet)
+            if (shaderChanged || updateDescriptorSet)
             {
                 TryWait(logicalDevice);
 
