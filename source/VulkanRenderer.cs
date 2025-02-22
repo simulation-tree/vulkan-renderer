@@ -841,8 +841,8 @@ namespace Rendering.Vulkan
             ref CompiledMesh compiledMesh = ref meshes.TryGetValue(key, out bool containsMesh);
             if (!containsMesh)
             {
-                CompiledMesh newCompiledMesh = CompileMesh(world, meshEntity, vertexShaderEntity);
-                compiledMesh = ref meshes.Add(key, newCompiledMesh);
+                compiledMesh = ref meshes.Add(key);
+                compiledMesh = CompileMesh(world, meshEntity, vertexShaderEntity);
             }
             else
             {
@@ -860,8 +860,8 @@ namespace Rendering.Vulkan
             if (!containsPipeline)
             {
                 Trace.WriteLine($"Creating pipeline for material `{materialEntity}` and mesh `{meshEntity}` for the first time");
-                CompiledPipeline newCompiledPipeline = CompilePipeline(world, materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh, textureType);
-                compiledPipeline = ref pipelines.Add(key, newCompiledPipeline);
+                compiledPipeline = ref pipelines.Add(key);
+                compiledPipeline = CompilePipeline(world, materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh, textureType);
             }
 
             //update images of bindings that change
@@ -1052,7 +1052,7 @@ namespace Rendering.Vulkan
 
                 for (uint i = 0; i < removeCount; i++)
                 {
-                    CompiledComponentBuffer component = components.Remove(toRemove[i]);
+                    components.Remove(toRemove[i], out CompiledComponentBuffer component);
                     component.Dispose();
                 }
 
@@ -1089,7 +1089,7 @@ namespace Rendering.Vulkan
 
                 for (uint i = 0; i < removeCount; i++)
                 {
-                    CompiledImage image = images.Remove(toRemove[i]);
+                    images.Remove(toRemove[i], out CompiledImage image);
                     image.Dispose();
                 }
 
@@ -1156,7 +1156,7 @@ namespace Rendering.Vulkan
 
                 for (uint i = 0; i < removeCount; i++)
                 {
-                    CompiledMesh mesh = meshes.Remove(toRemoveKeys[i]);
+                    meshes.Remove(toRemoveKeys[i], out CompiledMesh mesh);
                     mesh.Dispose();
                 }
 
@@ -1192,7 +1192,7 @@ namespace Rendering.Vulkan
 
                 for (uint i = 0; i < removeCount; i++)
                 {
-                    CompiledPipeline pipeline = pipelines.Remove(toRemoveKeys[i]);
+                    pipelines.Remove(toRemoveKeys[i], out CompiledPipeline pipeline);
                     pipeline.Dispose();
                 }
 
