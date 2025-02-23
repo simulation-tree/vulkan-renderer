@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Unmanaged;
 using Vortice.Vulkan;
@@ -24,56 +25,45 @@ namespace Vulkan
             buffer.Dispose();
         }
 
-        public readonly nint Map()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly Allocation Map()
         {
             return memory.Map();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly void Unmap()
         {
             memory.Unmap();
         }
 
-        public unsafe readonly USpan<T> Map<T>() where T : unmanaged
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly USpan<T> Map<T>() where T : unmanaged
         {
-            nint pointer = Map();
-            uint size = buffer.size;
-            uint elementSize = (uint)sizeof(T);
-            return new USpan<T>((void*)pointer, size / elementSize);
+            Allocation memoryPointer = Map();
+            return new(memoryPointer.Pointer, buffer.size);
         }
 
         /// <summary>
-        /// Maps the memory and copies the data from the pointer,
+        /// Maps the memory and copies the <paramref name="data"/> to it,
         /// then unmaps it.
         /// </summary>
-        public readonly void CopyFrom(void* pointer, uint length)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly void CopyFrom(Allocation data, uint byteLength)
         {
-            nint memoryPointer = Map();
-            Unsafe.CopyBlock(pointer, (void*)memoryPointer, length);
-            Unmap();
-        }
-
-        /// <summary>
-        /// Maps the memory and copies the data from the given span of bytes,
-        /// then unmaps it.
-        /// </summary>
-        public readonly void CopyFrom(USpan<byte> bytes)
-        {
-            nint pointer = Map();
-            bytes.CopyTo(new USpan<byte>((void*)pointer, bytes.Length));
+            Allocation memoryPointer = Map();
+            memoryPointer.CopyFrom(data, byteLength);
             Unmap();
         }
 
         /// <summary>
         /// Maps the memory and copies the data from the given span then unmaps it.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly void CopyFrom<T>(USpan<T> data) where T : unmanaged
         {
-            nint pointer = Map();
-            uint size = buffer.size;
-            uint elementSize = (uint)sizeof(T);
-            USpan<T> span = new((void*)pointer, size / elementSize);
-            data.CopyTo(span);
+            Allocation memoryPointer = Map();
+            memoryPointer.CopyFrom(data.Pointer, buffer.size);
             Unmap();
         }
 

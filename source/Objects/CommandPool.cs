@@ -53,10 +53,7 @@ namespace Vulkan
             };
 
             VkResult result = vkCreateCommandPool(logicalDevice.Value, &commandPoolCreateInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create command pool: {result}");
-            }
+            ThrowIfFailedToCreatePool(result);
 
             valid = true;
         }
@@ -67,6 +64,24 @@ namespace Vulkan
             if (IsDisposed)
             {
                 throw new ObjectDisposedException(nameof(CommandPool));
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToCreatePool(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create command pool: {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToCreateBuffer(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create command buffer: {result}");
             }
         }
 
@@ -90,10 +105,7 @@ namespace Vulkan
             };
 
             VkResult result = vkAllocateCommandBuffer(logicalDevice.Value, &commandBufferAllocateInfo, out VkCommandBuffer newBuffer);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to allocate command buffer: {result}");
-            }
+            ThrowIfFailedToCreateBuffer(result);
 
             return new CommandBuffer(this, newBuffer);
         }
@@ -111,10 +123,7 @@ namespace Vulkan
             };
 
             VkResult result = vkAllocateCommandBuffers(logicalDevice.Value, &allocateInfo, newBuffers);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to allocate command buffers: {result}");
-            }
+            ThrowIfFailedToCreateBuffer(result);
 
             for (uint i = 0; i < buffer.Length; i++)
             {

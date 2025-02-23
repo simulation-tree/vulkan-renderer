@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -21,6 +22,15 @@ namespace Vulkan
             this.familyIndex = familyIndex;
             this.logicalDevice = logicalDevice;
             vkGetDeviceQueue(logicalDevice.Value, familyIndex, index, out value);
+        }
+
+        [Conditional("DEBUG")]
+        private readonly void ThrowIfFailedToSubmitQueue(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to submit queue: {result}");
+            }
         }
 
         public readonly void Submit(CommandBuffer commandBuffer, Semaphore waitSemaphore, VkPipelineStageFlags waitStage, Semaphore signalSemaphore, Fence submitFence = default)
@@ -47,18 +57,12 @@ namespace Vulkan
             if (submitFence != default)
             {
                 VkResult result = vkQueueSubmit(value, 1, &submitInfo, submitFence.Value);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception($"Failed to submit queue: {result}");
-                }
+                ThrowIfFailedToSubmitQueue(result);
             }
             else
             {
                 VkResult result = vkQueueSubmit(value, 1, &submitInfo, default);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception($"Failed to submit queue: {result}");
-                }
+                ThrowIfFailedToSubmitQueue(result);
             }
         }
 
@@ -74,18 +78,12 @@ namespace Vulkan
             if (submitFence != default)
             {
                 VkResult result = vkQueueSubmit(value, 1, &submitInfo, submitFence.Value);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception($"Failed to submit queue: {result}");
-                }
+                ThrowIfFailedToSubmitQueue(result);
             }
             else
             {
                 VkResult result = vkQueueSubmit(value, 1, &submitInfo, default);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception($"Failed to submit queue: {result}");
-                }
+                ThrowIfFailedToSubmitQueue(result);
             }
         }
 

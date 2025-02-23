@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -103,6 +104,15 @@ namespace Vulkan
             }
         }
 
+        [Conditional("DEBUG")]
+        private readonly void ThrowIfUnableToMap(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Unable to map memory");
+            }
+        }
+
         public void Dispose()
         {
             ThrowIfDisposed();
@@ -111,18 +121,15 @@ namespace Vulkan
             valid = false;
         }
 
-        public readonly nint Map()
+        public readonly Allocation Map()
         {
             ThrowIfDisposed();
 
             void* data;
             VkResult result = vkMapMemory(logicalDevice.Value, value, 0, size, 0, &data);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Unable to map memory");
-            }
+            ThrowIfUnableToMap(result);
 
-            return (nint)data;
+            return new(data);
         }
 
         public readonly void Unmap()

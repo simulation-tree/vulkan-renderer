@@ -36,24 +36,6 @@ namespace Vulkan
             graphicsQueue.Wait();
         }
 
-        public IndexBuffer(Queue graphicsQueue, CommandPool commandPool, void* pointer, uint byteCount)
-        {
-            VkPhysicalDeviceLimits limits = graphicsQueue.logicalDevice.physicalDevice.GetLimits();
-            byteCount = (uint)(Math.Ceiling(byteCount / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
-            using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);
-
-            stagingBuffer.CopyFrom(pointer, byteCount);
-
-            bufferDeviceMemory = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer, VkMemoryPropertyFlags.DeviceLocal);
-
-            using CommandBuffer tempCommandBuffer = commandPool.CreateCommandBuffer();
-            tempCommandBuffer.Begin();
-            tempCommandBuffer.CopyBufferTo(stagingBuffer, bufferDeviceMemory);
-            tempCommandBuffer.End();
-            graphicsQueue.Submit(tempCommandBuffer);
-            graphicsQueue.Wait();
-        }
-
         public readonly void Dispose()
         {
             bufferDeviceMemory.Dispose();

@@ -49,10 +49,7 @@ namespace Vulkan
             createInfo.pBindings = layoutBindings;
 
             VkResult result = vkCreateDescriptorSetLayout(logicalDevice.Value, &createInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Failed to create descriptor set layout");
-            }
+            ThrowIfFailedToCreate(result);
 
             valid = true;
         }
@@ -74,10 +71,7 @@ namespace Vulkan
             createInfo.pBindings = &layoutBinding;
 
             VkResult result = vkCreateDescriptorSetLayout(logicalDevice.Value, &createInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Failed to create descriptor set layout");
-            }
+            ThrowIfFailedToCreate(result);
 
             valid = true;
         }
@@ -88,6 +82,15 @@ namespace Vulkan
             if (IsDisposed)
             {
                 throw new ObjectDisposedException(nameof(DescriptorSetLayout));
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private readonly void ThrowIfFailedToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Failed to create descriptor set layout");
             }
         }
 

@@ -100,7 +100,7 @@ namespace Vulkan
             }
         }
 
-        public readonly uint CopyImagesTo(USpan<Image> buffer)
+        public readonly uint CopyImagesTo(USpan<Image> destination)
         {
             ThrowIfDisposed();
 
@@ -108,7 +108,7 @@ namespace Vulkan
             for (uint i = 0; i < imageSpan.Length; i++)
             {
                 Image image = new(device, imageSpan[i], width, height, format);
-                buffer[i] = image;
+                destination[i] = image;
             }
 
             return imageSpan.Length;

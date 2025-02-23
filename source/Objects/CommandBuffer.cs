@@ -47,6 +47,33 @@ namespace Vulkan
             }
         }
 
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToReset(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to reset command buffer: {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToBegin(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to begin command buffer: {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToEnd(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to end command buffer: {result}");
+            }
+        }
+
         public void Dispose()
         {
             ThrowIfDisposed();
@@ -63,10 +90,7 @@ namespace Vulkan
             ThrowIfDisposed();
 
             VkResult result = vkResetCommandBuffer(value, VkCommandBufferResetFlags.None);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to reset command buffer: {result}");
-            }
+            ThrowIfFailedToReset(result);
         }
 
         public readonly void Begin(bool oneTimeSubmit = true, bool renderPassContinue = false, bool simultaneous = false)
@@ -95,10 +119,7 @@ namespace Vulkan
             };
 
             VkResult result = vkBeginCommandBuffer(value, &commandBufferBeginInfo);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to begin command buffer: {result}");
-            }
+            ThrowIfFailedToBegin(result);
         }
 
         public readonly void End()
@@ -106,10 +127,7 @@ namespace Vulkan
             ThrowIfDisposed();
 
             VkResult result = vkEndCommandBuffer(value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to end command buffer: {result}");
-            }
+            ThrowIfFailedToEnd(result);
         }
 
         public readonly void SetViewport(Vector4 rect, float minDepth = 0f, float maxDepth = 1f)
@@ -257,7 +275,14 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            vkCmdPushConstants(value, layout.Value, stage, offset, data.Length, (void*)data.Address);
+            vkCmdPushConstants(value, layout.Value, stage, offset, data.Length, data.Pointer);
+        }
+
+        public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags flags, Allocation data, uint byteLength, uint offset = 0)
+        {
+            ThrowIfDisposed();
+
+            vkCmdPushConstants(value, layout.Value, flags, offset, byteLength, data.Pointer);
         }
 
         public readonly void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)

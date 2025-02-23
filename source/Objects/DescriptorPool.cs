@@ -52,10 +52,7 @@ namespace Vulkan
             };
 
             VkResult result = vkCreateDescriptorPool(logicalDevice.Value, &createInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Failed to create descriptor pool");
-            }
+            ThrowIfFailedToCreate(result);
 
             valid = true;
         }
@@ -84,10 +81,7 @@ namespace Vulkan
             };
 
             VkResult result = vkCreateDescriptorPool(logicalDevice.Value, &createInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Failed to create descriptor pool");
-            }
+            ThrowIfFailedToCreate(result);
 
             valid = true;
         }
@@ -105,6 +99,33 @@ namespace Vulkan
             if (IsDisposed)
             {
                 throw new ObjectDisposedException(nameof(DescriptorPool));
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException($"Failed to create descriptor pool {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToAllocate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException($"Failed to allocate descriptor sets: {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToAllocateOrNoMemoryLeft(VkResult result)
+        {
+            if (result != VkResult.Success && result != VkResult.ErrorOutOfPoolMemory)
+            {
+                throw new InvalidOperationException($"Failed to allocate descriptor sets: {result}");
             }
         }
 
@@ -130,10 +151,7 @@ namespace Vulkan
 
             USpan<VkDescriptorSet> descriptorSet = stackalloc VkDescriptorSet[(int)layouts.Length];
             VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, descriptorSet);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Failed to allocate descriptor sets");
-            }
+            ThrowIfFailedToAllocate(result);
 
             Array<DescriptorSet> sets = new(layouts.Length);
             for (uint i = 0; i < layouts.Length; i++)
@@ -158,10 +176,7 @@ namespace Vulkan
 
             VkDescriptorSet descriptorSet;
             VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, &descriptorSet);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Failed to allocate descriptor set");
-            }
+            ThrowIfFailedToAllocate(result);
 
             return new(this, descriptorSet);
         }
@@ -185,20 +200,16 @@ namespace Vulkan
 
             VkDescriptorSet descriptorSet;
             VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, &descriptorSet);
+            ThrowIfFailedToAllocateOrNoMemoryLeft(result);
+
             if (result == VkResult.Success)
             {
                 set = new(this, descriptorSet);
                 return true;
             }
-            else if (result == VkResult.ErrorOutOfPoolMemory)
-            {
-                set = default;
-                return false;
-            }
-            else
-            {
-                throw new InvalidOperationException("Failed to allocate descriptor set");
-            }
+
+            set = default;
+            return false;
         }
 
         public readonly override bool Equals(object? obj)

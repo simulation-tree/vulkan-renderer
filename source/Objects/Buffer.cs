@@ -44,10 +44,8 @@ namespace Vulkan
                 sharingMode = VkSharingMode.Exclusive
             };
 
-            if (vkCreateBuffer(logicalDevice.Value, &bufferInfo, null, out buffer) != VkResult.Success)
-            {
-                throw new Exception("Failed to create buffer!");
-            }
+            VkResult result = vkCreateBuffer(logicalDevice.Value, &bufferInfo, null, out buffer);
+            ThrowIfFailedToCreate(result);
 
             this.logicalDevice = logicalDevice;
             this.size = size;
@@ -68,6 +66,15 @@ namespace Vulkan
             if (IsDisposed)
             {
                 throw new ObjectDisposedException(nameof(Buffer));
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create buffer: {result}");
             }
         }
 
