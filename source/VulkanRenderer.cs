@@ -41,6 +41,7 @@ namespace Rendering.Vulkan
         private readonly List<uint> previouslyRenderedEntities;
         private readonly Array<Vector4> scissors;
         private readonly Stack<uint> stack;
+        private readonly Array<IsTexture> textureComponents;
 
         private Array<ImageView> surfaceImageViews;
         private Array<Framebuffer> swapChainFramebuffers;
@@ -94,6 +95,7 @@ namespace Rendering.Vulkan
             components = new();
             scissors = new();
             stack = new();
+            textureComponents = new();
         }
 
         /// <summary>
@@ -101,6 +103,7 @@ namespace Rendering.Vulkan
         /// </summary>
         public readonly void Dispose()
         {
+            textureComponents.Dispose();
             stack.Dispose();
             scissors.Dispose();
 
@@ -389,7 +392,7 @@ namespace Rendering.Vulkan
             return new(mesh.Version, indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
         }
 
-        private readonly CompiledPipeline CompilePipeline(World world, uint materialEntity, uint vertexShaderEntity, uint fragmentShaderEntity, CompiledShader compiledShader, CompiledMesh compiledMesh, ComponentType textureType)
+        private readonly CompiledPipeline CompilePipeline(World world, uint materialEntity, uint vertexShaderEntity, uint fragmentShaderEntity, CompiledShader compiledShader, CompiledMesh compiledMesh)
         {
             Material material = new Entity(world, materialEntity).As<Material>();
             USpan<ShaderVertexInputAttribute> shaderVertexAttributes = compiledMesh.VertexAttributes;
@@ -572,7 +575,8 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Material `{materialEntity}` references texture entity `{textureEntity}`, which does not exist");
                 }
 
-                if (!world.Contains(textureEntity, textureType))
+                IsTexture textureComponent = textureComponents[textureEntity];
+                if (textureComponent == default)
                 {
                     throw new InvalidOperationException($"Material `{materialEntity}` references entity `{textureEntity}` that doesn't qualify as a texture");
                 }
@@ -580,7 +584,7 @@ namespace Rendering.Vulkan
                 uint textureHash = GetTextureHash(materialEntity, binding);
                 if (!images.TryGetValue(textureHash, out CompiledImage compiledImage))
                 {
-                    IsTexture component = world.GetComponent<IsTexture>(textureEntity, textureType);
+                    IsTexture component = textureComponents[textureEntity];
                     compiledImage = CompileImage(materialEntity, binding, component);
                     images.Add(textureHash, compiledImage);
                 }
@@ -665,15 +669,15 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Component `{componentType.ToString(world.Schema)}` on entity `{entity}` that used to contained data for a uniform buffer has been lost");
                 }
 
-                USpan<byte> componentData = world.GetComponentBytes(entity, componentType);
-                componentBuffer.buffer.CopyFrom(componentData);
+                Allocation component = world.GetComponent(entity, componentType);
+                componentBuffer.buffer.CopyFrom(component, componentType.size);
             }
         }
 
         /// <summary>
         /// Rebuilds textures for still used materials when their source updates.
         /// </summary>
-        private readonly void UpdateTextureBuffers(World world, ComponentType textureType)
+        private readonly void UpdateTextureBuffers(World world)
         {
             foreach (uint textureHash in images.Keys)
             {
@@ -681,7 +685,7 @@ namespace Rendering.Vulkan
                 Material material = new Entity(world, image.materialEntity).As<Material>();
                 if (material.TryGetFirstTextureBinding(image.binding.Entity, out TextureBinding binding))
                 {
-                    IsTexture component = world.GetComponent<IsTexture>(binding.Entity, textureType);
+                    IsTexture component = textureComponents[binding.Entity];
                     if (image.textureVersion != component.version)
                     {
                         //todo: untested: (triggered when the texture's pixel array changes)
@@ -727,10 +731,34 @@ namespace Rendering.Vulkan
             commandBuffer.SetScissor(scissor);
 
             ComponentType textureType = world.Schema.GetComponent<IsTexture>();
+            CollectComponents(world, textureType);
             UpdateComponentBuffers(world);
-            UpdateTextureBuffers(world, textureType);
+            UpdateTextureBuffers(world);
             ReadScissorValues(world, area);
             return StatusCode.Continue;
+        }
+
+        private readonly void CollectComponents(World world, ComponentType textureType)
+        {
+            uint capacity = Allocations.GetNextPowerOf2(world.MaxEntityValue + 1);
+            if (textureComponents.Length < capacity)
+            {
+                textureComponents.Length = capacity;
+            }
+
+            textureComponents.Clear();
+            foreach (Chunk chunk in world.Chunks)
+            {
+                if (chunk.Definition.Contains(textureType))
+                {
+                    USpan<IsTexture> components = chunk.GetComponents<IsTexture>(textureType);
+                    USpan<uint> entities = chunk.Entities;
+                    for (uint i = 0; i < entities.Length; i++)
+                    {
+                        textureComponents[entities[i]] = components[i];
+                    }
+                }
+            }
         }
 
         private readonly void ReadScissorValues(World world, Vector4 area)
@@ -800,7 +828,6 @@ namespace Rendering.Vulkan
         public readonly void Render(USpan<uint> renderEntities, MaterialData material, MeshData mesh, VertexShaderData vertexShader, FragmentShaderData fragmentShader)
         {
             World world = destination.world;
-            ComponentType textureType = world.Schema.GetComponent<IsTexture>();
             uint materialEntity = material.entity;
             uint meshEntity = mesh.entity;
             uint vertexShaderEntity = vertexShader.entity;
@@ -861,7 +888,7 @@ namespace Rendering.Vulkan
             {
                 Trace.WriteLine($"Creating pipeline for material `{materialEntity}` and mesh `{meshEntity}` for the first time");
                 compiledPipeline = ref pipelines.Add(key);
-                compiledPipeline = CompilePipeline(world, materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh, textureType);
+                compiledPipeline = CompilePipeline(world, materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
             }
 
             //update images of bindings that change
@@ -879,7 +906,7 @@ namespace Rendering.Vulkan
                         TryWait(logicalDevice);
                         image.Dispose();
 
-                        IsTexture component = world.GetComponent<IsTexture>(textureBinding.Entity, textureType);
+                        IsTexture component = textureComponents[textureBinding.Entity];
                         image = CompileImage(materialEntity, textureBinding, component);
                         updateDescriptorSet = true;
                     }
@@ -908,7 +935,7 @@ namespace Rendering.Vulkan
 
                 Trace.WriteLine($"Rebuilding pipeline for material `{materialEntity}` with and mesh `{meshEntity}`");
                 compiledPipeline.Dispose();
-                compiledPipeline = CompilePipeline(world, materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh, textureType);
+                compiledPipeline = CompilePipeline(world, materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
             }
 
             //update descriptor sets if needed
@@ -961,9 +988,9 @@ namespace Rendering.Vulkan
                     for (uint p = 0; p < pushConstants.Length; p++)
                     {
                         ref CompiledPushConstant pushConstant = ref pushConstants[p];
-                        USpan<byte> componentBytes = world.GetComponentBytes(entity, pushConstant.componentType);
-                        commandBuffer.PushConstants(compiledPipeline.pipelineLayout, pushConstant.stageFlags, componentBytes, pushOffset);
-                        pushOffset += componentBytes.Length;
+                        Allocation component = world.GetComponent(entity, pushConstant.componentType);
+                        commandBuffer.PushConstants(compiledPipeline.pipelineLayout, pushConstant.stageFlags, component, pushConstant.componentType.size, pushOffset);
+                        pushOffset += pushConstant.componentType.size;
                     }
 
                     ref CompiledRenderer renderer = ref renderers[entity];
