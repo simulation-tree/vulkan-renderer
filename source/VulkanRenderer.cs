@@ -828,6 +828,7 @@ namespace Rendering.Vulkan
         public readonly void Render(USpan<uint> renderEntities, MaterialData material, MeshData mesh, VertexShaderData vertexShader, FragmentShaderData fragmentShader)
         {
             World world = destination.world;
+            ArrayElementType textureBindingType = world.Schema.GetArrayElement<TextureBinding>();
             uint materialEntity = material.entity;
             uint meshEntity = mesh.entity;
             uint vertexShaderEntity = vertexShader.entity;
@@ -893,7 +894,7 @@ namespace Rendering.Vulkan
 
             //update images of bindings that change
             bool updateDescriptorSet = false;
-            USpan<TextureBinding> textureBindings = world.GetArray<TextureBinding>(materialEntity);
+            USpan<TextureBinding> textureBindings = world.GetArray<TextureBinding>(materialEntity, textureBindingType);
             for (uint i = 0; i < textureBindings.Length; i++)
             {
                 ref TextureBinding textureBinding = ref textureBindings[i];
