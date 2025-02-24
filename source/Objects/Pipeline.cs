@@ -26,12 +26,12 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public Pipeline(PipelineCreateInput input, PipelineLayout layout, string entryPoint)
-            : this(input, layout, entryPoint.AsSpan())
+        public Pipeline(PipelineCreateInput input, PipelineLayout layout, USpan<VkVertexInputBindingDescription> vertexBindings, USpan<VkVertexInputAttributeDescription> vertexAttributes, string entryPoint)
+            : this(input, layout, vertexBindings, vertexAttributes, entryPoint.AsSpan())
         {
         }
 
-        public Pipeline(PipelineCreateInput input, PipelineLayout layout, USpan<char> entryPoint)
+        public Pipeline(PipelineCreateInput input, PipelineLayout layout, USpan<VkVertexInputBindingDescription> vertexBindings, USpan<VkVertexInputAttributeDescription> vertexAttributes, USpan<char> entryPoint)
         {
             logicalDevice = input.LogicalDevice;
             USpan<byte> nameBuffer = stackalloc byte[(int)entryPoint.Length + 1];
@@ -56,22 +56,12 @@ namespace Vulkan
                 pName = nameBuffer
             };
 
-            USpan<VkVertexInputAttributeDescription> attributes = stackalloc VkVertexInputAttributeDescription[(int)input.vertexAttributes.Length];
-            uint offset = 0;
-            for (uint i = 0; i < input.vertexAttributes.Length; i++)
-            {
-                VertexInputAttribute attribute = input.vertexAttributes[i];
-                attributes[i] = new(attribute.location, attribute.format, offset, attribute.binding);
-                offset += attribute.size;
-            }
-
-            VkVertexInputBindingDescription vertexInputBinding = new(offset, VkVertexInputRate.Vertex, input.vertexBinding);
             VkPipelineVertexInputStateCreateInfo vertexInputState = new()
             {
-                vertexBindingDescriptionCount = 1,
-                pVertexBindingDescriptions = &vertexInputBinding,
-                vertexAttributeDescriptionCount = input.vertexAttributes.Length,
-                pVertexAttributeDescriptions = attributes
+                vertexBindingDescriptionCount = vertexBindings.Length,
+                pVertexBindingDescriptions = vertexBindings.Pointer,
+                vertexAttributeDescriptionCount = vertexAttributes.Length,
+                pVertexAttributeDescriptions = vertexAttributes.Pointer
             };
 
             VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = new(VkPrimitiveTopology.TriangleList);

@@ -292,6 +292,13 @@ namespace Vulkan
             vkCmdDrawIndexed(value, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
 
+        public readonly void Draw(uint vertexCount, uint instanceCount = 1, uint firstVertex = 0, uint firstInstance = 0)
+        {
+            ThrowIfDisposed();
+
+            vkCmdDraw(value, vertexCount, instanceCount, firstVertex, firstInstance);
+        }
+
         public readonly void CopyBufferTo(Buffer source, Buffer destination)
         {
             VkBufferCopy region = default;

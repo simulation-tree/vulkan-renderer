@@ -396,11 +396,17 @@ namespace Rendering.Vulkan
         {
             Material material = new Entity(world, materialEntity).As<Material>();
             USpan<ShaderVertexInputAttribute> shaderVertexAttributes = compiledMesh.VertexAttributes;
-            USpan<VertexInputAttribute> vertexAttributes = stackalloc VertexInputAttribute[(int)shaderVertexAttributes.Length];
+            USpan<VkVertexInputAttributeDescription> vertexAttributes = stackalloc VkVertexInputAttributeDescription[(int)shaderVertexAttributes.Length];
+            uint offset = 0;
             for (uint i = 0; i < shaderVertexAttributes.Length; i++)
             {
                 ref ShaderVertexInputAttribute shaderVertexAttribute = ref shaderVertexAttributes[i];
-                vertexAttributes[i] = new(shaderVertexAttribute);
+                ref VkVertexInputAttributeDescription vulkanVertexAttribute = ref vertexAttributes[i];
+                vulkanVertexAttribute.location = shaderVertexAttribute.location;
+                vulkanVertexAttribute.format = GetFormat(shaderVertexAttribute.Type);
+                vulkanVertexAttribute.binding = shaderVertexAttribute.binding;
+                vulkanVertexAttribute.offset = offset;
+                offset += shaderVertexAttribute.size;
             }
 
             USpan<PushBinding> pushBindings = material.PushBindings;
@@ -493,7 +499,7 @@ namespace Rendering.Vulkan
 
             //create pipeline
             DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings.Slice(0, bindingCount));
-            PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader, vertexAttributes);
+            PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader);
             MaterialFlags flags = material.Flags;
             CompareOperation depthCompareOperation = material.DepthCompareOperation;
 
@@ -501,8 +507,12 @@ namespace Rendering.Vulkan
             pipelineCreation.depthTestEnable = (flags & MaterialFlags.DepthTest) != 0;
             pipelineCreation.depthCompareOperation = depthCompareOperation;
 
+            USpan<VkVertexInputBindingDescription> vertexBindings = stackalloc VkVertexInputBindingDescription[1];
+            vertexBindings[0] = new(offset, VkVertexInputRate.Vertex);
             PipelineLayout pipelineLayout = new(logicalDevice, setLayout, pushConstantsBuffer.Slice(0, pushConstantsCount));
-            Pipeline pipeline = new(pipelineCreation, pipelineLayout, "main");
+
+            //todo: find the exact entry point string from the shader
+            Pipeline pipeline = new(pipelineCreation, pipelineLayout, vertexBindings, vertexAttributes, "main");
 
             //create descriptor pool
             USpan<(VkDescriptorType, uint)> poolTypes = stackalloc (VkDescriptorType, uint)[2];
@@ -1419,6 +1429,26 @@ namespace Rendering.Vulkan
                 ShaderType.Compute => VkShaderStageFlags.Compute,
                 _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null),
             };
+        }
+
+        private static VkFormat GetFormat(Type type)
+        {
+            if (type == typeof(Vector2))
+            {
+                return VkFormat.R32G32Sfloat;
+            }
+            else if (type == typeof(Vector3))
+            {
+                return VkFormat.R32G32B32Sfloat;
+            }
+            else if (type == typeof(Vector4))
+            {
+                return VkFormat.R32G32B32A32Sfloat;
+            }
+            else
+            {
+                throw new NotSupportedException($"Unsupported type {type}");
+            }
         }
     }
 }
