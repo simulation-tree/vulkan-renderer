@@ -342,7 +342,7 @@ namespace Rendering.Vulkan
         {
             Mesh mesh = new Entity(world, meshEntity).As<Mesh>();
             uint vertexCount = mesh.VertexCount;
-            USpan<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetArray<ShaderVertexInputAttribute>(vertexShaderEntity);
+            Array<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetArray<ShaderVertexInputAttribute>(vertexShaderEntity);
             USpan<MeshChannel> channels = stackalloc MeshChannel[(int)shaderVertexAttributes.Length];
             for (uint i = 0; i < shaderVertexAttributes.Length; i++)
             {
@@ -390,7 +390,7 @@ namespace Rendering.Vulkan
             VertexBuffer vertexBuffer = new(graphicsQueue, commandPool, vertexData.AsSpan());
             IndexBuffer indexBuffer = new(graphicsQueue, commandPool, indices);
             //Trace.WriteLine($"Compiled mesh `{meshEntity}` with `{vertexCount}` vertices and `{indexCount}` indices");
-            return new(mesh.Version, indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
+            return new(mesh.Version, indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes.AsSpan());
         }
 
         private readonly CompiledPipeline CompilePipeline(World world, uint materialEntity, uint vertexShaderEntity, uint fragmentShaderEntity, CompiledShader compiledShader, CompiledMesh compiledMesh)
@@ -413,9 +413,9 @@ namespace Rendering.Vulkan
             USpan<PushBinding> pushBindings = material.PushBindings;
             USpan<ComponentBinding> uniformBindings = material.ComponentBindings;
             USpan<TextureBinding> textureBindings = material.TextureBindings;
-            USpan<ShaderPushConstant> pushConstants = world.GetArray<ShaderPushConstant>(vertexShaderEntity);
-            USpan<ShaderUniformProperty> uniformProperties = world.GetArray<ShaderUniformProperty>(vertexShaderEntity);
-            USpan<ShaderSamplerProperty> samplerProperties = world.GetArray<ShaderSamplerProperty>(fragmentShaderEntity);
+            Array<ShaderPushConstant> pushConstants = world.GetArray<ShaderPushConstant>(vertexShaderEntity);
+            Array<ShaderUniformProperty> uniformProperties = world.GetArray<ShaderUniformProperty>(vertexShaderEntity);
+            Array<ShaderSamplerProperty> samplerProperties = world.GetArray<ShaderSamplerProperty>(fragmentShaderEntity);
 
             //collect information to build the set layout
             uint totalCount = uniformBindings.Length + textureBindings.Length;
@@ -627,12 +627,12 @@ namespace Rendering.Vulkan
             uint height = maxY - minY;
             Image image = new(logicalDevice, width, height, depth, format, usage, isCubemap);
             DeviceMemory imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
-            USpan<Pixel> pixels = world.GetArray<Pixel>(textureEntity);
+            Array<Pixel> pixels = world.GetArray<Pixel>(textureEntity);
             uint layerCount = isCubemap ? 6u : 1u;
 
             //copy pixels from the entity, into the temporary buffer, then temporary buffer copies into the buffer... yada yada yada
             using BufferDeviceMemory tempStagingBuffer = new(logicalDevice, pixels.Length * 4, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostCoherent | VkMemoryPropertyFlags.HostVisible);
-            tempStagingBuffer.CopyFrom(pixels);
+            tempStagingBuffer.CopyFrom(pixels.AsSpan());
             VkImageLayout imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
             using CommandPool tempPool = new(graphicsQueue, true);
             using CommandBuffer tempBuffer = tempPool.CreateCommandBuffer();
@@ -906,7 +906,7 @@ namespace Rendering.Vulkan
 
             //update images of bindings that change
             bool updateDescriptorSet = false;
-            USpan<TextureBinding> textureBindings = world.GetArray<TextureBinding>(materialEntity, textureBindingType);
+            Array<TextureBinding> textureBindings = world.GetArray<TextureBinding>(materialEntity, textureBindingType);
             for (uint i = 0; i < textureBindings.Length; i++)
             {
                 ref TextureBinding textureBinding = ref textureBindings[i];
