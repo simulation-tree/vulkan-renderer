@@ -554,26 +554,26 @@ namespace Rendering.Vulkan
             foreach (ComponentBinding binding in uniformBindings)
             {
                 uint componentEntity = binding.entity;
-                DataType componentType = binding.componentType;
+                DataType dataType = binding.componentType;
                 if (!world.ContainsEntity(componentEntity))
                 {
-                    throw new InvalidOperationException($"Material `{materialEntity}` references missing entity `{componentEntity}` for component `{componentType.ToString(world.Schema)}`");
+                    throw new InvalidOperationException($"Material `{materialEntity}` references missing entity `{componentEntity}` for component `{dataType.ToString(world.Schema)}`");
                 }
 
-                if (!world.ContainsComponent(componentEntity, componentType))
+                if (!world.ContainsComponent(componentEntity, dataType.ComponentType))
                 {
-                    throw new InvalidOperationException($"Material `{materialEntity}` references entity `{componentEntity}` for a missing component `{componentType.ToString(world.Schema)}`");
+                    throw new InvalidOperationException($"Material `{materialEntity}` references entity `{componentEntity}` for a missing component `{dataType.ToString(world.Schema)}`");
                 }
 
                 uint componentHash = GetComponentHash(materialEntity, binding);
                 if (!components.TryGetValue(componentHash, out CompiledComponentBuffer componentBuffer))
                 {
-                    ushort componentSize = componentType.size;
+                    ushort componentSize = dataType.size;
                     uint bufferSize = (uint)(Math.Ceiling(componentSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
                     VkBufferUsageFlags usage = VkBufferUsageFlags.UniformBuffer;
                     VkMemoryPropertyFlags propertyFlags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
                     BufferDeviceMemory buffer = new(logicalDevice, bufferSize, usage, propertyFlags);
-                    componentBuffer = new(materialEntity, binding.entity, componentType, buffer);
+                    componentBuffer = new(materialEntity, binding.entity, dataType, buffer);
                     components.Add(componentHash, componentBuffer);
                 }
             }
@@ -670,7 +670,8 @@ namespace Rendering.Vulkan
             {
                 ref CompiledComponentBuffer componentBuffer = ref components[componentHash];
                 uint entity = componentBuffer.containerEntity;
-                DataType componentType = componentBuffer.componentType;
+                DataType dataType = componentBuffer.componentType;
+                ComponentType componentType = dataType.ComponentType;
                 if (!world.ContainsEntity(entity))
                 {
                     throw new InvalidOperationException($"Entity `{entity}` that contained component `{componentType.ToString(world.Schema)}` with data for a uniform buffer has been lost");
@@ -681,8 +682,8 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Component `{componentType.ToString(world.Schema)}` on entity `{entity}` that used to contained data for a uniform buffer has been lost");
                 }
 
-                Allocation component = world.GetComponent(entity, componentType);
-                componentBuffer.buffer.CopyFrom(component, componentType.size);
+                Allocation component = world.GetComponent(entity, componentType, out ushort componentSize);
+                componentBuffer.buffer.CopyFrom(component, componentSize);
             }
         }
 
@@ -1001,9 +1002,10 @@ namespace Rendering.Vulkan
                     for (uint p = 0; p < pushConstants.Length; p++)
                     {
                         ref CompiledPushConstant pushConstant = ref pushConstants[p];
-                        Allocation component = world.GetComponent(entity, pushConstant.componentType);
+                        ComponentType componentType = pushConstant.componentType.ComponentType;
+                        Allocation component = world.GetComponent(entity, componentType, out ushort componentSize);
                         commandBuffer.PushConstants(compiledPipeline.pipelineLayout, pushConstant.stageFlags, component, pushConstant.componentType.size, pushOffset);
-                        pushOffset += pushConstant.componentType.size;
+                        pushOffset += componentSize;
                     }
 
                     ref CompiledRenderer renderer = ref renderers[entity];
@@ -1179,7 +1181,7 @@ namespace Rendering.Vulkan
                         break;
                     }
                 }
-
+            
                 if (!used)
                 {
                     toRemoveKeys[removeCount++] = key;
