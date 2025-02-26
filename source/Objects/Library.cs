@@ -1,4 +1,4 @@
-﻿using Collections;
+﻿using Collections.Generic;
 using System;
 using System.Collections.Generic;
 using Unmanaged;
@@ -49,7 +49,7 @@ namespace Vulkan
 
         public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, IEnumerable<FixedString>? extensions = null)
         {
-            using Collections.List<FixedString> extensionNames = new();
+            using Collections.Generic.List<FixedString> extensionNames = new();
             if (extensions != null)
             {
                 foreach (FixedString extension in extensions)

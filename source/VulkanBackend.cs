@@ -25,7 +25,7 @@ namespace Rendering.Vulkan
         {
             Instance instance = library.CreateInstance("Game", "Engine", extensionNames);
             VulkanRenderer renderer = new(destination, instance);
-            return (Allocation.Create(renderer), renderer.Instance);
+            return (Allocation.CreateFromValue(renderer), renderer.Instance);
         }
 
         void IRenderingBackend.Dispose(in Allocation renderer)

@@ -1,4 +1,5 @@
 ﻿using Collections;
+using Collections.Generic;
 using Materials;
 using Materials.Components;
 using Meshes;
@@ -508,7 +509,8 @@ namespace Rendering.Vulkan
             pipelineCreation.depthCompareOperation = depthCompareOperation;
 
             USpan<VkVertexInputBindingDescription> vertexBindings = stackalloc VkVertexInputBindingDescription[1];
-            vertexBindings[0] = new(offset, VkVertexInputRate.Vertex);
+            vertexBindings[0] = new(offset, VkVertexInputRate.Vertex, 0);
+            //vertexBindings[1] = new(instanceSize, VkVertexInputRate.Instance, 1);
             PipelineLayout pipelineLayout = new(logicalDevice, setLayout, pushConstantsBuffer.Slice(0, pushConstantsCount));
 
             //todo: find the exact entry point string from the shader
