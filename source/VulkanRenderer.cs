@@ -31,7 +31,9 @@ namespace Rendering.Vulkan
         private readonly Dictionary<uint, Array<CompiledPushConstant>> knownPushConstants;
         private readonly List<CompiledRenderer> renderers;
         private readonly Dictionary<RendererKey, CompiledPipeline> pipelines;
+        private readonly List<RendererKey> pipelineKeys;
         private readonly Dictionary<RendererKey, CompiledMesh> meshes;
+        private readonly List<RendererKey> meshKeys;
         private readonly Dictionary<uint, CompiledComponentBuffer> components;
         private readonly Dictionary<uint, CompiledImage> images;
         private readonly Array<CommandBuffer> commandBuffers;
@@ -92,6 +94,8 @@ namespace Rendering.Vulkan
             renderFinishedSemaphores = new();
             previouslyRenderedGroups = new();
             previouslyRenderedEntities = new();
+            pipelineKeys = new();
+            meshKeys = new();
             meshes = new();
             components = new();
             scissors = new();
@@ -159,9 +163,8 @@ namespace Rendering.Vulkan
 
         private readonly void DisposePushConstants()
         {
-            foreach (uint materialEntity in knownPushConstants.Keys)
+            foreach (Array<CompiledPushConstant> pushConstantArray in knownPushConstants.Values)
             {
-                Array<CompiledPushConstant> pushConstantArray = knownPushConstants[materialEntity];
                 pushConstantArray.Dispose();
             }
 
@@ -170,20 +173,19 @@ namespace Rendering.Vulkan
 
         private readonly void DisposePipelines()
         {
-            foreach (RendererKey hash in pipelines.Keys)
+            foreach (CompiledPipeline pipeline in pipelines.Values)
             {
-                ref CompiledPipeline pipeline = ref pipelines[hash];
                 pipeline.Dispose();
             }
 
+            pipelineKeys.Dispose();
             pipelines.Dispose();
         }
 
         private readonly void DisposeShaderModules()
         {
-            foreach ((uint vertexEntity, uint fragmentEntity) in shaders.Keys)
+            foreach (CompiledShader shaderModule in shaders.Values)
             {
-                ref CompiledShader shaderModule = ref shaders[(vertexEntity, fragmentEntity)];
                 shaderModule.Dispose();
             }
 
@@ -192,9 +194,8 @@ namespace Rendering.Vulkan
 
         private readonly void DisposeComponentBuffers()
         {
-            foreach (uint componentHash in components.Keys)
+            foreach (CompiledComponentBuffer componentBuffer in components.Values)
             {
-                ref CompiledComponentBuffer componentBuffer = ref components[componentHash];
                 componentBuffer.Dispose();
             }
 
@@ -203,9 +204,8 @@ namespace Rendering.Vulkan
 
         private readonly void DisposeTextureBuffers()
         {
-            foreach (uint textureHash in images.Keys)
+            foreach (CompiledImage image in images.Values)
             {
-                ref CompiledImage image = ref images[textureHash];
                 image.Dispose();
             }
 
@@ -214,13 +214,13 @@ namespace Rendering.Vulkan
 
         private readonly void DisposeMeshes()
         {
-            foreach (RendererKey key in meshes.Keys)
+            foreach (CompiledMesh compiledMesh in meshes.Values)
             {
-                ref CompiledMesh compiledMesh = ref meshes[key];
                 compiledMesh.Dispose();
             }
 
             meshes.Dispose();
+            meshKeys.Dispose();
         }
 
         private readonly void DisposeSwapchain()
@@ -432,13 +432,15 @@ namespace Rendering.Vulkan
                 Schema schema = world.Schema;
                 uint start = 0;
                 uint size = 0;
-                foreach (ShaderPushConstant pushConstant in pushConstants)
+                for (uint c = 0; c < pushConstants.Length; c++)
                 {
+                    ShaderPushConstant pushConstant = pushConstants[c];
                     start = Math.Min(start, pushConstant.offset);
                     size += pushConstant.size;
                     bool containsPush = false;
-                    foreach (PushBinding pushBinding in pushBindings)
+                    for (uint p = 0; p < pushBindings.Length; p++)
                     {
+                        PushBinding pushBinding = pushBindings[p];
                         ushort componentSize = pushBinding.componentType.size;
                         if (componentSize == pushConstant.size && pushBinding.start == pushConstant.offset)
                         {
@@ -666,9 +668,8 @@ namespace Rendering.Vulkan
         /// </summary>
         private readonly void UpdateComponentBuffers(World world)
         {
-            foreach (uint componentHash in components.Keys)
+            foreach (CompiledComponentBuffer componentBuffer in components.Values)
             {
-                ref CompiledComponentBuffer componentBuffer = ref components[componentHash];
                 uint entity = componentBuffer.containerEntity;
                 DataType dataType = componentBuffer.componentType;
                 ComponentType componentType = dataType.ComponentType;
@@ -692,9 +693,8 @@ namespace Rendering.Vulkan
         /// </summary>
         private readonly void UpdateTextureBuffers(World world)
         {
-            foreach (uint textureHash in images.Keys)
+            foreach ((uint textureHash, CompiledImage image) in images)
             {
-                ref CompiledImage image = ref images[textureHash];
                 Material material = new Entity(world, image.materialEntity).As<Material>();
                 if (material.TryGetFirstTextureBinding(image.binding.Entity, out TextureBinding binding))
                 {
@@ -704,7 +704,7 @@ namespace Rendering.Vulkan
                         //todo: untested: (triggered when the texture's pixel array changes)
                         logicalDevice.Wait();
                         image.Dispose();
-                        image = CompileImage(image.materialEntity, binding, component);
+                        images[textureHash] = CompileImage(image.materialEntity, binding, component);
                     }
                 }
             }
@@ -884,6 +884,7 @@ namespace Rendering.Vulkan
             {
                 compiledMesh = ref meshes.Add(key);
                 compiledMesh = CompileMesh(world, meshEntity, vertexShaderEntity);
+                meshKeys.Add(key);
             }
             else
             {
@@ -903,6 +904,7 @@ namespace Rendering.Vulkan
                 Trace.WriteLine($"Creating pipeline for material `{materialEntity}` and mesh `{meshEntity}` for the first time");
                 compiledPipeline = ref pipelines.Add(key);
                 compiledPipeline = CompilePipeline(world, materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
+                pipelineKeys.Add(key);
             }
 
             //update images of bindings that change
@@ -1065,9 +1067,8 @@ namespace Rendering.Vulkan
             //dispose unusued buffers
             USpan<uint> toRemove = stackalloc uint[512]; //todo: this can crash if not enough space
             uint removeCount = 0;
-            foreach (uint componentHash in components.Keys)
+            foreach ((uint componentHash, CompiledComponentBuffer component) in components)
             {
-                ref CompiledComponentBuffer component = ref components[componentHash];
                 bool used = false;
                 foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
@@ -1102,9 +1103,8 @@ namespace Rendering.Vulkan
             }
 
             //dispose unused textures
-            foreach (uint textureHash in images.Keys)
+            foreach ((uint textureHash, CompiledImage image) in images)
             {
-                ref CompiledImage image = ref images[textureHash];
                 bool used = false;
                 foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
@@ -1141,9 +1141,9 @@ namespace Rendering.Vulkan
             //dispose unused renderers
             for (uint e = 1; e < renderers.Count; e++)
             {
-                if (!previouslyRenderedEntities.Contains(e))
+                if (renderers[e] != default)
                 {
-                    if (renderers[e] != default)
+                    if (!previouslyRenderedEntities.Contains(e))
                     {
                         toRemove[removeCount++] = e;
                     }
@@ -1170,18 +1170,19 @@ namespace Rendering.Vulkan
 
             //dispose unused meshes
             USpan<RendererKey> toRemoveKeys = stackalloc RendererKey[256];
-            foreach (RendererKey key in meshes.Keys)
+            for (uint i = 0; i < meshKeys.Count; i++)
             {
+                RendererKey key = meshKeys[i];
                 bool used = false;
                 foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
-                    if (new RendererKey(combination.material, combination.mesh) == key)
+                    if (combination.Key == key.value)
                     {
                         used = true;
                         break;
                     }
                 }
-            
+
                 if (!used)
                 {
                     toRemoveKeys[removeCount++] = key;
@@ -1198,7 +1199,9 @@ namespace Rendering.Vulkan
 
                 for (uint i = 0; i < removeCount; i++)
                 {
-                    meshes.Remove(toRemoveKeys[i], out CompiledMesh mesh);
+                    RendererKey key = toRemoveKeys[i];
+                    meshes.Remove(key, out CompiledMesh mesh);
+                    meshKeys.TryRemoveBySwapping(key);
                     mesh.Dispose();
                 }
 
@@ -1206,12 +1209,13 @@ namespace Rendering.Vulkan
             }
 
             //dispose unused pipelines
-            foreach (RendererKey key in pipelines.Keys)
+            for (uint i = 0; i < pipelineKeys.Count; i++)
             {
+                RendererKey key = pipelineKeys[i];
                 bool used = false;
                 foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
-                    if (new RendererKey(combination.material, combination.mesh) == key)
+                    if (combination.Key == key.value)
                     {
                         used = true;
                         break;
@@ -1234,7 +1238,9 @@ namespace Rendering.Vulkan
 
                 for (uint i = 0; i < removeCount; i++)
                 {
-                    pipelines.Remove(toRemoveKeys[i], out CompiledPipeline pipeline);
+                    RendererKey key = toRemoveKeys[i];
+                    pipelines.Remove(key, out CompiledPipeline pipeline);
+                    pipelineKeys.TryRemoveBySwapping(key);
                     pipeline.Dispose();
                 }
 
