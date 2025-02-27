@@ -743,7 +743,7 @@ namespace Rendering.Vulkan
             Vector4 scissor = new(0, 0, framebuffer.width, framebuffer.height);
             commandBuffer.SetScissor(scissor);
 
-            ComponentType textureType = world.Schema.GetComponent<IsTexture>();
+            ComponentType textureType = world.Schema.GetComponentType<IsTexture>();
             CollectComponents(world, textureType);
             UpdateComponentBuffers(world);
             UpdateTextureBuffers(world);
@@ -762,7 +762,7 @@ namespace Rendering.Vulkan
             textureComponents.Clear();
             foreach (Chunk chunk in world.Chunks)
             {
-                if (chunk.Definition.Contains(textureType))
+                if (chunk.Definition.ContainsComponent(textureType))
                 {
                     USpan<IsTexture> components = chunk.GetComponents<IsTexture>(textureType);
                     USpan<uint> entities = chunk.Entities;
@@ -785,12 +785,12 @@ namespace Rendering.Vulkan
             scissors.Fill(area);
             stack.Clear(capacity);
 
-            ComponentType worldScissorType = world.Schema.GetComponent<WorldRendererScissor>();
+            ComponentType worldScissorType = world.Schema.GetComponentType<WorldRendererScissor>();
             USpan<Chunk> chunks = stackalloc Chunk[64]; //todo: fault: this can possibly fail if there are more than 64 chunks that fit the requirement
             uint chunkCount = 0;
             foreach (Chunk chunk in world.Chunks)
             {
-                if (chunk.Definition.Contains(worldScissorType))
+                if (chunk.Definition.ContainsComponent(worldScissorType))
                 {
                     chunks[chunkCount++] = chunk;
                 }
@@ -841,7 +841,7 @@ namespace Rendering.Vulkan
         public readonly void Render(USpan<uint> renderEntities, MaterialData material, MeshData mesh, VertexShaderData vertexShader, FragmentShaderData fragmentShader)
         {
             World world = destination.world;
-            ArrayElementType textureBindingType = world.Schema.GetArrayElement<TextureBinding>();
+            ArrayElementType textureBindingType = world.Schema.GetArrayType<TextureBinding>();
             uint materialEntity = material.entity;
             uint meshEntity = mesh.entity;
             uint vertexShaderEntity = vertexShader.entity;
