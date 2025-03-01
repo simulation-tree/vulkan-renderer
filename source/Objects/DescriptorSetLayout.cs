@@ -27,26 +27,13 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public DescriptorSetLayout(LogicalDevice logicalDevice, USpan<(byte binding, VkDescriptorType type, VkShaderStageFlags stage)> bindings)
+        public DescriptorSetLayout(LogicalDevice logicalDevice, USpan<VkDescriptorSetLayoutBinding> bindings)
         {
             this.logicalDevice = logicalDevice;
 
-            USpan<VkDescriptorSetLayoutBinding> layoutBindings = stackalloc VkDescriptorSetLayoutBinding[(int)bindings.Length];
-            for (uint i = 0; i < bindings.Length; i++)
-            {
-                (byte binding, VkDescriptorType type, VkShaderStageFlags stage) = bindings[i];
-                layoutBindings[i] = new()
-                {
-                    binding = binding,
-                    descriptorType = type,
-                    descriptorCount = 1,
-                    stageFlags = stage
-                };
-            }
-
             VkDescriptorSetLayoutCreateInfo createInfo = new();
             createInfo.bindingCount = bindings.Length;
-            createInfo.pBindings = layoutBindings;
+            createInfo.pBindings = bindings.Pointer;
 
             VkResult result = vkCreateDescriptorSetLayout(logicalDevice.Value, &createInfo, null, out value);
             ThrowIfFailedToCreate(result);

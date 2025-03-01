@@ -118,13 +118,12 @@ namespace Vulkan
                     foreach (FixedString layer in globalLayers)
                     {
                         uint length = layer.CopyTo(buffer);
-                        remaining.Append(buffer.Slice(0, length));
+                        remaining.Append(buffer.GetSpan(length));
                         remaining.Append(',');
                         remaining.Append(' ');
                     }
 
-                    remaining.RemoveAt(remaining.Length - 1);
-                    remaining.RemoveAt(remaining.Length - 1);
+                    remaining.SetLength(remaining.Length - 2);
                     Trace.WriteLine($"No suitable validation layers found, there were instead:\n{remaining}");
                 }
                 else

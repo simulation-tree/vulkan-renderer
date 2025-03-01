@@ -15,18 +15,18 @@ namespace Rendering.Vulkan
         public readonly DescriptorSetLayout setLayout;
 
         private readonly Array<(VkDescriptorType, uint)> poolTypes;
-        private readonly Array<(byte, VkDescriptorType, VkShaderStageFlags)> bindings;
+        private readonly Array<VkDescriptorSetLayoutBinding> descriptorBindings;
         private readonly List<DescriptorPool> pools;
 
-        public readonly USpan<(byte, VkDescriptorType, VkShaderStageFlags)> Bindings => bindings.AsSpan();
+        public readonly USpan<VkDescriptorSetLayoutBinding> DescriptorBindings => descriptorBindings.AsSpan();
 
-        public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, USpan<(VkDescriptorType, uint)> poolTypes, DescriptorSetLayout setLayout, USpan<(byte, VkDescriptorType, VkShaderStageFlags)> bindings)
+        public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, USpan<(VkDescriptorType, uint)> poolTypes, DescriptorSetLayout setLayout, USpan<VkDescriptorSetLayoutBinding> descriptorBindings)
         {
             this.pipeline = pipeline;
             this.pipelineLayout = pipelineLayout;
             this.poolTypes = new(poolTypes);
             this.setLayout = setLayout;
-            this.bindings = new(bindings);
+            this.descriptorBindings = new(descriptorBindings);
             pools = new();
             CreateNewPool();
         }
@@ -39,7 +39,7 @@ namespace Rendering.Vulkan
             }
 
             pools.Dispose();
-            bindings.Dispose();
+            descriptorBindings.Dispose();
             setLayout.Dispose();
             poolTypes.Dispose();
             pipeline.Dispose();

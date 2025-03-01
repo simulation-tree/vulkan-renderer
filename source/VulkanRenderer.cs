@@ -342,7 +342,7 @@ namespace Rendering.Vulkan
         {
             Mesh mesh = new Entity(world, meshEntity).As<Mesh>();
             uint vertexCount = mesh.VertexCount;
-            Array<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetArray<ShaderVertexInputAttribute>(vertexShaderEntity);
+            Values<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetArray<ShaderVertexInputAttribute>(vertexShaderEntity);
             USpan<MeshChannel> channels = stackalloc MeshChannel[(int)shaderVertexAttributes.Length];
             for (uint i = 0; i < shaderVertexAttributes.Length; i++)
             {
@@ -413,13 +413,13 @@ namespace Rendering.Vulkan
             USpan<PushBinding> pushBindings = material.PushBindings;
             USpan<ComponentBinding> uniformBindings = material.ComponentBindings;
             USpan<TextureBinding> textureBindings = material.TextureBindings;
-            Array<ShaderPushConstant> pushConstants = world.GetArray<ShaderPushConstant>(vertexShaderEntity);
-            Array<ShaderUniformProperty> uniformProperties = world.GetArray<ShaderUniformProperty>(vertexShaderEntity);
-            Array<ShaderSamplerProperty> samplerProperties = world.GetArray<ShaderSamplerProperty>(fragmentShaderEntity);
+            Values<ShaderPushConstant> pushConstants = world.GetArray<ShaderPushConstant>(vertexShaderEntity);
+            Values<ShaderUniformProperty> uniformProperties = world.GetArray<ShaderUniformProperty>(vertexShaderEntity);
+            Values<ShaderSamplerProperty> samplerProperties = world.GetArray<ShaderSamplerProperty>(fragmentShaderEntity);
 
             //collect information to build the set layout
             uint totalCount = uniformBindings.Length + textureBindings.Length;
-            USpan<(byte, VkDescriptorType, VkShaderStageFlags)> setLayoutBindings = stackalloc (byte, VkDescriptorType, VkShaderStageFlags)[(int)totalCount];
+            USpan<VkDescriptorSetLayoutBinding> setLayoutBindings = stackalloc VkDescriptorSetLayoutBinding[(int)totalCount];
             uint bindingCount = 0;
 
             USpan<PipelineLayout.PushConstant> pushConstantsBuffer = stackalloc PipelineLayout.PushConstant[4];
@@ -467,8 +467,12 @@ namespace Rendering.Vulkan
                     if (uniformBinding.key == new DescriptorResourceKey(uniformProperty.binding, uniformProperty.set))
                     {
                         containsBinding = true;
-                        VkDescriptorType descriptorType = VkDescriptorType.UniformBuffer;
-                        setLayoutBindings[bindingCount++] = (uniformBinding.key.Binding, descriptorType, shaderStage);
+                        VkDescriptorSetLayoutBinding binding = default;
+                        binding.descriptorType = VkDescriptorType.UniformBuffer;
+                        binding.binding = uniformBinding.key.Binding;
+                        binding.descriptorCount = 1;
+                        binding.stageFlags = shaderStage;
+                        setLayoutBindings[bindingCount++] = binding;
                         break;
                     }
                 }
@@ -487,9 +491,12 @@ namespace Rendering.Vulkan
                     if (textureBinding.key == new DescriptorResourceKey(samplerProperty.binding, samplerProperty.set))
                     {
                         containsBinding = true;
-                        VkDescriptorType descriptorType = VkDescriptorType.CombinedImageSampler;
-                        VkShaderStageFlags shaderStage = VkShaderStageFlags.Fragment;
-                        setLayoutBindings[bindingCount++] = (textureBinding.key.Binding, descriptorType, shaderStage);
+                        VkDescriptorSetLayoutBinding binding = default;
+                        binding.descriptorType = VkDescriptorType.CombinedImageSampler;
+                        binding.binding = textureBinding.key.Binding;
+                        binding.descriptorCount = 1;
+                        binding.stageFlags = VkShaderStageFlags.Fragment;
+                        setLayoutBindings[bindingCount++] = binding;
                         break;
                     }
                 }
@@ -501,7 +508,7 @@ namespace Rendering.Vulkan
             }
 
             //create pipeline
-            DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings.Slice(0, bindingCount));
+            DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings.GetSpan(bindingCount));
             PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader);
             MaterialFlags flags = material.Flags;
             CompareOperation depthCompareOperation = material.DepthCompareOperation;
@@ -513,7 +520,7 @@ namespace Rendering.Vulkan
             USpan<VkVertexInputBindingDescription> vertexBindings = stackalloc VkVertexInputBindingDescription[1];
             vertexBindings[0] = new(offset, VkVertexInputRate.Vertex, 0);
             //vertexBindings[1] = new(instanceSize, VkVertexInputRate.Instance, 1);
-            PipelineLayout pipelineLayout = new(logicalDevice, setLayout, pushConstantsBuffer.Slice(0, pushConstantsCount));
+            PipelineLayout pipelineLayout = new(logicalDevice, setLayout, pushConstantsBuffer.GetSpan(pushConstantsCount));
 
             //todo: find the exact entry point string from the shader
             Pipeline pipeline = new(pipelineCreation, pipelineLayout, vertexBindings, vertexAttributes, "main");
@@ -604,7 +611,7 @@ namespace Rendering.Vulkan
                 }
             }
 
-            return new(pipeline, pipelineLayout, poolTypes.Slice(0, poolCount), setLayout, setLayoutBindings.Slice(0, bindingCount));
+            return new(pipeline, pipelineLayout, poolTypes.GetSpan(poolCount), setLayout, setLayoutBindings.GetSpan(bindingCount));
         }
 
         private readonly CompiledImage CompileImage(uint materialEntity, TextureBinding binding, IsTexture component)
@@ -629,7 +636,7 @@ namespace Rendering.Vulkan
             uint height = maxY - minY;
             Image image = new(logicalDevice, width, height, depth, format, usage, isCubemap);
             DeviceMemory imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
-            Array<Pixel> pixels = world.GetArray<Pixel>(textureEntity);
+            Values<Pixel> pixels = world.GetArray<Pixel>(textureEntity);
             uint layerCount = isCubemap ? 6u : 1u;
 
             //copy pixels from the entity, into the temporary buffer, then temporary buffer copies into the buffer... yada yada yada
@@ -909,7 +916,7 @@ namespace Rendering.Vulkan
 
             //update images of bindings that change
             bool updateDescriptorSet = false;
-            Array<TextureBinding> textureBindings = world.GetArray<TextureBinding>(materialEntity, textureBindingType);
+            Values<TextureBinding> textureBindings = world.GetArray<TextureBinding>(materialEntity, textureBindingType);
             for (uint i = 0; i < textureBindings.Length; i++)
             {
                 ref TextureBinding textureBinding = ref textureBindings[i];
@@ -1256,17 +1263,18 @@ namespace Rendering.Vulkan
             World world = destination.world;
             Material material = new Entity(world, materialEntity).As<Material>();
             byte set = 0;
-            foreach ((byte binding, VkDescriptorType type, _) in pipeline.Bindings)
+            foreach (VkDescriptorSetLayoutBinding descriptorBinding in pipeline.DescriptorBindings)
             {
+                byte binding = (byte)descriptorBinding.binding;
                 DescriptorResourceKey key = new(binding, set);
-                if (type == VkDescriptorType.CombinedImageSampler)
+                if (descriptorBinding.descriptorType == VkDescriptorType.CombinedImageSampler)
                 {
                     TextureBinding textureBinding = material.GetTextureBinding(key);
                     uint textureHash = GetTextureHash(materialEntity, textureBinding);
                     ref CompiledImage image = ref images[textureHash];
                     descriptorSet.Update(image.imageView, image.sampler, binding);
                 }
-                else if (type == VkDescriptorType.UniformBuffer)
+                else if (descriptorBinding.descriptorType == VkDescriptorType.UniformBuffer)
                 {
                     ComponentBinding componentBinding = material.GetComponentBinding(key, ShaderType.Vertex);
                     uint componentHash = GetComponentHash(materialEntity, componentBinding);
@@ -1275,7 +1283,7 @@ namespace Rendering.Vulkan
                 }
                 else
                 {
-                    throw new InvalidOperationException($"Unsupported descriptor type `{type}`");
+                    throw new InvalidOperationException($"Unsupported descriptor type `{descriptorBinding.descriptorType}`");
                 }
             }
         }
@@ -1387,7 +1395,7 @@ namespace Rendering.Vulkan
 
             if (attribute.Type == typeof(Vector2))
             {
-                if (nameBuffer.Slice(0, length).Contains("uv".AsSpan()))
+                if (nameBuffer.GetSpan(length).Contains("uv".AsSpan()))
                 {
                     channel = MeshChannel.UV;
                     return true;
@@ -1395,22 +1403,22 @@ namespace Rendering.Vulkan
             }
             else if (attribute.Type == typeof(Vector3))
             {
-                if (nameBuffer.Slice(0, length).Contains("normal".AsSpan()))
+                if (nameBuffer.GetSpan(length).Contains("normal".AsSpan()))
                 {
                     channel = MeshChannel.Normal;
                     return true;
                 }
-                else if (nameBuffer.Slice(0, length).Contains("tangent".AsSpan()))
+                else if (nameBuffer.GetSpan(length).Contains("tangent".AsSpan()))
                 {
                     channel = MeshChannel.Tangent;
                     return true;
                 }
-                else if (nameBuffer.Slice(0, length).Contains("position".AsSpan()))
+                else if (nameBuffer.GetSpan(length).Contains("position".AsSpan()))
                 {
                     channel = MeshChannel.Position;
                     return true;
                 }
-                else if (nameBuffer.Slice(0, length).Contains("bitangent".AsSpan()))
+                else if (nameBuffer.GetSpan(length).Contains("bitangent".AsSpan()))
                 {
                     channel = MeshChannel.BiTangent;
                     return true;
@@ -1418,7 +1426,7 @@ namespace Rendering.Vulkan
             }
             else if (attribute.Type == typeof(Vector4))
             {
-                if (nameBuffer.Slice(0, length).Contains("color".AsSpan()))
+                if (nameBuffer.GetSpan(length).Contains("color".AsSpan()))
                 {
                     channel = MeshChannel.Color;
                     return true;
