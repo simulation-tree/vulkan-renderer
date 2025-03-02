@@ -1,5 +1,5 @@
-﻿using System;
-using System.Diagnostics.Contracts;
+﻿using Materials;
+using System;
 using Vulkan;
 using Worlds;
 
@@ -7,15 +7,15 @@ namespace Rendering.Vulkan
 {
     public readonly struct CompiledComponentBuffer : IDisposable
     {
-        public readonly uint materialEntity;
-        public readonly uint containerEntity;
+        public readonly Material material;
+        public readonly uint targetEntity;
         public readonly DataType componentType;
         public readonly BufferDeviceMemory buffer;
 
-        public CompiledComponentBuffer(uint materialEntity, uint containerEntity, DataType componentType, BufferDeviceMemory buffer)
+        public CompiledComponentBuffer(Material material, uint targetEntity, DataType componentType, BufferDeviceMemory buffer)
         {
-            this.materialEntity = materialEntity;
-            this.containerEntity = containerEntity;
+            this.material = material;
+            this.targetEntity = targetEntity;
             this.componentType = componentType;
             this.buffer = buffer;
         }
