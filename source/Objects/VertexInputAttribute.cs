@@ -1,6 +1,6 @@
-﻿using Shaders;
-using System;
-using System.Numerics;
+﻿using Rendering.Vulkan;
+using Shaders;
+using Types;
 using Vortice.Vulkan;
 
 namespace Vulkan
@@ -24,11 +24,11 @@ namespace Vulkan
             this.size = size;
         }
 
-        public VertexInputAttribute(byte location, byte binding, Type type, byte size)
+        public VertexInputAttribute(byte location, byte binding, TypeLayout type, byte size)
         {
             this.location = location;
             this.binding = binding;
-            this.format = GetFormat(type);
+            this.format = type.GetFormat();
             this.size = size;
         }
 
@@ -36,28 +36,8 @@ namespace Vulkan
         {
             location = shaderVertexAttribute.location;
             binding = shaderVertexAttribute.binding;
-            format = GetFormat(shaderVertexAttribute.Type);
+            format = shaderVertexAttribute.Type.GetFormat();
             size = shaderVertexAttribute.size;
-        }
-
-        public static VkFormat GetFormat(Type type)
-        {
-            if (type == typeof(Vector2))
-            {
-                return VkFormat.R32G32Sfloat;
-            }
-            else if (type == typeof(Vector3))
-            {
-                return VkFormat.R32G32B32Sfloat;
-            }
-            else if (type == typeof(Vector4))
-            {
-                return VkFormat.R32G32B32A32Sfloat;
-            }
-            else
-            {
-                throw new NotSupportedException($"Unsupported type {type}");
-            }
         }
     }
 }

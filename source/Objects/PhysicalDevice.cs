@@ -5,7 +5,7 @@ using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
-    public unsafe struct PhysicalDevice
+    public readonly struct PhysicalDevice : IEquatable<PhysicalDevice>
     {
         private readonly VkPhysicalDevice value;
 
@@ -42,7 +42,7 @@ namespace Vulkan
             return features;
         }
 
-        public readonly VkSurfaceCapabilitiesKHR GetSurfaceCapabilities(Surface surface)
+        public unsafe readonly VkSurfaceCapabilitiesKHR GetSurfaceCapabilities(Surface surface)
         {
             VkSurfaceCapabilitiesKHR capabilities = default;
             VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(value, surface.Value, &capabilities);
@@ -122,6 +122,31 @@ namespace Vulkan
 
             graphicsFamily = default;
             return false;
+        }
+
+        public readonly override bool Equals(object? obj)
+        {
+            return obj is PhysicalDevice device && Equals(device);
+        }
+
+        public readonly bool Equals(PhysicalDevice other)
+        {
+            return value.Equals(other.value);
+        }
+
+        public readonly override int GetHashCode()
+        {
+            return value.GetHashCode();
+        }
+
+        public static bool operator ==(PhysicalDevice left, PhysicalDevice right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(PhysicalDevice left, PhysicalDevice right)
+        {
+            return !(left == right);
         }
     }
 }

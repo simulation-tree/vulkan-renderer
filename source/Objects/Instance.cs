@@ -312,6 +312,78 @@ namespace Vulkan
             }
         }
 
+        public readonly bool TryGetBestPhysicalDevice(USpan<FixedString> requiredExtensions, out PhysicalDevice device)
+        {
+            uint highestScore = 0;
+            device = default;
+            for (uint i = 0; i < physicalDevices.Length; i++)
+            {
+                uint score = GetScore(physicalDevices[i], requiredExtensions);
+                if (score > highestScore)
+                {
+                    highestScore = score;
+                    device = physicalDevices[i];
+                }
+            }
+
+            return device != default;
+
+            static unsafe uint GetScore(PhysicalDevice physicalDevice, USpan<FixedString> requiredExtensions)
+            {
+                VkPhysicalDeviceFeatures features = physicalDevice.GetFeatures();
+                if (!features.geometryShader)
+                {
+                    //no geometry shader support
+                    return 0;
+                }
+
+                if (!physicalDevice.TryGetGraphicsQueueFamily(out _))
+                {
+                    //no ability to render
+                    return 0;
+                }
+
+                USpan<VkExtensionProperties> availableExtensions = physicalDevice.GetExtensions();
+                if (availableExtensions.Length > 0)
+                {
+                    foreach (FixedString requiredExtension in requiredExtensions)
+                    {
+                        bool isAvailable = false;
+                        foreach (VkExtensionProperties extension in availableExtensions)
+                        {
+                            FixedString extensionName = new(extension.extensionName);
+                            if (extensionName == requiredExtension)
+                            {
+                                isAvailable = true;
+                                break;
+                            }
+                        }
+
+                        if (!isAvailable)
+                        {
+                            //required extensions missing
+                            return 0;
+                        }
+                    }
+                }
+                else if (requiredExtensions.Length > 0)
+                {
+                    //required extensions missing
+                    return 0;
+                }
+
+                VkPhysicalDeviceProperties properties = physicalDevice.GetProperties();
+                uint score = properties.limits.maxImageDimension2D;
+                if (properties.deviceType == VkPhysicalDeviceType.DiscreteGpu)
+                {
+                    //discrete gpus greatly preferred
+                    score *= 1024;
+                }
+
+                return score;
+            }
+        }
+
         public readonly override bool Equals(object? obj)
         {
             return obj is Instance instance && Equals(instance);

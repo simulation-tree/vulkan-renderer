@@ -73,9 +73,8 @@ namespace Rendering.Vulkan
                 throw new InvalidOperationException("No physical devices found");
             }
 
-            if (TryGetBestPhysicalDevice(instance.PhysicalDevices, ["VK_KHR_swapchain"], out uint index))
+            if (instance.TryGetBestPhysicalDevice(["VK_KHR_swapchain"], out physicalDevice))
             {
-                physicalDevice = instance.PhysicalDevices[index];
                 Trace.WriteLine($"Vulkan instance created for `{destination}`");
             }
             else
@@ -347,7 +346,7 @@ namespace Rendering.Vulkan
             for (uint i = 0; i < shaderVertexAttributes.Length; i++)
             {
                 ref ShaderVertexInputAttribute vertexAttribute = ref shaderVertexAttributes[i];
-                if (TryDeduceMeshChannel(vertexAttribute, out MeshChannel channel))
+                if (vertexAttribute.TryDeduceMeshChannel(out MeshChannel channel))
                 {
                     if (!mesh.ContainsChannel(channel))
                     {
@@ -403,7 +402,7 @@ namespace Rendering.Vulkan
                 ref ShaderVertexInputAttribute shaderVertexAttribute = ref shaderVertexAttributes[i];
                 ref VkVertexInputAttributeDescription vulkanVertexAttribute = ref vertexAttributes[i];
                 vulkanVertexAttribute.location = shaderVertexAttribute.location;
-                vulkanVertexAttribute.format = GetFormat(shaderVertexAttribute.Type);
+                vulkanVertexAttribute.format = shaderVertexAttribute.Type.GetFormat();
                 vulkanVertexAttribute.binding = shaderVertexAttribute.binding;
                 vulkanVertexAttribute.offset = offset;
                 offset += shaderVertexAttribute.size;
@@ -421,7 +420,7 @@ namespace Rendering.Vulkan
             USpan<VkDescriptorSetLayoutBinding> setLayoutBindings = stackalloc VkDescriptorSetLayoutBinding[(int)totalCount];
             uint bindingCount = 0;
 
-            USpan<PipelineLayout.PushConstant> pushConstantsBuffer = stackalloc PipelineLayout.PushConstant[4];
+            USpan<PipelineLayout.PushConstant> pushConstantsBuffer = stackalloc PipelineLayout.PushConstant[(int)pushConstants.Length];
             uint pushConstantsCount = 0;
 
             //cant have more than 1 push constant of the same type, so batch them into 1 vertex push constant
@@ -462,7 +461,7 @@ namespace Rendering.Vulkan
                 bool containsBinding = false;
                 foreach (EntityComponentBinding uniformBinding in uniformBindings)
                 {
-                    VkShaderStageFlags shaderStage = GetShaderStage(uniformBinding.stage);
+                    VkShaderStageFlags shaderStage = uniformBinding.stage.GetShaderStage();
                     if (uniformBinding.key == new DescriptorResourceKey(uniformProperty.binding, uniformProperty.set))
                     {
                         containsBinding = true;
@@ -509,12 +508,11 @@ namespace Rendering.Vulkan
             //create pipeline
             DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings.GetSpan(bindingCount));
             PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader);
-            MaterialFlags flags = material.Flags;
-            CompareOperation depthCompareOperation = material.DepthCompareOperation;
+            IsMaterial component = material.GetComponent<IsMaterial>();
 
-            pipelineCreation.depthWriteEnable = (flags & MaterialFlags.DepthWrite) != 0;
-            pipelineCreation.depthTestEnable = (flags & MaterialFlags.DepthTest) != 0;
-            pipelineCreation.depthCompareOperation = depthCompareOperation;
+            pipelineCreation.depthWriteEnable = (component.flags & MaterialFlags.DepthWrite) != 0;
+            pipelineCreation.depthTestEnable = (component.flags & MaterialFlags.DepthTest) != 0;
+            pipelineCreation.depthCompareOperation = component.depthCompareOperation;
 
             USpan<VkVertexInputBindingDescription> vertexBindings = stackalloc VkVertexInputBindingDescription[1];
             vertexBindings[0] = new(offset, VkVertexInputRate.Vertex, 0);
@@ -550,7 +548,7 @@ namespace Rendering.Vulkan
                 for (uint i = 0; i < pushBindings.Length; i++)
                 {
                     ref InstanceDataBinding binding = ref pushBindings[i];
-                    buffer[i] = new(binding.componentType, binding.stage, GetShaderStage(binding.stage));
+                    buffer[i] = new(binding.componentType, binding.stage, binding.stage.GetShaderStage());
                 }
 
                 pushConstantArray.Length = buffer.Length;
@@ -604,8 +602,7 @@ namespace Rendering.Vulkan
                 uint textureHash = GetTextureHash(material, binding);
                 if (!images.TryGetValue(textureHash, out CompiledImage compiledImage))
                 {
-                    IsTexture component = textureComponents[textureEntity];
-                    compiledImage = CompileImage(material, binding, component);
+                    compiledImage = CompileImage(material, binding, textureComponent);
                     images.Add(textureHash, compiledImage);
                 }
             }
@@ -1258,7 +1255,6 @@ namespace Rendering.Vulkan
 
         private readonly void UpdateDescriptorSet(Material material, DescriptorSet descriptorSet, CompiledPipeline pipeline)
         {
-            World world = destination.world;
             byte set = 0;
             foreach (VkDescriptorSetLayoutBinding descriptorBinding in pipeline.DescriptorBindings)
             {
@@ -1290,9 +1286,9 @@ namespace Rendering.Vulkan
             unchecked
             {
                 int hash = 17;
-                hash = hash * 23 + (int)material.value;
-                hash = hash * 23 + binding.key.GetHashCode();
-                hash = hash * 23 + (int)binding.Entity;
+                hash = hash * 31 + (int)material.value;
+                hash = hash * 31 + binding.key.GetHashCode();
+                hash = hash * 31 + (int)binding.Entity;
                 return (uint)hash;
             }
         }
@@ -1302,167 +1298,9 @@ namespace Rendering.Vulkan
             unchecked
             {
                 int hash = 17;
-                hash = hash * 23 + (int)material.value;
-                hash = hash * 23 + binding.GetHashCode();
+                hash = hash * 31 + (int)material.value;
+                hash = hash * 31 + binding.GetHashCode();
                 return (uint)hash;
-            }
-        }
-
-        private static bool TryGetBestPhysicalDevice(USpan<PhysicalDevice> physicalDevices, USpan<FixedString> requiredExtensions, out uint index)
-        {
-            uint highestScore = 0;
-            index = uint.MaxValue;
-            for (uint i = 0; i < physicalDevices.Length; i++)
-            {
-                uint score = GetScore(physicalDevices[i], requiredExtensions);
-                if (score > highestScore)
-                {
-                    highestScore = score;
-                    index = i;
-                }
-            }
-
-            return true;
-
-            static unsafe uint GetScore(PhysicalDevice physicalDevice, USpan<FixedString> requiredExtensions)
-            {
-                VkPhysicalDeviceFeatures features = physicalDevice.GetFeatures();
-                if (!features.geometryShader)
-                {
-                    //no geometry shader support
-                    return 0;
-                }
-
-                if (!physicalDevice.TryGetGraphicsQueueFamily(out _))
-                {
-                    //no ability to render
-                    return 0;
-                }
-
-                USpan<VkExtensionProperties> availableExtensions = physicalDevice.GetExtensions();
-                if (availableExtensions.Length > 0)
-                {
-                    foreach (FixedString requiredExtension in requiredExtensions)
-                    {
-                        bool isAvailable = false;
-                        foreach (VkExtensionProperties extension in availableExtensions)
-                        {
-                            FixedString extensionName = new(extension.extensionName);
-                            if (extensionName == requiredExtension)
-                            {
-                                isAvailable = true;
-                                break;
-                            }
-                        }
-
-                        if (!isAvailable)
-                        {
-                            //required extensions missing
-                            return 0;
-                        }
-                    }
-                }
-                else if (requiredExtensions.Length > 0)
-                {
-                    //required extensions missing
-                    return 0;
-                }
-
-                VkPhysicalDeviceProperties properties = physicalDevice.GetProperties();
-                uint score = properties.limits.maxImageDimension2D;
-                if (properties.deviceType == VkPhysicalDeviceType.DiscreteGpu)
-                {
-                    //discrete gpus greatly preferred
-                    score *= 1024;
-                }
-
-                return score;
-            }
-        }
-
-        private static bool TryDeduceMeshChannel(ShaderVertexInputAttribute attribute, out MeshChannel channel)
-        {
-            //get lowercase version
-            USpan<char> nameBuffer = stackalloc char[FixedString.Capacity];
-            uint length = attribute.name.CopyTo(nameBuffer);
-            for (uint i = 0; i < length; i++)
-            {
-                nameBuffer[i] = char.ToLower(nameBuffer[i]);
-            }
-
-            if (attribute.Type == typeof(Vector2))
-            {
-                if (nameBuffer.GetSpan(length).Contains("uv".AsSpan()))
-                {
-                    channel = MeshChannel.UV;
-                    return true;
-                }
-            }
-            else if (attribute.Type == typeof(Vector3))
-            {
-                if (nameBuffer.GetSpan(length).Contains("normal".AsSpan()))
-                {
-                    channel = MeshChannel.Normal;
-                    return true;
-                }
-                else if (nameBuffer.GetSpan(length).Contains("tangent".AsSpan()))
-                {
-                    channel = MeshChannel.Tangent;
-                    return true;
-                }
-                else if (nameBuffer.GetSpan(length).Contains("position".AsSpan()))
-                {
-                    channel = MeshChannel.Position;
-                    return true;
-                }
-                else if (nameBuffer.GetSpan(length).Contains("bitangent".AsSpan()))
-                {
-                    channel = MeshChannel.BiTangent;
-                    return true;
-                }
-            }
-            else if (attribute.Type == typeof(Vector4))
-            {
-                if (nameBuffer.GetSpan(length).Contains("color".AsSpan()))
-                {
-                    channel = MeshChannel.Color;
-                    return true;
-                }
-            }
-
-            channel = default;
-            return false;
-        }
-
-        private static VkShaderStageFlags GetShaderStage(ShaderType stage)
-        {
-            return stage switch
-            {
-                ShaderType.Vertex => VkShaderStageFlags.Vertex,
-                ShaderType.Fragment => VkShaderStageFlags.Fragment,
-                ShaderType.Geometry => VkShaderStageFlags.Geometry,
-                ShaderType.Compute => VkShaderStageFlags.Compute,
-                _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null),
-            };
-        }
-
-        private static VkFormat GetFormat(Type type)
-        {
-            if (type == typeof(Vector2))
-            {
-                return VkFormat.R32G32Sfloat;
-            }
-            else if (type == typeof(Vector3))
-            {
-                return VkFormat.R32G32B32Sfloat;
-            }
-            else if (type == typeof(Vector4))
-            {
-                return VkFormat.R32G32B32A32Sfloat;
-            }
-            else
-            {
-                throw new NotSupportedException($"Unsupported type {type}");
             }
         }
     }
