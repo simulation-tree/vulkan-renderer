@@ -6,8 +6,9 @@ using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
-    public unsafe struct ShaderModule : IDisposable, IEquatable<ShaderModule>
+    public struct ShaderModule : IDisposable, IEquatable<ShaderModule>
     {
+        public readonly bool isInstanced;
         public readonly LogicalDevice logicalDevice;
 
         private readonly VkShaderModule value;
@@ -28,19 +29,17 @@ namespace Vulkan
         /// <summary>
         /// Creates a shader module from the given SPV bytecode.
         /// </summary>
-        public ShaderModule(LogicalDevice logicalDevice, USpan<byte> code)
+        public unsafe ShaderModule(LogicalDevice logicalDevice, USpan<byte> code, bool isInstanced = false)
         {
+            this.isInstanced = isInstanced;
             this.logicalDevice = logicalDevice;
             VkResult result = vkCreateShaderModule(logicalDevice.Value, code, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create shader module: {result}");
-            }
+            ThrowIfFailedToCreate(result);
 
             valid = true;
         }
 
-        public void Dispose()
+        public unsafe void Dispose()
         {
             ThrowIfDisposed();
 
@@ -54,6 +53,15 @@ namespace Vulkan
             if (IsDisposed)
             {
                 throw new ObjectDisposedException(nameof(ShaderModule));
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create shader module: {result}");
             }
         }
 

@@ -332,14 +332,13 @@ namespace Rendering.Vulkan
         {
             Shader vertex = vertexShader.Get(world);
             Shader fragment = fragmentShader.Get(world);
-            ShaderModule vertexModule = new(logicalDevice, vertex.Bytes);
+            ShaderModule vertexModule = new(logicalDevice, vertex.Bytes, vertex.IsInstanced);
             ShaderModule fragmentModule = new(logicalDevice, fragment.Bytes);
             return new(vertexShader.version, fragmentShader.version, vertexModule, fragmentModule);
         }
 
-        private readonly CompiledMesh CompileMesh(World world, uint meshEntity, uint vertexShaderEntity)
+        private readonly CompiledMesh CompileMesh(World world, Mesh mesh, uint vertexShaderEntity)
         {
-            Mesh mesh = new Entity(world, meshEntity).As<Mesh>();
             uint vertexCount = mesh.VertexCount;
             Values<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetArray<ShaderVertexInputAttribute>(vertexShaderEntity);
             USpan<MeshChannel> channels = stackalloc MeshChannel[(int)shaderVertexAttributes.Length];
@@ -369,7 +368,7 @@ namespace Rendering.Vulkan
                         }
                         else
                         {
-                            throw new InvalidOperationException($"Mesh entity `{meshEntity}` is missing required `{channel}` channel");
+                            throw new InvalidOperationException($"Mesh entity `{mesh}` is missing required `{channel}` channel");
                         }
                     }
                 }
@@ -840,12 +839,12 @@ namespace Rendering.Vulkan
             }
         }
 
-        public readonly void Render(USpan<uint> renderEntities, MaterialData materialData, MeshData mesh, VertexShaderData vertexShader, FragmentShaderData fragmentShader)
+        public readonly void Render(USpan<uint> renderEntities, MaterialData materialData, MeshData meshData, VertexShaderData vertexShader, FragmentShaderData fragmentShader)
         {
             World world = destination.world;
             ArrayElementType textureBindingType = world.Schema.GetArrayType<TextureBinding>();
             Material material = new Entity(world, materialData.entity).As<Material>();
-            uint meshEntity = mesh.entity;
+            Mesh mesh = new Entity(world, meshData.entity).As<Mesh>();
             uint vertexShaderEntity = vertexShader.entity;
             uint fragmentShaderEntity = fragmentShader.entity;
             bool deviceWaited = false;
@@ -880,22 +879,22 @@ namespace Rendering.Vulkan
 
             //make sure a processed mesh exists for this combination of shader entity and mesh entity, also rebuild it when it changes
             bool meshChanged = false;
-            RendererKey key = new(material, meshEntity);
+            RendererKey key = new(material, mesh);
             ref CompiledMesh compiledMesh = ref meshes.TryGetValue(key, out bool containsMesh);
             if (!containsMesh)
             {
                 compiledMesh = ref meshes.Add(key);
-                compiledMesh = CompileMesh(world, meshEntity, vertexShaderEntity);
+                compiledMesh = CompileMesh(world, mesh, vertexShaderEntity);
                 meshKeys.Add(key);
             }
             else
             {
-                meshChanged = compiledMesh.version != mesh.version;
+                meshChanged = compiledMesh.version != meshData.version;
                 if (meshChanged || shaderChanged)
                 {
                     TryWait(logicalDevice);
                     compiledMesh.Dispose();
-                    compiledMesh = CompileMesh(world, meshEntity, vertexShaderEntity);
+                    compiledMesh = CompileMesh(world, mesh, vertexShaderEntity);
                 }
             }
 
@@ -903,7 +902,7 @@ namespace Rendering.Vulkan
             ref CompiledPipeline compiledPipeline = ref pipelines.TryGetValue(key, out bool containsPipeline);
             if (!containsPipeline)
             {
-                Trace.WriteLine($"Creating pipeline for material `{material}` and mesh `{meshEntity}` for the first time");
+                Trace.WriteLine($"Creating pipeline for material `{material}` and mesh `{mesh}` for the first time");
                 compiledPipeline = ref pipelines.Add(key);
                 compiledPipeline = CompilePipeline(world, material, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
                 pipelineKeys.Add(key);
@@ -951,7 +950,7 @@ namespace Rendering.Vulkan
                     }
                 }
 
-                Trace.WriteLine($"Rebuilding pipeline for material `{material}` with and mesh `{meshEntity}`");
+                Trace.WriteLine($"Rebuilding pipeline for material `{material}` with and mesh `{mesh}`");
                 compiledPipeline.Dispose();
                 compiledPipeline = CompilePipeline(world, material, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
             }
@@ -1032,9 +1031,8 @@ namespace Rendering.Vulkan
                 }
             }
 
-
             previouslyRenderedEntities.AddRange(renderEntities);
-            previouslyRenderedGroups.TryAdd(new(material.value, meshEntity, vertexShaderEntity, fragmentShaderEntity));
+            previouslyRenderedGroups.TryAdd(new(material.value, mesh.value, vertexShaderEntity, fragmentShaderEntity));
         }
 
         public void EndRender()
