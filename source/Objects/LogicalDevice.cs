@@ -34,7 +34,7 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public LogicalDevice(PhysicalDevice physicalDevice, USpan<uint> queueFamilies, USpan<FixedString> deviceExtensions)
+        public LogicalDevice(PhysicalDevice physicalDevice, USpan<uint> queueFamilies, USpan<ASCIIText256> deviceExtensions)
         {
             this.physicalDevice = physicalDevice;
             float priority = 1f;
@@ -53,11 +53,11 @@ namespace Vulkan
             features.samplerAnisotropy = true;
 
             using Array<VkUtf8String> vkDeviceExtensions = new(deviceExtensions.Length);
-            USpan<byte> nameBuffer = stackalloc byte[FixedString.Capacity];
+            USpan<byte> nameBuffer = stackalloc byte[ASCIIText256.Capacity];
             nameBuffer.Clear();
             for (uint i = 0; i < deviceExtensions.Length; i++)
             {
-                FixedString extension = deviceExtensions[i];
+                ASCIIText256 extension = deviceExtensions[i];
                 uint length = extension.CopyTo(nameBuffer);
                 vkDeviceExtensions[i] = new((byte*)nameBuffer.Address, (int)length);
             }

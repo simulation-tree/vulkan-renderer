@@ -121,7 +121,7 @@ namespace Vulkan
             valid = false;
         }
 
-        public readonly Allocation Map()
+        public readonly MemoryAddress Map()
         {
             ThrowIfDisposed();
 

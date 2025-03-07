@@ -25,10 +25,10 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public Surface(Instance instance, nint existingValue)
+        public Surface(Instance instance, MemoryAddress existingValue)
         {
             this.instance = instance;
-            value = new((ulong)existingValue);
+            value = new((ulong)existingValue.Address);
             valid = true;
         }
 

@@ -25,7 +25,7 @@ namespace Vulkan
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly Allocation Map()
+        public readonly MemoryAddress Map()
         {
             return memory.Map();
         }
@@ -39,7 +39,7 @@ namespace Vulkan
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly USpan<T> Map<T>() where T : unmanaged
         {
-            Allocation memoryPointer = Map();
+            MemoryAddress memoryPointer = Map();
             return new(memoryPointer.Pointer, buffer.size);
         }
 
@@ -48,9 +48,9 @@ namespace Vulkan
         /// then unmaps it.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void CopyFrom(Allocation data, uint byteLength)
+        public readonly void CopyFrom(MemoryAddress data, uint byteLength)
         {
-            Allocation memoryPointer = Map();
+            MemoryAddress memoryPointer = Map();
             memoryPointer.CopyFrom(data, byteLength);
             Unmap();
         }
@@ -61,7 +61,7 @@ namespace Vulkan
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly void CopyFrom<T>(USpan<T> data) where T : unmanaged
         {
-            Allocation memoryPointer = Map();
+            MemoryAddress memoryPointer = Map();
             memoryPointer.CopyFrom(data.Pointer, buffer.size);
             Unmap();
         }

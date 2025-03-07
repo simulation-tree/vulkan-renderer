@@ -278,7 +278,7 @@ namespace Vulkan
             vkCmdPushConstants(value, layout.Value, stage, offset, data.Length, data.Pointer);
         }
 
-        public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags flags, Allocation data, uint byteLength, uint offset = 0)
+        public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags flags, MemoryAddress data, uint byteLength, uint offset = 0)
         {
             ThrowIfDisposed();
 

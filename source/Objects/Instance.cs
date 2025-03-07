@@ -1,7 +1,6 @@
 ﻿using Collections.Generic;
 using System;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unmanaged;
 using Vortice.Vulkan;
@@ -11,17 +10,17 @@ namespace Vulkan
 {
     public unsafe struct Instance : IDisposable, IEquatable<Instance>
     {
-        private static readonly FixedString[] preferredValidationLayers =
+        private static readonly ASCIIText256[] preferredValidationLayers =
         [
             "VK_LAYER_KHRONOS_validation"
         ];
 
-        private static readonly FixedString[] fallbackValidationLayers =
+        private static readonly ASCIIText256[] fallbackValidationLayers =
         [
             "VK_LAYER_LUNARG_standard_validation"
         ];
 
-        private static readonly FixedString[] fallbackIndividualLayers =
+        private static readonly ASCIIText256[] fallbackIndividualLayers =
         [
             "VK_LAYER_GOOGLE_threading",
             "VK_LAYER_LUNARG_parameter_validation",
@@ -30,7 +29,7 @@ namespace Vulkan
             "VK_LAYER_GOOGLE_unique_objects",
         ];
 
-        private static readonly FixedString[] fallbackFallbackLayers =
+        private static readonly ASCIIText256[] fallbackFallbackLayers =
         [
             "VK_LAYER_LUNARG_core_validation"
         ];
@@ -87,12 +86,12 @@ namespace Vulkan
             }
         }
 
-        internal Instance(Library library, USpan<char> applicationName, USpan<char> engineName, USpan<FixedString> extensions)
+        internal Instance(Library library, USpan<char> applicationName, USpan<char> engineName, USpan<ASCIIText256> extensions)
         {
-            using List<FixedString> inputLayers = new();
+            using List<ASCIIText256> inputLayers = new();
 
 #if DEBUG
-            using Array<FixedString> globalLayers = library.GetGlobalLayers();
+            using Array<ASCIIText256> globalLayers = library.GetGlobalLayers();
             if (ContainsAll(globalLayers.AsSpan(), preferredValidationLayers))
             {
                 inputLayers.AddRange(preferredValidationLayers);
@@ -114,8 +113,8 @@ namespace Vulkan
                 if (globalLayers.Length > 0)
                 {
                     using Text remaining = new();
-                    USpan<char> buffer = stackalloc char[FixedString.Capacity];
-                    foreach (FixedString layer in globalLayers)
+                    USpan<char> buffer = stackalloc char[ASCIIText256.Capacity];
+                    foreach (ASCIIText256 layer in globalLayers)
                     {
                         uint length = layer.CopyTo(buffer);
                         remaining.Append(buffer.GetSpan(length));
@@ -132,12 +131,12 @@ namespace Vulkan
                 }
             }
 
-            static bool ContainsAll(USpan<FixedString> a, USpan<FixedString> b)
+            static bool ContainsAll(USpan<ASCIIText256> a, USpan<ASCIIText256> b)
             {
-                foreach (FixedString layer in b)
+                foreach (ASCIIText256 layer in b)
                 {
                     bool contains = false;
-                    foreach (FixedString availableLayer in a)
+                    foreach (ASCIIText256 availableLayer in a)
                     {
                         if (availableLayer == layer)
                         {
@@ -156,15 +155,15 @@ namespace Vulkan
             }
 #endif
 
-            using Array<FixedString> globalExtensions = library.GetGlobalExtensions();
-            using List<FixedString> inputExtensions = new(extensions);
-            foreach (FixedString extensionName in globalExtensions)
+            using Array<ASCIIText256> globalExtensions = library.GetGlobalExtensions();
+            using List<ASCIIText256> inputExtensions = new(extensions);
+            foreach (ASCIIText256 extensionName in globalExtensions)
             {
-                if (extensionName == new FixedString(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
+                if (extensionName == new ASCIIText256(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
                 {
                     inputExtensions.Add(extensionName);
                 }
-                else if (extensionName == new FixedString(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME))
+                else if (extensionName == new ASCIIText256(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME))
                 {
                     inputExtensions.Add(extensionName);
                 }
@@ -190,26 +189,26 @@ namespace Vulkan
             appInfo.apiVersion = VkVersion.Version_1_3;
 
             using List<VkUtf8String> vkInstanceLayers = new(inputLayers.Count);
-            using List<nint> tempAllocations = new();
-            USpan<byte> nameBuffer = stackalloc byte[FixedString.Capacity];
-            foreach (FixedString instanceLayer in inputLayers)
+            using List<MemoryAddress> tempAllocations = new();
+            USpan<byte> nameBuffer = stackalloc byte[ASCIIText256.Capacity];
+            foreach (ASCIIText256 instanceLayer in inputLayers)
             {
                 uint length = instanceLayer.CopyTo(nameBuffer) + 1;
-                byte* newAllocation = (byte*)Allocations.Allocate(length);
-                Unsafe.CopyBlock(newAllocation, (void*)nameBuffer.Address, length);
-                vkInstanceLayers.Add(new(newAllocation));
-                tempAllocations.Add((nint)newAllocation);
+                MemoryAddress newAllocation = MemoryAddress.Allocate(length);
+                newAllocation.CopyFrom(nameBuffer, length);
+                vkInstanceLayers.Add(new(newAllocation.Pointer));
+                tempAllocations.Add(newAllocation);
                 nameBuffer.Clear();
             }
 
             using List<VkUtf8String> vkInstanceExtensions = new(inputExtensions.Count);
-            foreach (FixedString instanceExtension in inputExtensions)
+            foreach (ASCIIText256 instanceExtension in inputExtensions)
             {
                 uint length = instanceExtension.CopyTo(nameBuffer) + 1;
-                byte* newAllocation = (byte*)Allocations.Allocate(length);
-                Unsafe.CopyBlock(newAllocation, (void*)nameBuffer.Address, length);
-                vkInstanceExtensions.Add(new(newAllocation));
-                tempAllocations.Add((nint)newAllocation);
+                MemoryAddress newAllocation = MemoryAddress.Allocate(length);
+                newAllocation.CopyFrom(nameBuffer, length);
+                vkInstanceExtensions.Add(new(newAllocation.Pointer));
+                tempAllocations.Add(newAllocation);
                 nameBuffer.Clear();
             }
 
@@ -239,10 +238,9 @@ namespace Vulkan
                 throw new Exception($"Failed to create instance: {result}");
             }
 
-            foreach (nint allocation in tempAllocations)
+            foreach (MemoryAddress allocation in tempAllocations)
             {
-                void* pointer = (void*)allocation;
-                Allocations.Free(ref pointer);
+                allocation.Dispose();
             }
 
             this.applicationName = new(applicationName);
@@ -312,7 +310,7 @@ namespace Vulkan
             }
         }
 
-        public readonly bool TryGetBestPhysicalDevice(USpan<FixedString> requiredExtensions, out PhysicalDevice device)
+        public readonly bool TryGetBestPhysicalDevice(USpan<ASCIIText256> requiredExtensions, out PhysicalDevice device)
         {
             uint highestScore = 0;
             device = default;
@@ -328,7 +326,7 @@ namespace Vulkan
 
             return device != default;
 
-            static unsafe uint GetScore(PhysicalDevice physicalDevice, USpan<FixedString> requiredExtensions)
+            static unsafe uint GetScore(PhysicalDevice physicalDevice, USpan<ASCIIText256> requiredExtensions)
             {
                 VkPhysicalDeviceFeatures features = physicalDevice.GetFeatures();
                 if (!features.geometryShader)
@@ -346,12 +344,12 @@ namespace Vulkan
                 USpan<VkExtensionProperties> availableExtensions = physicalDevice.GetExtensions();
                 if (availableExtensions.Length > 0)
                 {
-                    foreach (FixedString requiredExtension in requiredExtensions)
+                    foreach (ASCIIText256 requiredExtension in requiredExtensions)
                     {
                         bool isAvailable = false;
                         foreach (VkExtensionProperties extension in availableExtensions)
                         {
-                            FixedString extensionName = new(extension.extensionName);
+                            ASCIIText256 extensionName = new(extension.extensionName);
                             if (extensionName == requiredExtension)
                             {
                                 isAvailable = true;

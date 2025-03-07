@@ -47,12 +47,12 @@ namespace Vulkan
             name.Dispose();
         }
 
-        public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, IEnumerable<FixedString>? extensions = null)
+        public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, IEnumerable<ASCIIText256>? extensions = null)
         {
-            using Collections.Generic.List<FixedString> extensionNames = new();
+            using Collections.Generic.List<ASCIIText256> extensionNames = new();
             if (extensions != null)
             {
-                foreach (FixedString extension in extensions)
+                foreach (ASCIIText256 extension in extensions)
                 {
                     extensionNames.Add(extension);
                 }
@@ -61,17 +61,17 @@ namespace Vulkan
             return new(this, applicationName, engineName, extensionNames.AsSpan());
         }
 
-        public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, USpan<FixedString> extensions)
+        public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, USpan<ASCIIText256> extensions)
         {
             return new(this, applicationName, engineName, extensions);
         }
 
-        public readonly Instance CreateInstance(string applicationName, string engineName, IEnumerable<FixedString>? extensions = null)
+        public readonly Instance CreateInstance(string applicationName, string engineName, IEnumerable<ASCIIText256>? extensions = null)
         {
             return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
         }
 
-        public readonly Instance CreateInstance(string applicationName, string engineName, USpan<FixedString> extensions)
+        public readonly Instance CreateInstance(string applicationName, string engineName, USpan<ASCIIText256> extensions)
         {
             return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
         }
@@ -79,7 +79,7 @@ namespace Vulkan
         /// <summary>
         /// Retrieves a new list containing names of all available global layers.
         /// </summary>
-        public readonly Array<FixedString> GetGlobalLayers()
+        public readonly Array<ASCIIText256> GetGlobalLayers()
         {
             uint count = 0;
             VkResult result = vkEnumerateInstanceLayerProperties(&count, null);
@@ -97,7 +97,7 @@ namespace Vulkan
                     throw new Exception($"Failed to enumerate instance layer properties: {result}");
                 }
 
-                Array<FixedString> availableInstanceLayers = new(count);
+                Array<ASCIIText256> availableInstanceLayers = new(count);
                 for (uint i = 0; i < count; i++)
                 {
                     availableInstanceLayers[i] = new(properties[i].layerName);
@@ -114,7 +114,7 @@ namespace Vulkan
         /// <summary>
         /// Retrieves a new list containing names of all available global extensions.
         /// </summary>
-        public readonly Array<FixedString> GetGlobalExtensions()
+        public readonly Array<ASCIIText256> GetGlobalExtensions()
         {
             uint count = 0;
             VkResult result = vkEnumerateInstanceExtensionProperties(&count, null);
@@ -132,7 +132,7 @@ namespace Vulkan
                     throw new Exception($"Failed to enumerate instance extension properties: {result}");
                 }
 
-                Array<FixedString> availableInstanceExtensions = new(count);
+                Array<ASCIIText256> availableInstanceExtensions = new(count);
                 for (uint i = 0; i < count; i++)
                 {
                     availableInstanceExtensions[i] = new(extensionProperties[i].extensionName);

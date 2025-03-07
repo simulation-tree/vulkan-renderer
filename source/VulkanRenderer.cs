@@ -61,7 +61,7 @@ namespace Rendering.Vulkan
         private uint destinationWidth;
         private uint destinationHeight;
 
-        public unsafe readonly Allocation Instance => new((void*)instance.Value.Handle);
+        public unsafe readonly MemoryAddress Instance => new((void*)instance.Value.Handle);
 
         public VulkanRenderer(Destination destination, Instance instance)
         {
@@ -254,7 +254,7 @@ namespace Rendering.Vulkan
             CreateImageViewsAndBuffers(destinationWidth, destinationHeight);
         }
 
-        public void SurfaceCreated(Allocation surface)
+        public void SurfaceCreated(MemoryAddress surface)
         {
             this.surface = new(instance, surface);
             (uint graphicsFamily, uint presentationFamily) = physicalDevice.GetQueueFamilies(this.surface);
@@ -685,7 +685,7 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Component `{componentType.ToString(world.Schema)}` on entity `{entity}` that used to contained data for a uniform buffer has been lost");
                 }
 
-                Allocation component = world.GetComponent(entity, componentType, out ushort componentSize);
+                MemoryAddress component = world.GetComponent(entity, componentType, out ushort componentSize);
                 componentBuffer.buffer.CopyFrom(component, componentSize);
             }
         }
@@ -754,7 +754,7 @@ namespace Rendering.Vulkan
 
         private readonly void CollectComponents(World world, ComponentType textureType)
         {
-            uint capacity = Allocations.GetNextPowerOf2(world.MaxEntityValue + 1);
+            uint capacity = (world.MaxEntityValue + 1).GetNextPowerOf2();
             if (textureComponents.Length < capacity)
             {
                 textureComponents.Length = capacity;
@@ -777,7 +777,7 @@ namespace Rendering.Vulkan
 
         private readonly void ReadScissorValues(World world, Vector4 area)
         {
-            uint capacity = Allocations.GetNextPowerOf2(world.MaxEntityValue + 1);
+            uint capacity = (world.MaxEntityValue + 1).GetNextPowerOf2();
             if (scissors.Length < capacity)
             {
                 scissors.Length = capacity;
@@ -1006,7 +1006,7 @@ namespace Rendering.Vulkan
                     {
                         ref CompiledPushConstant pushConstant = ref pushConstants[p];
                         ComponentType componentType = pushConstant.componentType.ComponentType;
-                        Allocation component = world.GetComponent(entity, componentType, out ushort componentSize);
+                        MemoryAddress component = world.GetComponent(entity, componentType, out ushort componentSize);
                         commandBuffer.PushConstants(compiledPipeline.pipelineLayout, pushConstant.stageFlags, component, pushConstant.componentType.size, pushOffset);
                         pushOffset += componentSize;
                     }
