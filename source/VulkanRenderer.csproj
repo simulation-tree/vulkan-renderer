@@ -1,32 +1,33 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
-		<RootNamespace>VulkanRenderer</RootNamespace>
-		<ImplicitUsings>disable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-		<IsTrimmable>True</IsTrimmable>
-		<IsAotCompatible>True</IsAotCompatible>
-		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-		<WarningLevel>9999</WarningLevel>
-		<Title>Vulkan Renderer</Title>
-		<Authors>popcron</Authors>
-		<Company>game-simulations</Company>
-		<RepositoryUrl>https://github.com/game-simulations/vulkan-renderer</RepositoryUrl>
-	</PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <RootNamespace>VulkanRenderer</RootNamespace>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+        <IsTrimmable>True</IsTrimmable>
+        <IsAotCompatible>True</IsAotCompatible>
+        <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+        <WarningLevel>9999</WarningLevel>
+        <Title>Vulkan Renderer</Title>
+        <Authors>popcron</Authors>
+        <Company>game-simulations</Company>
+        <RepositoryUrl>https://github.com/game-simulations/vulkan-renderer</RepositoryUrl>
+        <PackageId/>
+    </PropertyGroup>
 
-	<ItemGroup>
-		<PackageReference Include="Vortice.Vulkan" Version="2.1.1" />
-	</ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Vortice.Vulkan" Version="2.1.1"/>
+    </ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\..\rendering-systems\source\Rendering.Systems.csproj" />
-		<ProjectReference Include="..\..\textures\source\Textures.csproj" />
-		<ProjectReference Include="..\..\rendering-systems\generator\Rendering.Systems.Generator.csproj">
-			<OutputItemType>Analyzer</OutputItemType>
-			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-		</ProjectReference>
-	</ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\rendering-systems\source\Rendering.Systems.csproj"/>
+        <ProjectReference Include="..\..\textures\source\Textures.csproj"/>
+        <ProjectReference Include="..\..\rendering-systems\generator\Rendering.Systems.Generator.csproj">
+            <OutputItemType>Analyzer</OutputItemType>
+            <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+        </ProjectReference>
+    </ItemGroup>
 
 </Project>
