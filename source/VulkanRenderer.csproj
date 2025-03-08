@@ -12,8 +12,8 @@
         <WarningLevel>9999</WarningLevel>
         <Title>Vulkan Renderer</Title>
         <Authors>popcron</Authors>
-        <Company>game-simulations</Company>
-        <RepositoryUrl>https://github.com/game-simulations/vulkan-renderer</RepositoryUrl>
+        <Company>simulation-tree</Company>
+        <RepositoryUrl>https://github.com/simulation-tree/vulkan-renderer</RepositoryUrl>
         <PackageId/>
     </PropertyGroup>
 
