@@ -206,7 +206,7 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            USpan<VkClearValue> clearValue = stackalloc VkClearValue[2];
+            Span<VkClearValue> clearValue = stackalloc VkClearValue[2];
             clearValue[0].color = new VkClearColorValue(clearColor.X, clearColor.Y, clearColor.Z, clearColor.W);
             clearValue[1].depthStencil = new VkClearDepthStencilValue(1.0f, 0);
             VkRenderPassBeginInfo renderPassBeginInfo = new()
@@ -215,7 +215,7 @@ namespace Vulkan
                 framebuffer = framebuffer.Value,
                 renderArea = new VkRect2D((int)area.X, (int)area.Y, (uint)area.Z, (uint)area.W),
                 clearValueCount = 2,
-                pClearValues = clearValue
+                pClearValues = clearValue.GetPointer()
             };
 
             vkCmdBeginRenderPass(value, &renderPassBeginInfo, withPrimary ? VkSubpassContents.Inline : VkSubpassContents.SecondaryCommandBuffers);
@@ -249,33 +249,33 @@ namespace Vulkan
             vkCmdBindIndexBuffer(value, indexBuffer.bufferDeviceMemory.buffer.Value, offset, VkIndexType.Uint32);
         }
 
-        public readonly void BindDescriptorSets(PipelineLayout layout, USpan<DescriptorSet> descriptorSets, uint set = 0)
+        public readonly void BindDescriptorSets(PipelineLayout layout, Span<DescriptorSet> descriptorSets, uint set = 0)
         {
             ThrowIfDisposed();
 
-            USpan<VkDescriptorSet> descriptorSetValue = stackalloc VkDescriptorSet[(int)descriptorSets.Length];
-            for (uint i = 0; i < descriptorSets.Length; i++)
+            Span<VkDescriptorSet> descriptorSetValue = stackalloc VkDescriptorSet[descriptorSets.Length];
+            for (int i = 0; i < descriptorSets.Length; i++)
             {
                 descriptorSetValue[i] = descriptorSets[i].Value;
             }
 
-            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, (int)descriptorSets.Length));
+            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue.GetPointer(), descriptorSets.Length));
         }
 
         public readonly void BindDescriptorSet(PipelineLayout layout, DescriptorSet descriptorSet, uint set = 0)
         {
             ThrowIfDisposed();
 
-            USpan<VkDescriptorSet> descriptorSetValue = stackalloc VkDescriptorSet[1];
+            Span<VkDescriptorSet> descriptorSetValue = stackalloc VkDescriptorSet[1];
             descriptorSetValue[0] = descriptorSet.Value;
-            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue, 1));
+            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue.GetPointer(), 1));
         }
 
-        public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags stage, USpan<byte> data, uint offset = 0)
+        public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags stage, Span<byte> data, uint offset = 0)
         {
             ThrowIfDisposed();
 
-            vkCmdPushConstants(value, layout.Value, stage, offset, data.Length, data.Pointer);
+            vkCmdPushConstants(value, layout.Value, stage, offset, (uint)data.Length, data.GetPointer());
         }
 
         public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags flags, MemoryAddress data, uint byteLength, uint offset = 0)
@@ -304,7 +304,7 @@ namespace Vulkan
             VkBufferCopy region = default;
             region.dstOffset = 0;
             region.srcOffset = 0;
-            region.size = source.size;
+            region.size = (uint)source.size;
             vkCmdCopyBuffer(value, source.Value, destination.Value, 1, &region);
         }
 
@@ -358,7 +358,7 @@ namespace Vulkan
             VkBufferCopy region = default;
             region.dstOffset = 0;
             region.srcOffset = 0;
-            region.size = source.buffer.size;
+            region.size = (uint)source.buffer.size;
             vkCmdCopyBuffer(value, source.buffer.Value, destination.buffer.Value, 1, &region);
         }
 

@@ -34,12 +34,12 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public LogicalDevice(PhysicalDevice physicalDevice, USpan<uint> queueFamilies, USpan<ASCIIText256> deviceExtensions)
+        public LogicalDevice(PhysicalDevice physicalDevice, Span<uint> queueFamilies, Span<ASCIIText256> deviceExtensions)
         {
             this.physicalDevice = physicalDevice;
             float priority = 1f;
-            USpan<VkDeviceQueueCreateInfo> queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[(int)queueFamilies.Length];
-            for (uint i = 0; i < queueFamilies.Length; i++)
+            Span<VkDeviceQueueCreateInfo> queueCreateInfos = stackalloc VkDeviceQueueCreateInfo[queueFamilies.Length];
+            for (int i = 0; i < queueFamilies.Length; i++)
             {
                 uint queueFamily = queueFamilies[i];
                 VkDeviceQueueCreateInfo queueCreateInfo = new();
@@ -53,20 +53,20 @@ namespace Vulkan
             features.samplerAnisotropy = true;
 
             using Array<VkUtf8String> vkDeviceExtensions = new(deviceExtensions.Length);
-            USpan<byte> nameBuffer = stackalloc byte[ASCIIText256.Capacity];
+            Span<byte> nameBuffer = stackalloc byte[ASCIIText256.Capacity];
             nameBuffer.Clear();
-            for (uint i = 0; i < deviceExtensions.Length; i++)
+            for (int i = 0; i < deviceExtensions.Length; i++)
             {
                 ASCIIText256 extension = deviceExtensions[i];
-                uint length = extension.CopyTo(nameBuffer);
-                vkDeviceExtensions[i] = new((byte*)nameBuffer.Address, (int)length);
+                int length = extension.CopyTo(nameBuffer);
+                vkDeviceExtensions[i] = new(nameBuffer.GetPointer(), length);
             }
 
             using VkStringArray deviceExtensionNames = new(vkDeviceExtensions);
             VkDeviceCreateInfo createInfo = new()
             {
-                queueCreateInfoCount = queueCreateInfos.Length,
-                pQueueCreateInfos = queueCreateInfos,
+                queueCreateInfoCount = (uint)queueCreateInfos.Length,
+                pQueueCreateInfos = queueCreateInfos.GetPointer(),
                 enabledExtensionCount = deviceExtensionNames.Length,
                 ppEnabledExtensionNames = deviceExtensionNames,
                 pEnabledFeatures = &features,
@@ -114,11 +114,11 @@ namespace Vulkan
 
         public readonly VkFormat GetDepthFormat()
         {
-            USpan<VkFormat> candidates = [VkFormat.D32Sfloat, VkFormat.D32SfloatS8Uint, VkFormat.D24UnormS8Uint];
+            System.Span<VkFormat> candidates = [VkFormat.D32Sfloat, VkFormat.D32SfloatS8Uint, VkFormat.D24UnormS8Uint];
             return GetSupportedFormat(candidates, VkImageTiling.Optimal, VkFormatFeatureFlags.DepthStencilAttachment);
         }
 
-        public readonly VkFormat GetSupportedFormat(USpan<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+        public readonly VkFormat GetSupportedFormat(System.Span<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
         {
             ThrowIfDisposed();
             foreach (VkFormat format in candidates)

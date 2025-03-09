@@ -14,7 +14,7 @@ namespace Vulkan
         private readonly Text name;
 
         public readonly bool IsDisposed => name.IsDisposed;
-        public readonly USpan<char> Name => name.AsSpan();
+        public readonly System.Span<char> Name => name.AsSpan();
 
         /// <summary>
         /// Initializes the vulkan library.
@@ -26,7 +26,7 @@ namespace Vulkan
         /// <summary>
         /// Initializes the vulkan library.
         /// </summary>
-        public Library(USpan<char> libraryName)
+        public Library(ReadOnlySpan<char> libraryName)
         {
             name = new(libraryName);
             VkResult result = vkInitialize(libraryName.Length == 0 ? null : libraryName.ToString());
@@ -47,7 +47,7 @@ namespace Vulkan
             name.Dispose();
         }
 
-        public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, IEnumerable<ASCIIText256>? extensions = null)
+        public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<ASCIIText256>? extensions = null)
         {
             using Collections.Generic.List<ASCIIText256> extensionNames = new();
             if (extensions != null)
@@ -61,7 +61,7 @@ namespace Vulkan
             return new(this, applicationName, engineName, extensionNames.AsSpan());
         }
 
-        public readonly Instance CreateInstance(USpan<char> applicationName, USpan<char> engineName, USpan<ASCIIText256> extensions)
+        public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<ASCIIText256> extensions)
         {
             return new(this, applicationName, engineName, extensions);
         }
@@ -71,7 +71,7 @@ namespace Vulkan
             return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
         }
 
-        public readonly Instance CreateInstance(string applicationName, string engineName, USpan<ASCIIText256> extensions)
+        public readonly Instance CreateInstance(string applicationName, string engineName, ReadOnlySpan<ASCIIText256> extensions)
         {
             return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
         }
@@ -97,8 +97,8 @@ namespace Vulkan
                     throw new Exception($"Failed to enumerate instance layer properties: {result}");
                 }
 
-                Array<ASCIIText256> availableInstanceLayers = new(count);
-                for (uint i = 0; i < count; i++)
+                Array<ASCIIText256> availableInstanceLayers = new((int)count);
+                for (int i = 0; i < count; i++)
                 {
                     availableInstanceLayers[i] = new(properties[i].layerName);
                 }
@@ -132,8 +132,8 @@ namespace Vulkan
                     throw new Exception($"Failed to enumerate instance extension properties: {result}");
                 }
 
-                Array<ASCIIText256> availableInstanceExtensions = new(count);
-                for (uint i = 0; i < count; i++)
+                Array<ASCIIText256> availableInstanceExtensions = new((int)count);
+                for (int i = 0; i < count; i++)
                 {
                     availableInstanceExtensions[i] = new(extensionProperties[i].extensionName);
                 }

@@ -1,7 +1,6 @@
 ﻿using Collections.Generic;
 using Shaders;
 using System;
-using Unmanaged;
 using Vulkan;
 
 namespace Rendering.Vulkan
@@ -18,10 +17,10 @@ namespace Rendering.Vulkan
 
         private readonly Array<ShaderVertexInputAttribute> attributeLayout;
 
-        public readonly USpan<ShaderVertexInputAttribute> VertexAttributes => attributeLayout.AsSpan();
+        public readonly System.Span<ShaderVertexInputAttribute> VertexAttributes => attributeLayout.AsSpan();
         public readonly bool IsDisposed => attributeLayout.IsDisposed;
 
-        public CompiledMesh(uint meshVersion, uint indexCount, VertexBuffer vertexBuffer, IndexBuffer indexBuffer, USpan<ShaderVertexInputAttribute> attributeLayout)
+        public CompiledMesh(uint meshVersion, uint indexCount, VertexBuffer vertexBuffer, IndexBuffer indexBuffer, System.Span<ShaderVertexInputAttribute> attributeLayout)
         {
             this.version = meshVersion;
             this.indexCount = indexCount;

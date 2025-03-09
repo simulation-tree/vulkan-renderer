@@ -1,5 +1,4 @@
 ﻿using System;
-using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -28,9 +27,9 @@ namespace Vulkan
         /// <summary>
         /// All available extensions of the physical device.
         /// </summary>
-        public readonly USpan<VkExtensionProperties> GetExtensions()
+        public readonly ReadOnlySpan<VkExtensionProperties> GetExtensions()
         {
-            return new(vkEnumerateDeviceExtensionProperties(value));
+            return vkEnumerateDeviceExtensionProperties(value);
         }
 
         /// <summary>
@@ -54,14 +53,14 @@ namespace Vulkan
             return capabilities;
         }
 
-        public readonly USpan<VkSurfaceFormatKHR> GetSurfaceFormats(Surface surface)
+        public readonly ReadOnlySpan<VkSurfaceFormatKHR> GetSurfaceFormats(Surface surface)
         {
-            return new(vkGetPhysicalDeviceSurfaceFormatsKHR(value, surface.Value));
+            return vkGetPhysicalDeviceSurfaceFormatsKHR(value, surface.Value);
         }
 
-        public readonly USpan<VkPresentModeKHR> GetSurfacePresentModes(Surface surface)
+        public readonly ReadOnlySpan<VkPresentModeKHR> GetSurfacePresentModes(Surface surface)
         {
-            return new(vkGetPhysicalDeviceSurfacePresentModesKHR(value, surface.Value));
+            return vkGetPhysicalDeviceSurfacePresentModesKHR(value, surface.Value);
         }
 
         public readonly VkPhysicalDeviceLimits GetLimits()
@@ -70,9 +69,9 @@ namespace Vulkan
             return properties.limits;
         }
 
-        public readonly USpan<VkQueueFamilyProperties> GetAllQueueFamilies()
+        public readonly ReadOnlySpan<VkQueueFamilyProperties> GetAllQueueFamilies()
         {
-            return new(vkGetPhysicalDeviceQueueFamilyProperties(value));
+            return vkGetPhysicalDeviceQueueFamilyProperties(value);
         }
 
         /// <summary>
@@ -80,12 +79,12 @@ namespace Vulkan
         /// </summary>
         public readonly (uint graphics, uint present) GetQueueFamilies(Surface surface)
         {
-            USpan<VkQueueFamilyProperties> queueFamilies = GetAllQueueFamilies();
+            ReadOnlySpan<VkQueueFamilyProperties> queueFamilies = GetAllQueueFamilies();
             uint graphicsFamily = VK_QUEUE_FAMILY_IGNORED;
             uint presentFamily = VK_QUEUE_FAMILY_IGNORED;
             for (uint i = 0; i < queueFamilies.Length; i++)
             {
-                VkQueueFamilyProperties queueFamily = queueFamilies[i];
+                VkQueueFamilyProperties queueFamily = queueFamilies[(int)i];
                 if ((queueFamily.queueFlags & VkQueueFlags.Graphics) != VkQueueFlags.None)
                 {
                     graphicsFamily = i;
@@ -109,10 +108,10 @@ namespace Vulkan
 
         public readonly bool TryGetGraphicsQueueFamily(out uint graphicsFamily)
         {
-            USpan<VkQueueFamilyProperties> queueFamilies = GetAllQueueFamilies();
+            ReadOnlySpan<VkQueueFamilyProperties> queueFamilies = GetAllQueueFamilies();
             for (uint i = 0; i < queueFamilies.Length; i++)
             {
-                VkQueueFamilyProperties queueFamily = queueFamilies[i];
+                VkQueueFamilyProperties queueFamily = queueFamilies[(int)i];
                 if ((queueFamily.queueFlags & VkQueueFlags.Graphics) != VkQueueFlags.None)
                 {
                     graphicsFamily = i;

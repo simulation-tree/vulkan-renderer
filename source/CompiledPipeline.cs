@@ -1,6 +1,5 @@
 ﻿using Collections.Generic;
 using System;
-using Unmanaged;
 using Vortice.Vulkan;
 using Vulkan;
 
@@ -18,9 +17,9 @@ namespace Rendering.Vulkan
         private readonly Array<VkDescriptorSetLayoutBinding> descriptorBindings;
         private readonly List<DescriptorPool> pools;
 
-        public readonly USpan<VkDescriptorSetLayoutBinding> DescriptorBindings => descriptorBindings.AsSpan();
+        public readonly System.Span<VkDescriptorSetLayoutBinding> DescriptorBindings => descriptorBindings.AsSpan();
 
-        public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, USpan<(VkDescriptorType, uint)> poolTypes, DescriptorSetLayout setLayout, USpan<VkDescriptorSetLayoutBinding> descriptorBindings)
+        public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, ReadOnlySpan<(VkDescriptorType, uint)> poolTypes, DescriptorSetLayout setLayout, ReadOnlySpan<VkDescriptorSetLayoutBinding> descriptorBindings)
         {
             this.pipeline = pipeline;
             this.pipelineLayout = pipelineLayout;

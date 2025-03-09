@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -29,7 +28,7 @@ namespace Vulkan
         /// <summary>
         /// Creates a shader module from the given SPV bytecode.
         /// </summary>
-        public unsafe ShaderModule(LogicalDevice logicalDevice, USpan<byte> code, bool isInstanced = false)
+        public unsafe ShaderModule(LogicalDevice logicalDevice, System.Span<byte> code, bool isInstanced = false)
         {
             this.isInstanced = isInstanced;
             this.logicalDevice = logicalDevice;

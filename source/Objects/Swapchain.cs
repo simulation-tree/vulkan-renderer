@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -59,10 +58,10 @@ namespace Vulkan
             (uint graphics, uint present) = device.physicalDevice.GetQueueFamilies(surface);
             if (graphics != present)
             {
-                USpan<uint> queueFamilies = stackalloc uint[2] { graphics, present };
+                Span<uint> queueFamilies = stackalloc uint[2] { graphics, present };
                 swapchainCreateInfo.imageSharingMode = VkSharingMode.Concurrent;
                 swapchainCreateInfo.queueFamilyIndexCount = 2;
-                swapchainCreateInfo.pQueueFamilyIndices = queueFamilies;
+                swapchainCreateInfo.pQueueFamilyIndices = queueFamilies.GetPointer();
             }
             else
             {
@@ -100,12 +99,12 @@ namespace Vulkan
             }
         }
 
-        public readonly uint CopyImagesTo(USpan<Image> destination)
+        public readonly int CopyImagesTo(Span<Image> destination)
         {
             ThrowIfDisposed();
 
-            USpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(device.Value, value);
-            for (uint i = 0; i < imageSpan.Length; i++)
+            ReadOnlySpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(device.Value, value);
+            for (int i = 0; i < imageSpan.Length; i++)
             {
                 Image image = new(device, imageSpan[i], width, height, format);
                 destination[i] = image;

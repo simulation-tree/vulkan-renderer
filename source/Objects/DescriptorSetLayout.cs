@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -27,13 +26,13 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public DescriptorSetLayout(LogicalDevice logicalDevice, USpan<VkDescriptorSetLayoutBinding> bindings)
+        public DescriptorSetLayout(LogicalDevice logicalDevice, System.Span<VkDescriptorSetLayoutBinding> bindings)
         {
             this.logicalDevice = logicalDevice;
 
             VkDescriptorSetLayoutCreateInfo createInfo = new();
-            createInfo.bindingCount = bindings.Length;
-            createInfo.pBindings = bindings.Pointer;
+            createInfo.bindingCount = (uint)bindings.Length;
+            createInfo.pBindings = bindings.GetPointer();
 
             VkResult result = vkCreateDescriptorSetLayout(logicalDevice.Value, &createInfo, null, out value);
             ThrowIfFailedToCreate(result);

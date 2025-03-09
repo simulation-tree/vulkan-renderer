@@ -37,10 +37,10 @@ namespace Vulkan
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly USpan<T> Map<T>() where T : unmanaged
+        public readonly Span<T> Map<T>() where T : unmanaged
         {
             MemoryAddress memoryPointer = Map();
-            return new(memoryPointer.Pointer, buffer.size);
+            return new(memoryPointer.Pointer, (int)buffer.size);
         }
 
         /// <summary>
@@ -48,7 +48,7 @@ namespace Vulkan
         /// then unmaps it.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void CopyFrom(MemoryAddress data, uint byteLength)
+        public readonly void CopyFrom(MemoryAddress data, int byteLength)
         {
             MemoryAddress memoryPointer = Map();
             memoryPointer.CopyFrom(data, byteLength);
@@ -59,10 +59,21 @@ namespace Vulkan
         /// Maps the memory and copies the data from the given span then unmaps it.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void CopyFrom<T>(USpan<T> data) where T : unmanaged
+        public readonly void CopyFrom<T>(ReadOnlySpan<T> data) where T : unmanaged
         {
             MemoryAddress memoryPointer = Map();
-            memoryPointer.CopyFrom(data.Pointer, buffer.size);
+            memoryPointer.CopyFrom(data.GetPointer(), (int)buffer.size);
+            Unmap();
+        }
+
+        /// <summary>
+        /// Maps the memory and copies the data from the given span then unmaps it.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly void CopyFrom<T>(Span<T> data) where T : unmanaged
+        {
+            MemoryAddress memoryPointer = Map();
+            memoryPointer.CopyFrom(data.GetPointer(), (int)buffer.size);
             Unmap();
         }
 

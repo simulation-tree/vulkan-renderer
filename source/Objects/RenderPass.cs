@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -30,11 +29,11 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public RenderPass(LogicalDevice logicalDevice, USpan<Attachment> attachments)
+        public RenderPass(LogicalDevice logicalDevice, Span<Attachment> attachments)
         {
             this.logicalDevice = logicalDevice;
-            USpan<VkAttachmentDescription> attachmentsPointer = stackalloc VkAttachmentDescription[(int)attachments.Length];
-            for (uint i = 0; i < attachments.Length; i++)
+            Span<VkAttachmentDescription> attachmentsPointer = stackalloc VkAttachmentDescription[attachments.Length];
+            for (int i = 0; i < attachments.Length; i++)
             {
                 Attachment attachment = attachments[i];
                 VkFormat format = attachment.format;
@@ -59,7 +58,7 @@ namespace Vulkan
                 pDepthStencilAttachment = &depthAttachment
             };
 
-            USpan<VkSubpassDependency> dependencies =
+            System.Span<VkSubpassDependency> dependencies =
             [
                 new VkSubpassDependency
                 {
@@ -75,12 +74,12 @@ namespace Vulkan
 
             VkRenderPassCreateInfo renderPassCreateInfo = new()
             {
-                attachmentCount = attachments.Length,
-                pAttachments = attachmentsPointer,
+                attachmentCount = (uint)attachments.Length,
+                pAttachments = attachmentsPointer.GetPointer(),
                 subpassCount = 1,
                 pSubpasses = &subPass,
-                dependencyCount = dependencies.Length,
-                pDependencies = dependencies
+                dependencyCount = (uint)dependencies.Length,
+                pDependencies = dependencies.GetPointer()
             };
 
             VkResult result = vkCreateRenderPass(logicalDevice.Value, &renderPassCreateInfo, null, out value);

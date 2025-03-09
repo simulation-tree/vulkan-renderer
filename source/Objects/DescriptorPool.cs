@@ -2,7 +2,6 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -42,11 +41,11 @@ namespace Vulkan
             }
 
             this.logicalDevice = logicalDevice;
-            USpan<VkDescriptorPoolSize> poolSizes = stackalloc VkDescriptorPoolSize[1] { new(type, maxAllocations) };
+            Span<VkDescriptorPoolSize> poolSizes = stackalloc VkDescriptorPoolSize[1] { new(type, maxAllocations) };
             VkDescriptorPoolCreateInfo createInfo = new()
             {
                 poolSizeCount = poolSizeCount,
-                pPoolSizes = poolSizes,
+                pPoolSizes = poolSizes.GetPointer(),
                 maxSets = maxAllocations,
                 flags = VkDescriptorPoolCreateFlags.FreeDescriptorSet
             };
@@ -57,7 +56,7 @@ namespace Vulkan
             valid = true;
         }
 
-        public DescriptorPool(LogicalDevice logicalDevice, USpan<(VkDescriptorType type, uint descriptorCount)> pools, uint maxSets)
+        public DescriptorPool(LogicalDevice logicalDevice, ReadOnlySpan<(VkDescriptorType type, uint descriptorCount)> pools, uint maxSets)
         {
             if (pools.Length == 0)
             {
@@ -65,8 +64,8 @@ namespace Vulkan
             }
 
             this.logicalDevice = logicalDevice;
-            USpan<VkDescriptorPoolSize> poolSizes = stackalloc VkDescriptorPoolSize[(int)pools.Length];
-            for (uint i = 0; i < pools.Length; i++)
+            Span<VkDescriptorPoolSize> poolSizes = stackalloc VkDescriptorPoolSize[pools.Length];
+            for (int i = 0; i < pools.Length; i++)
             {
                 (VkDescriptorType type, uint descriptorCount) = pools[i];
                 poolSizes[i] = new(type, descriptorCount);
@@ -74,8 +73,8 @@ namespace Vulkan
 
             VkDescriptorPoolCreateInfo createInfo = new()
             {
-                poolSizeCount = pools.Length,
-                pPoolSizes = poolSizes,
+                poolSizeCount = (uint)pools.Length,
+                pPoolSizes = poolSizes.GetPointer(),
                 maxSets = maxSets,
                 flags = VkDescriptorPoolCreateFlags.FreeDescriptorSet
             };
@@ -132,12 +131,12 @@ namespace Vulkan
         /// <summary>
         /// Allocates as many new descriptor sets from the pool, as there are layouts given.
         /// </summary>
-        public readonly Array<DescriptorSet> Allocate(USpan<DescriptorSetLayout> layouts)
+        public readonly Array<DescriptorSet> Allocate(ReadOnlySpan<DescriptorSetLayout> layouts)
         {
             ThrowIfDisposed();
 
-            USpan<VkDescriptorSetLayout> layoutPointers = stackalloc VkDescriptorSetLayout[(int)layouts.Length];
-            for (uint i = 0; i < layouts.Length; i++)
+            Span<VkDescriptorSetLayout> layoutPointers = stackalloc VkDescriptorSetLayout[layouts.Length];
+            for (int i = 0; i < layouts.Length; i++)
             {
                 layoutPointers[i] = layouts[i].Value;
             }
@@ -145,16 +144,16 @@ namespace Vulkan
             VkDescriptorSetAllocateInfo allocateInfo = new()
             {
                 descriptorPool = value,
-                descriptorSetCount = layouts.Length,
-                pSetLayouts = layoutPointers
+                descriptorSetCount = (uint)layouts.Length,
+                pSetLayouts = layoutPointers.GetPointer()
             };
 
-            USpan<VkDescriptorSet> descriptorSet = stackalloc VkDescriptorSet[(int)layouts.Length];
-            VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, descriptorSet);
+            Span<VkDescriptorSet> descriptorSet = stackalloc VkDescriptorSet[layouts.Length];
+            VkResult result = vkAllocateDescriptorSets(logicalDevice.Value, &allocateInfo, descriptorSet.GetPointer());
             ThrowIfFailedToAllocate(result);
 
             Array<DescriptorSet> sets = new(layouts.Length);
-            for (uint i = 0; i < layouts.Length; i++)
+            for (int i = 0; i < layouts.Length; i++)
             {
                 sets[i] = new(this, descriptorSet[i]);
             }

@@ -1,4 +1,5 @@
 ﻿using Simulation;
+using System;
 using System.Numerics;
 using Unmanaged;
 using Vulkan;
@@ -21,11 +22,11 @@ namespace Rendering.Vulkan
             library = new();
         }
 
-        (MemoryAddress renderer, MemoryAddress instance) IRenderingBackend.Create(in Destination destination, in USpan<ASCIIText256> extensionNames)
+        (MemoryAddress renderer, MemoryAddress instance) IRenderingBackend.Create(in Destination destination, in ReadOnlySpan<ASCIIText256> extensionNames)
         {
             Instance instance = library.CreateInstance("Game", "Engine", extensionNames);
             VulkanRenderer renderer = new(destination, instance);
-            return (MemoryAddress.Allocate(renderer), renderer.Instance);
+            return (MemoryAddress.AllocateValue(renderer), renderer.Instance);
         }
 
         void IRenderingBackend.Dispose(in MemoryAddress renderer)
@@ -47,7 +48,7 @@ namespace Rendering.Vulkan
             return vulkanRenderer.BeginRender(clearColor);
         }
 
-        void IRenderingBackend.Render(in MemoryAddress renderer, in USpan<uint> entities, in MaterialData material, in MeshData mesh, in VertexShaderData vertexShader, in FragmentShaderData fragmentShader)
+        void IRenderingBackend.Render(in MemoryAddress renderer, in ReadOnlySpan<uint> entities, in MaterialData material, in MeshData mesh, in VertexShaderData vertexShader, in FragmentShaderData fragmentShader)
         {
             ref VulkanRenderer vulkanRenderer = ref renderer.Read<VulkanRenderer>();
             vulkanRenderer.Render(entities, material, mesh, vertexShader, fragmentShader);

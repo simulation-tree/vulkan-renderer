@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -26,42 +25,42 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public Pipeline(PipelineCreateInput input, PipelineLayout layout, USpan<VkVertexInputBindingDescription> vertexBindings, USpan<VkVertexInputAttributeDescription> vertexAttributes, string entryPoint)
+        public Pipeline(PipelineCreateInput input, PipelineLayout layout, ReadOnlySpan<VkVertexInputBindingDescription> vertexBindings, ReadOnlySpan<VkVertexInputAttributeDescription> vertexAttributes, string entryPoint)
             : this(input, layout, vertexBindings, vertexAttributes, entryPoint.AsSpan())
         {
         }
 
-        public Pipeline(PipelineCreateInput input, PipelineLayout layout, USpan<VkVertexInputBindingDescription> vertexBindings, USpan<VkVertexInputAttributeDescription> vertexAttributes, USpan<char> entryPoint)
+        public Pipeline(PipelineCreateInput input, PipelineLayout layout, ReadOnlySpan<VkVertexInputBindingDescription> vertexBindings, ReadOnlySpan<VkVertexInputAttributeDescription> vertexAttributes, ReadOnlySpan<char> entryPoint)
         {
             logicalDevice = input.LogicalDevice;
-            USpan<byte> nameBuffer = stackalloc byte[(int)entryPoint.Length + 1];
-            for (uint i = 0; i < entryPoint.Length; i++)
+            Span<byte> nameBuffer = stackalloc byte[entryPoint.Length + 1];
+            for (int i = 0; i < entryPoint.Length; i++)
             {
                 nameBuffer[i] = (byte)entryPoint[i];
             }
 
             nameBuffer[entryPoint.Length] = 0;
-            USpan<VkPipelineShaderStageCreateInfo> shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
+            Span<VkPipelineShaderStageCreateInfo> shaderStages = stackalloc VkPipelineShaderStageCreateInfo[2];
             shaderStages[0] = new()
             {
                 stage = VkShaderStageFlags.Vertex,
                 module = input.vertexShader.Value,
-                pName = nameBuffer
+                pName = nameBuffer.GetPointer()
             };
 
             shaderStages[1] = new()
             {
                 stage = VkShaderStageFlags.Fragment,
                 module = input.fragmentShader.Value,
-                pName = nameBuffer
+                pName = nameBuffer.GetPointer()
             };
 
             VkPipelineVertexInputStateCreateInfo vertexInputState = new()
             {
-                vertexBindingDescriptionCount = vertexBindings.Length,
-                pVertexBindingDescriptions = vertexBindings.Pointer,
-                vertexAttributeDescriptionCount = vertexAttributes.Length,
-                pVertexAttributeDescriptions = vertexAttributes.Pointer
+                vertexBindingDescriptionCount = (uint)vertexBindings.Length,
+                pVertexBindingDescriptions = vertexBindings.GetPointer(),
+                vertexAttributeDescriptionCount = (uint)vertexAttributes.Length,
+                pVertexAttributeDescriptions = vertexAttributes.GetPointer()
             };
 
             VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = new(VkPrimitiveTopology.TriangleList);
@@ -102,20 +101,20 @@ namespace Vulkan
             colorBlending.blendConstants[2] = 0f;
             colorBlending.blendConstants[3] = 0f;
 
-            USpan<VkDynamicState> dynamicStateEnables = stackalloc VkDynamicState[2];
+            System.Span<VkDynamicState> dynamicStateEnables = stackalloc VkDynamicState[2];
             dynamicStateEnables[0] = VkDynamicState.Viewport;
             dynamicStateEnables[1] = VkDynamicState.Scissor;
 
             VkPipelineDynamicStateCreateInfo dynamicState = new()
             {
                 dynamicStateCount = 2,
-                pDynamicStates = dynamicStateEnables
+                pDynamicStates = dynamicStateEnables.GetPointer()
             };
 
             VkGraphicsPipelineCreateInfo pipelineCreateInfo = new()
             {
                 stageCount = 2,
-                pStages = shaderStages,
+                pStages = shaderStages.GetPointer(),
                 pVertexInputState = &vertexInputState,
                 pInputAssemblyState = &inputAssemblyState,
                 pTessellationState = null,

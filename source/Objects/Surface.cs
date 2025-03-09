@@ -54,8 +54,8 @@ namespace Vulkan
             ThrowIfDisposed();
 
             VkSurfaceCapabilitiesKHR capabilities = physicalDevice.GetSurfaceCapabilities(this);
-            USpan<VkSurfaceFormatKHR> formats = physicalDevice.GetSurfaceFormats(this);
-            USpan<VkPresentModeKHR> presentModes = physicalDevice.GetSurfacePresentModes(this);
+            ReadOnlySpan<VkSurfaceFormatKHR> formats = physicalDevice.GetSurfaceFormats(this);
+            ReadOnlySpan<VkPresentModeKHR> presentModes = physicalDevice.GetSurfacePresentModes(this);
             return new(capabilities, formats, presentModes);
         }
 

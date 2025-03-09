@@ -54,7 +54,7 @@ namespace Vulkan
 
         public readonly nint Address => value.Handle;
 
-        public readonly USpan<PhysicalDevice> PhysicalDevices
+        public readonly ReadOnlySpan<PhysicalDevice> PhysicalDevices
         {
             get
             {
@@ -66,7 +66,7 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public readonly USpan<char> ApplicationName
+        public readonly ReadOnlySpan<char> ApplicationName
         {
             get
             {
@@ -76,7 +76,7 @@ namespace Vulkan
             }
         }
 
-        public readonly USpan<char> EngineName
+        public readonly ReadOnlySpan<char> EngineName
         {
             get
             {
@@ -86,7 +86,7 @@ namespace Vulkan
             }
         }
 
-        internal Instance(Library library, USpan<char> applicationName, USpan<char> engineName, USpan<ASCIIText256> extensions)
+        internal Instance(Library library, ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<ASCIIText256> extensions)
         {
             using List<ASCIIText256> inputLayers = new();
 
@@ -113,11 +113,11 @@ namespace Vulkan
                 if (globalLayers.Length > 0)
                 {
                     using Text remaining = new();
-                    USpan<char> buffer = stackalloc char[ASCIIText256.Capacity];
+                    Span<char> buffer = stackalloc char[ASCIIText256.Capacity];
                     foreach (ASCIIText256 layer in globalLayers)
                     {
-                        uint length = layer.CopyTo(buffer);
-                        remaining.Append(buffer.GetSpan(length));
+                        int length = layer.CopyTo(buffer);
+                        remaining.Append(buffer.Slice(0, length));
                         remaining.Append(',');
                         remaining.Append(' ');
                     }
@@ -131,7 +131,7 @@ namespace Vulkan
                 }
             }
 
-            static bool ContainsAll(USpan<ASCIIText256> a, USpan<ASCIIText256> b)
+            static bool ContainsAll(ReadOnlySpan<ASCIIText256> a, ReadOnlySpan<ASCIIText256> b)
             {
                 foreach (ASCIIText256 layer in b)
                 {
@@ -169,14 +169,14 @@ namespace Vulkan
                 }
             }
 
-            USpan<byte> applicationNameBytes = stackalloc byte[(int)applicationName.Length];
-            for (uint i = 0; i < applicationName.Length; i++)
+            Span<byte> applicationNameBytes = stackalloc byte[applicationName.Length];
+            for (int i = 0; i < applicationName.Length; i++)
             {
                 applicationNameBytes[i] = (byte)applicationName[i];
             }
 
-            USpan<byte> engineNameBytes = stackalloc byte[(int)engineName.Length];
-            for (uint i = 0; i < engineName.Length; i++)
+            Span<byte> engineNameBytes = stackalloc byte[engineName.Length];
+            for (int i = 0; i < engineName.Length; i++)
             {
                 engineNameBytes[i] = (byte)engineName[i];
             }
@@ -190,12 +190,12 @@ namespace Vulkan
 
             using List<VkUtf8String> vkInstanceLayers = new(inputLayers.Count);
             using List<MemoryAddress> tempAllocations = new();
-            USpan<byte> nameBuffer = stackalloc byte[ASCIIText256.Capacity];
+            Span<byte> nameBuffer = stackalloc byte[ASCIIText256.Capacity];
             foreach (ASCIIText256 instanceLayer in inputLayers)
             {
-                uint length = instanceLayer.CopyTo(nameBuffer) + 1;
-                MemoryAddress newAllocation = MemoryAddress.Allocate(length);
-                newAllocation.CopyFrom(nameBuffer, length);
+                int byteLength = instanceLayer.CopyTo(nameBuffer) + 1;
+                MemoryAddress newAllocation = MemoryAddress.Allocate(byteLength);
+                newAllocation.CopyFrom(nameBuffer.Slice(0, byteLength));
                 vkInstanceLayers.Add(new(newAllocation.Pointer));
                 tempAllocations.Add(newAllocation);
                 nameBuffer.Clear();
@@ -204,9 +204,9 @@ namespace Vulkan
             using List<VkUtf8String> vkInstanceExtensions = new(inputExtensions.Count);
             foreach (ASCIIText256 instanceExtension in inputExtensions)
             {
-                uint length = instanceExtension.CopyTo(nameBuffer) + 1;
-                MemoryAddress newAllocation = MemoryAddress.Allocate(length);
-                newAllocation.CopyFrom(nameBuffer, length);
+                int byteLength = instanceExtension.CopyTo(nameBuffer) + 1;
+                MemoryAddress newAllocation = MemoryAddress.Allocate(byteLength);
+                newAllocation.CopyFrom(nameBuffer.Slice(0, byteLength));
                 vkInstanceExtensions.Add(new(newAllocation.Pointer));
                 tempAllocations.Add(newAllocation);
                 nameBuffer.Clear();
@@ -270,7 +270,7 @@ namespace Vulkan
                 throw new PlatformNotSupportedException("No physical devices found to render to");
             }
 
-            physicalDevices = new(physicalDeviceCount);
+            physicalDevices = new((int)physicalDeviceCount);
             VkPhysicalDevice* physicalDevicesPointer = stackalloc VkPhysicalDevice[(int)physicalDeviceCount];
             result = vkEnumeratePhysicalDevices(value, &physicalDeviceCount, physicalDevicesPointer);
             if (result != VkResult.Success)
@@ -278,7 +278,7 @@ namespace Vulkan
                 throw new Exception($"Failed to enumerate physical devices: {result}");
             }
 
-            for (uint i = 0; i < physicalDeviceCount; i++)
+            for (int i = 0; i < physicalDeviceCount; i++)
             {
                 physicalDevices[i] = new(physicalDevicesPointer[i]);
             }
@@ -310,11 +310,11 @@ namespace Vulkan
             }
         }
 
-        public readonly bool TryGetBestPhysicalDevice(USpan<ASCIIText256> requiredExtensions, out PhysicalDevice device)
+        public readonly bool TryGetBestPhysicalDevice(ReadOnlySpan<ASCIIText256> requiredExtensions, out PhysicalDevice device)
         {
             uint highestScore = 0;
             device = default;
-            for (uint i = 0; i < physicalDevices.Length; i++)
+            for (int i = 0; i < physicalDevices.Length; i++)
             {
                 uint score = GetScore(physicalDevices[i], requiredExtensions);
                 if (score > highestScore)
@@ -326,7 +326,7 @@ namespace Vulkan
 
             return device != default;
 
-            static unsafe uint GetScore(PhysicalDevice physicalDevice, USpan<ASCIIText256> requiredExtensions)
+            static unsafe uint GetScore(PhysicalDevice physicalDevice, ReadOnlySpan<ASCIIText256> requiredExtensions)
             {
                 VkPhysicalDeviceFeatures features = physicalDevice.GetFeatures();
                 if (!features.geometryShader)
@@ -341,7 +341,7 @@ namespace Vulkan
                     return 0;
                 }
 
-                USpan<VkExtensionProperties> availableExtensions = physicalDevice.GetExtensions();
+                ReadOnlySpan<VkExtensionProperties> availableExtensions = physicalDevice.GetExtensions();
                 if (availableExtensions.Length > 0)
                 {
                     foreach (ASCIIText256 requiredExtension in requiredExtensions)
