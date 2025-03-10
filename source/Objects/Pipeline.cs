@@ -101,7 +101,7 @@ namespace Vulkan
             colorBlending.blendConstants[2] = 0f;
             colorBlending.blendConstants[3] = 0f;
 
-            System.Span<VkDynamicState> dynamicStateEnables = stackalloc VkDynamicState[2];
+            Span<VkDynamicState> dynamicStateEnables = stackalloc VkDynamicState[2];
             dynamicStateEnables[0] = VkDynamicState.Viewport;
             dynamicStateEnables[1] = VkDynamicState.Scissor;
 

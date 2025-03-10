@@ -1,6 +1,5 @@
 ﻿using Collections.Generic;
 using System;
-using System.Collections.Generic;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
@@ -14,7 +13,7 @@ namespace Vulkan
         private readonly Text name;
 
         public readonly bool IsDisposed => name.IsDisposed;
-        public readonly System.Span<char> Name => name.AsSpan();
+        public readonly ReadOnlySpan<char> Name => name.AsSpan();
 
         /// <summary>
         /// Initializes the vulkan library.
@@ -47,28 +46,9 @@ namespace Vulkan
             name.Dispose();
         }
 
-        public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, IEnumerable<ASCIIText256>? extensions = null)
-        {
-            using Collections.Generic.List<ASCIIText256> extensionNames = new();
-            if (extensions != null)
-            {
-                foreach (ASCIIText256 extension in extensions)
-                {
-                    extensionNames.Add(extension);
-                }
-            }
-
-            return new(this, applicationName, engineName, extensionNames.AsSpan());
-        }
-
         public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<ASCIIText256> extensions)
         {
             return new(this, applicationName, engineName, extensions);
-        }
-
-        public readonly Instance CreateInstance(string applicationName, string engineName, IEnumerable<ASCIIText256>? extensions = null)
-        {
-            return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
         }
 
         public readonly Instance CreateInstance(string applicationName, string engineName, ReadOnlySpan<ASCIIText256> extensions)

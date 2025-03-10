@@ -17,7 +17,7 @@ namespace Rendering.Vulkan
         private readonly Array<VkDescriptorSetLayoutBinding> descriptorBindings;
         private readonly List<DescriptorPool> pools;
 
-        public readonly System.Span<VkDescriptorSetLayoutBinding> DescriptorBindings => descriptorBindings.AsSpan();
+        public readonly Span<VkDescriptorSetLayoutBinding> DescriptorBindings => descriptorBindings.AsSpan();
 
         public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, ReadOnlySpan<(VkDescriptorType, uint)> poolTypes, DescriptorSetLayout setLayout, ReadOnlySpan<VkDescriptorSetLayoutBinding> descriptorBindings)
         {

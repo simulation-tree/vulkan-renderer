@@ -262,7 +262,7 @@ namespace Rendering.Vulkan
             graphicsQueue = new(logicalDevice, graphicsFamily, 0);
             presentationQueue = new(logicalDevice, presentationFamily, 0);
             CreateSwapchain(out destinationWidth, out destinationHeight);
-            System.Span<RenderPass.Attachment> attachments =
+            Span<RenderPass.Attachment> attachments =
             [
                 new(swapchain.format, VkSampleCountFlags.Count1, VkAttachmentLoadOp.Clear, VkAttachmentStoreOp.Store, VkAttachmentLoadOp.DontCare,
                     VkAttachmentStoreOp.DontCare, VkImageLayout.Undefined, VkImageLayout.PresentSrcKHR),
@@ -407,9 +407,9 @@ namespace Rendering.Vulkan
                 offset += shaderVertexAttribute.size;
             }
 
-            Span<InstanceDataBinding> pushBindings = material.InstanceBindings;
-            Span<EntityComponentBinding> uniformBindings = material.ComponentBindings;
-            Span<TextureBinding> textureBindings = material.TextureBindings;
+            ReadOnlySpan<InstanceDataBinding> pushBindings = material.InstanceBindings;
+            ReadOnlySpan<EntityComponentBinding> uniformBindings = material.ComponentBindings;
+            ReadOnlySpan<TextureBinding> textureBindings = material.TextureBindings;
             Values<ShaderPushConstant> pushConstants = world.GetArray<ShaderPushConstant>(vertexShaderEntity);
             Values<ShaderUniformProperty> uniformProperties = world.GetArray<ShaderUniformProperty>(vertexShaderEntity);
             Values<ShaderSamplerProperty> samplerProperties = world.GetArray<ShaderSamplerProperty>(fragmentShaderEntity);
@@ -546,7 +546,7 @@ namespace Rendering.Vulkan
                 Span<CompiledPushConstant> buffer = stackalloc CompiledPushConstant[pushBindings.Length];
                 for (int i = 0; i < pushBindings.Length; i++)
                 {
-                    ref InstanceDataBinding binding = ref pushBindings[i];
+                    InstanceDataBinding binding = pushBindings[i];
                     buffer[i] = new(binding.componentType, binding.stage, binding.stage.GetShaderStage());
                 }
 

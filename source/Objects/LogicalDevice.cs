@@ -114,11 +114,11 @@ namespace Vulkan
 
         public readonly VkFormat GetDepthFormat()
         {
-            System.Span<VkFormat> candidates = [VkFormat.D32Sfloat, VkFormat.D32SfloatS8Uint, VkFormat.D24UnormS8Uint];
+            Span<VkFormat> candidates = [VkFormat.D32Sfloat, VkFormat.D32SfloatS8Uint, VkFormat.D24UnormS8Uint];
             return GetSupportedFormat(candidates, VkImageTiling.Optimal, VkFormatFeatureFlags.DepthStencilAttachment);
         }
 
-        public readonly VkFormat GetSupportedFormat(System.Span<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+        public readonly VkFormat GetSupportedFormat(ReadOnlySpan<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
         {
             ThrowIfDisposed();
             foreach (VkFormat format in candidates)

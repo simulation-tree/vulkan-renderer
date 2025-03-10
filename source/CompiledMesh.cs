@@ -17,10 +17,10 @@ namespace Rendering.Vulkan
 
         private readonly Array<ShaderVertexInputAttribute> attributeLayout;
 
-        public readonly System.Span<ShaderVertexInputAttribute> VertexAttributes => attributeLayout.AsSpan();
+        public readonly Span<ShaderVertexInputAttribute> VertexAttributes => attributeLayout.AsSpan();
         public readonly bool IsDisposed => attributeLayout.IsDisposed;
 
-        public CompiledMesh(uint meshVersion, uint indexCount, VertexBuffer vertexBuffer, IndexBuffer indexBuffer, System.Span<ShaderVertexInputAttribute> attributeLayout)
+        public CompiledMesh(uint meshVersion, uint indexCount, VertexBuffer vertexBuffer, IndexBuffer indexBuffer, ReadOnlySpan<ShaderVertexInputAttribute> attributeLayout)
         {
             this.version = meshVersion;
             this.indexCount = indexCount;

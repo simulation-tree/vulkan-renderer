@@ -26,7 +26,7 @@ namespace Vulkan
 
         public readonly bool IsDisposed => !valid;
 
-        public DescriptorSetLayout(LogicalDevice logicalDevice, System.Span<VkDescriptorSetLayoutBinding> bindings)
+        public DescriptorSetLayout(LogicalDevice logicalDevice, ReadOnlySpan<VkDescriptorSetLayoutBinding> bindings)
         {
             this.logicalDevice = logicalDevice;
 

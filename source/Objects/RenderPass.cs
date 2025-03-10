@@ -58,7 +58,7 @@ namespace Vulkan
                 pDepthStencilAttachment = &depthAttachment
             };
 
-            System.Span<VkSubpassDependency> dependencies =
+            Span<VkSubpassDependency> dependencies =
             [
                 new VkSubpassDependency
                 {
