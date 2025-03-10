@@ -685,7 +685,7 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Component `{componentType.ToString(world.Schema)}` on entity `{entity}` that used to contained data for a uniform buffer has been lost");
                 }
 
-                MemoryAddress component = world.GetComponent(entity, componentType, out ushort componentSize);
+                MemoryAddress component = world.GetComponent(entity, componentType, out int componentSize);
                 componentBuffer.buffer.CopyFrom(component, componentSize);
             }
         }
@@ -813,13 +813,23 @@ namespace Rendering.Vulkan
                     while (stack.Count > 0)
                     {
                         uint current = stack.Pop();
-                        ReadOnlySpan<uint> children = world.GetChildren(current);
-                        foreach (uint child in children)
-                        {
-                            scissors[(int)child] = scissor.value;
-                        }
+                        Iterate(world, stack, scissors, scissor.value, current);
+                    }
 
-                        stack.PushRange(children);
+                    static void Iterate(World world, Stack<uint> stack, Array<Vector4> scissors, Vector4 scissor, uint entity)
+                    {
+                        int childCount = world.GetChildCount(entity);
+                        if (childCount > 0)
+                        {
+                            Span<uint> children = stackalloc uint[childCount];
+                            world.CopyChildrenTo(entity, children);
+                            for (int i = 0; i < childCount; i++)
+                            {
+                                scissors[(int)children[i]] = scissor;
+                            }
+
+                            stack.PushRange(children);
+                        }
                     }
                 }
             }
@@ -1001,13 +1011,13 @@ namespace Rendering.Vulkan
                     commandBuffer.SetScissor(scissor);
 
                     //push constants
-                    uint pushOffset = 0;
+                    int pushOffset = 0;
                     for (int p = 0; p < pushConstants.Length; p++)
                     {
                         ref CompiledPushConstant pushConstant = ref pushConstants[p];
                         ComponentType componentType = pushConstant.componentType.ComponentType;
-                        MemoryAddress component = world.GetComponent(entity, componentType, out ushort componentSize);
-                        commandBuffer.PushConstants(compiledPipeline.pipelineLayout, pushConstant.stageFlags, component, pushConstant.componentType.size, pushOffset);
+                        MemoryAddress component = world.GetComponent(entity, componentType, out int componentSize);
+                        commandBuffer.PushConstants(compiledPipeline.pipelineLayout, pushConstant.stageFlags, component, pushConstant.componentType.size, (uint)pushOffset);
                         pushOffset += componentSize;
                     }
 
