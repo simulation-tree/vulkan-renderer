@@ -852,7 +852,7 @@ namespace Rendering.Vulkan
         public readonly void Render(ReadOnlySpan<uint> renderEntities, MaterialData materialData, MeshData meshData, VertexShaderData vertexShader, FragmentShaderData fragmentShader)
         {
             World world = destination.world;
-            ArrayElementType textureBindingType = world.Schema.GetArrayType<TextureBinding>();
+            ArrayType textureBindingType = world.Schema.GetArrayType<TextureBinding>();
             Material material = new Entity(world, materialData.entity).As<Material>();
             Mesh mesh = new Entity(world, meshData.entity).As<Mesh>();
             uint vertexShaderEntity = vertexShader.entity;
