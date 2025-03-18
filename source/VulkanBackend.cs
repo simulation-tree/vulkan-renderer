@@ -12,12 +12,12 @@ namespace Rendering.Vulkan
 
         readonly ASCIIText256 IRenderingBackend.Label => "vulkan";
 
-        void IRenderingBackend.Finalize()
+        void IRenderingBackend.Finish()
         {
             library.Dispose();
         }
 
-        void IRenderingBackend.Initialize()
+        void IRenderingBackend.Start()
         {
             library = new();
         }
