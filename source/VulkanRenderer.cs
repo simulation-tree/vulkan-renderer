@@ -565,7 +565,7 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Material `{material}` references missing entity `{componentEntity}` for component `{dataType.ToString(world.Schema)}`");
                 }
 
-                if (!world.ContainsComponent(componentEntity, dataType.ComponentType))
+                if (!world.ContainsComponent(componentEntity, dataType.index))
                 {
                     throw new InvalidOperationException($"Material `{material}` references entity `{componentEntity}` for a missing component `{dataType.ToString(world.Schema)}`");
                 }
@@ -674,18 +674,17 @@ namespace Rendering.Vulkan
             {
                 uint entity = componentBuffer.targetEntity;
                 DataType dataType = componentBuffer.componentType;
-                ComponentType componentType = dataType.ComponentType;
                 if (!world.ContainsEntity(entity))
                 {
-                    throw new InvalidOperationException($"Entity `{entity}` that contained component `{componentType.ToString(world.Schema)}` with data for a uniform buffer has been lost");
+                    throw new InvalidOperationException($"Entity `{entity}` that contained component `{dataType.ToString(world.Schema)}` with data for a uniform buffer has been lost");
                 }
 
-                if (!world.ContainsComponent(entity, componentType))
+                if (!world.ContainsComponent(entity, dataType.index))
                 {
-                    throw new InvalidOperationException($"Component `{componentType.ToString(world.Schema)}` on entity `{entity}` that used to contained data for a uniform buffer has been lost");
+                    throw new InvalidOperationException($"Component `{dataType.ToString(world.Schema)}` on entity `{entity}` that used to contained data for a uniform buffer has been lost");
                 }
 
-                MemoryAddress component = world.GetComponent(entity, componentType, out int componentSize);
+                MemoryAddress component = world.GetComponent(entity, dataType.index, out int componentSize);
                 componentBuffer.buffer.CopyFrom(component, componentSize);
             }
         }
@@ -744,7 +743,7 @@ namespace Rendering.Vulkan
             Vector4 scissor = new(0, 0, framebuffer.width, framebuffer.height);
             commandBuffer.SetScissor(scissor);
 
-            ComponentType textureType = world.Schema.GetComponentType<IsTexture>();
+            int textureType = world.Schema.GetComponentType<IsTexture>();
             CollectComponents(world, textureType);
             UpdateComponentBuffers(world);
             UpdateTextureBuffers(world);
@@ -752,7 +751,7 @@ namespace Rendering.Vulkan
             return StatusCode.Continue;
         }
 
-        private readonly void CollectComponents(World world, ComponentType textureType)
+        private readonly void CollectComponents(World world, int textureType)
         {
             int capacity = (world.MaxEntityValue + 1).GetNextPowerOf2();
             if (textureComponents.Length < capacity)
@@ -765,7 +764,7 @@ namespace Rendering.Vulkan
             {
                 if (chunk.Definition.ContainsComponent(textureType))
                 {
-                    Span<IsTexture> components = chunk.GetComponents<IsTexture>(textureType);
+                    ComponentEnumerator<IsTexture> components = chunk.GetComponents<IsTexture>(textureType);
                     ReadOnlySpan<uint> entities = chunk.Entities;
                     for (int i = 0; i < entities.Length; i++)
                     {
@@ -786,7 +785,7 @@ namespace Rendering.Vulkan
             scissors.Fill(area);
             stack.Clear(capacity);
 
-            ComponentType worldScissorType = world.Schema.GetComponentType<WorldRendererScissor>();
+            int worldScissorType = world.Schema.GetComponentType<WorldRendererScissor>();
             Span<Chunk> chunks = stackalloc Chunk[64]; //todo: fault: this can possibly fail if there are more than 64 chunks that fit the requirement
             int chunkCount = 0;
             foreach (Chunk chunk in world.Chunks)
@@ -802,7 +801,7 @@ namespace Rendering.Vulkan
             {
                 Chunk chunk = chunks[c];
                 ReadOnlySpan<uint> entities = chunk.Entities;
-                Span<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldScissorType);
+                ComponentEnumerator<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldScissorType);
                 for (int i = 0; i < entities.Length; i++)
                 {
                     ref WorldRendererScissor scissor = ref components[i];
@@ -839,7 +838,7 @@ namespace Rendering.Vulkan
             {
                 Chunk chunk = chunks[c];
                 ReadOnlySpan<uint> entities = chunk.Entities;
-                Span<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldScissorType);
+                ComponentEnumerator<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldScissorType);
                 for (int i = 0; i < entities.Length; i++)
                 {
                     ref WorldRendererScissor scissor = ref components[i];
@@ -852,7 +851,7 @@ namespace Rendering.Vulkan
         public readonly void Render(ReadOnlySpan<uint> renderEntities, MaterialData materialData, MeshData meshData, VertexShaderData vertexShader, FragmentShaderData fragmentShader)
         {
             World world = destination.world;
-            ArrayType textureBindingType = world.Schema.GetArrayType<TextureBinding>();
+            int textureBindingType = world.Schema.GetArrayType<TextureBinding>();
             Material material = new Entity(world, materialData.entity).As<Material>();
             Mesh mesh = new Entity(world, meshData.entity).As<Mesh>();
             uint vertexShaderEntity = vertexShader.entity;
@@ -1015,8 +1014,8 @@ namespace Rendering.Vulkan
                     for (int p = 0; p < pushConstants.Length; p++)
                     {
                         ref CompiledPushConstant pushConstant = ref pushConstants[p];
-                        ComponentType componentType = pushConstant.componentType.ComponentType;
-                        MemoryAddress component = world.GetComponent(entity, componentType, out int componentSize);
+                        DataType componentType = pushConstant.componentType;
+                        MemoryAddress component = world.GetComponent(entity, componentType.index, out int componentSize);
                         commandBuffer.PushConstants(compiledPipeline.pipelineLayout, pushConstant.stageFlags, component, pushConstant.componentType.size, (uint)pushOffset);
                         pushOffset += componentSize;
                     }
