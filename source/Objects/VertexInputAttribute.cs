@@ -24,7 +24,7 @@ namespace Vulkan
             this.size = size;
         }
 
-        public VertexInputAttribute(byte location, byte binding, TypeLayout type, byte size)
+        public VertexInputAttribute(byte location, byte binding, Type type, byte size)
         {
             this.location = location;
             this.binding = binding;

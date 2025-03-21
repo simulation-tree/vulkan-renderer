@@ -7,7 +7,7 @@ namespace Rendering.Vulkan
 {
     public static class TypeLayoutExtensions
     {
-        public static VkFormat GetFormat(this TypeLayout type)
+        public static VkFormat GetFormat(this Types.Type type)
         {
             if (type.Is<Vector2>())
             {

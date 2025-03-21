@@ -7,7 +7,6 @@ namespace Vulkan
 {
     public struct ShaderModule : IDisposable, IEquatable<ShaderModule>
     {
-        public readonly bool isInstanced;
         public readonly LogicalDevice logicalDevice;
 
         private readonly VkShaderModule value;
@@ -28,9 +27,8 @@ namespace Vulkan
         /// <summary>
         /// Creates a shader module from the given SPV bytecode.
         /// </summary>
-        public unsafe ShaderModule(LogicalDevice logicalDevice, ReadOnlySpan<byte> code, bool isInstanced = false)
+        public unsafe ShaderModule(LogicalDevice logicalDevice, ReadOnlySpan<byte> code)
         {
-            this.isInstanced = isInstanced;
             this.logicalDevice = logicalDevice;
             VkResult result = vkCreateShaderModule(logicalDevice.Value, code, null, out value);
             ThrowIfFailedToCreate(result);
