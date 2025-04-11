@@ -9,9 +9,8 @@ namespace Vulkan
         public uint vertexBinding;
         public ShaderModule vertexShader;
         public ShaderModule fragmentShader;
-        public bool depthTestEnable;
-        public bool depthWriteEnable;
-        public CompareOperation depthCompareOperation;
+        public BlendSettings blendSettings;
+        public DepthSettings depthSettings;
 
         public readonly LogicalDevice LogicalDevice => renderPass.logicalDevice;
 
@@ -26,9 +25,8 @@ namespace Vulkan
             this.renderPass = renderPass;
             this.vertexShader = vertexShader;
             this.fragmentShader = fragmentShader;
-            depthCompareOperation = CompareOperation.Less;
-            depthWriteEnable = true;
-            depthTestEnable = true;
+            blendSettings = default;
+            depthSettings = default;
         }
     }
 }

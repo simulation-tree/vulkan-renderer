@@ -66,40 +66,55 @@ namespace Vulkan
             VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = new(VkPrimitiveTopology.TriangleList);
             VkPipelineViewportStateCreateInfo viewportState = new(1, 1);
             VkPipelineRasterizationStateCreateInfo rasterizationState = VkPipelineRasterizationStateCreateInfo.CullClockwise;
+            rasterizationState.depthClampEnable = false;
+            rasterizationState.rasterizerDiscardEnable = false;
+            rasterizationState.depthBiasEnable = false;
+
             VkPipelineMultisampleStateCreateInfo multisampleState = VkPipelineMultisampleStateCreateInfo.Default;
 
             VkPipelineDepthStencilStateCreateInfo depthStencilState = default;
             depthStencilState.sType = VkStructureType.PipelineDepthStencilStateCreateInfo;
-            depthStencilState.depthTestEnable = input.depthTestEnable;
-            depthStencilState.depthWriteEnable = input.depthWriteEnable;
-            depthStencilState.depthCompareOp = (VkCompareOp)input.depthCompareOperation;
-            depthStencilState.depthBoundsTestEnable = false;
-            depthStencilState.stencilTestEnable = false;
-            depthStencilState.minDepthBounds = 0f;
-            depthStencilState.maxDepthBounds = 1f;
+            depthStencilState.depthTestEnable = input.depthSettings.DepthTest;
+            depthStencilState.depthWriteEnable = input.depthSettings.DepthWrite;
+            depthStencilState.depthCompareOp = (VkCompareOp)input.depthSettings.compareOperation;
+            depthStencilState.depthBoundsTestEnable = input.depthSettings.DepthBoundsTest;
+            depthStencilState.stencilTestEnable = input.depthSettings.StencilTest;
+            depthStencilState.minDepthBounds = input.depthSettings.minDepth;
+            depthStencilState.maxDepthBounds = input.depthSettings.maxDepth;
 
-            bool supportsAlpha = false;
+            depthStencilState.back.failOp = (VkStencilOp)input.depthSettings.back.failOperation;
+            depthStencilState.back.passOp = (VkStencilOp)input.depthSettings.back.passOperation;
+            depthStencilState.back.depthFailOp = (VkStencilOp)input.depthSettings.back.depthFailOperation;
+            depthStencilState.back.compareOp = (VkCompareOp)input.depthSettings.back.compareOperation;
+            depthStencilState.back.compareMask = input.depthSettings.back.compareMask;
+            depthStencilState.back.writeMask = input.depthSettings.back.writeMask;
+            depthStencilState.back.reference = input.depthSettings.back.referenceMask;
+
+            depthStencilState.front.failOp = (VkStencilOp)input.depthSettings.front.failOperation;
+            depthStencilState.front.passOp = (VkStencilOp)input.depthSettings.front.passOperation;
+            depthStencilState.front.depthFailOp = (VkStencilOp)input.depthSettings.front.depthFailOperation;
+            depthStencilState.front.compareOp = (VkCompareOp)input.depthSettings.front.compareOperation;
+            depthStencilState.front.compareMask = input.depthSettings.front.compareMask;
+            depthStencilState.front.writeMask = input.depthSettings.front.writeMask;
+            depthStencilState.front.reference = input.depthSettings.front.referenceMask;
+
             VkPipelineColorBlendAttachmentState blendAttachmentState = default;
-            blendAttachmentState.blendEnable = supportsAlpha;
-            if (supportsAlpha)
-            {
-                blendAttachmentState.srcColorBlendFactor = VkBlendFactor.SrcAlpha;
-                blendAttachmentState.dstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha;
-                blendAttachmentState.colorBlendOp = VkBlendOp.Add;
-                blendAttachmentState.srcAlphaBlendFactor = VkBlendFactor.One;
-                blendAttachmentState.dstAlphaBlendFactor = VkBlendFactor.Zero;
-                blendAttachmentState.alphaBlendOp = VkBlendOp.Add;
-            }
-
+            blendAttachmentState.blendEnable = input.blendSettings.blendEnable;
+            blendAttachmentState.srcColorBlendFactor = (VkBlendFactor)input.blendSettings.sourceColorBlend;
+            blendAttachmentState.dstColorBlendFactor = (VkBlendFactor)input.blendSettings.destinationColorBlend;
+            blendAttachmentState.colorBlendOp = (VkBlendOp)input.blendSettings.colorBlendOperation;
+            blendAttachmentState.srcAlphaBlendFactor = (VkBlendFactor)input.blendSettings.sourceAlphaBlend;
+            blendAttachmentState.dstAlphaBlendFactor = (VkBlendFactor)input.blendSettings.destinationAlphaBlend;
+            blendAttachmentState.alphaBlendOp = (VkBlendOp)input.blendSettings.alphaBlendOperation;
             blendAttachmentState.colorWriteMask = VkColorComponentFlags.R | VkColorComponentFlags.G | VkColorComponentFlags.B | VkColorComponentFlags.A;
 
             VkPipelineColorBlendStateCreateInfo colorBlending = new(blendAttachmentState);
             colorBlending.logicOpEnable = false;
             colorBlending.logicOp = VkLogicOp.Copy;
-            colorBlending.blendConstants[0] = 0f;
-            colorBlending.blendConstants[1] = 0f;
-            colorBlending.blendConstants[2] = 0f;
-            colorBlending.blendConstants[3] = 0f;
+            colorBlending.blendConstants[0] = 1f;
+            colorBlending.blendConstants[1] = 1f;
+            colorBlending.blendConstants[2] = 1f;
+            colorBlending.blendConstants[3] = 1f;
 
             Span<VkDynamicState> dynamicStateEnables = stackalloc VkDynamicState[2];
             dynamicStateEnables[0] = VkDynamicState.Viewport;

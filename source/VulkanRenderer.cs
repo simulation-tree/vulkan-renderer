@@ -199,7 +199,7 @@ namespace Rendering.Vulkan
             {
                 instanceBuffer.Dispose();
             }
-            
+
             instanceBuffers.Dispose();
         }
 
@@ -407,7 +407,7 @@ namespace Rendering.Vulkan
             return new(mesh.Version, (uint)indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
         }
 
-        private readonly CompiledPipeline CompilePipeline(World world, Material material, uint vertexShaderEntity, uint fragmentShaderEntity, CompiledShader compiledShader, CompiledMesh compiledMesh)
+        private readonly CompiledPipeline CompilePipeline(World world, Material material, uint vertexShaderEntity, uint fragmentShaderEntity, CompiledShader compiledShader, CompiledMesh compiledMesh, int materialType)
         {
             Span<ShaderVertexInputAttribute> shaderVertexAttributes = compiledMesh.VertexAttributes;
             Span<VkVertexInputAttributeDescription> vertexAttributes = stackalloc VkVertexInputAttributeDescription[shaderVertexAttributes.Length];
@@ -522,11 +522,9 @@ namespace Rendering.Vulkan
             //create pipeline
             DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings.Slice(0, bindingCount));
             PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader);
-            IsMaterial component = material.GetComponent<IsMaterial>();
-
-            pipelineCreation.depthWriteEnable = (component.flags & MaterialFlags.DepthWrite) != 0;
-            pipelineCreation.depthTestEnable = (component.flags & MaterialFlags.DepthTest) != 0;
-            pipelineCreation.depthCompareOperation = component.depthCompareOperation;
+            IsMaterial component = material.GetComponent<IsMaterial>(materialType);
+            pipelineCreation.blendSettings = component.blendSettings;
+            pipelineCreation.depthSettings = component.depthSettings;
 
             Span<VkVertexInputBindingDescription> vertexBindings = stackalloc VkVertexInputBindingDescription[1];
             vertexBindings[0] = new(offset, VkVertexInputRate.Vertex, 0);
@@ -534,7 +532,7 @@ namespace Rendering.Vulkan
             {
                 //vertexBindings[1] = new(instanceSize, VkVertexInputRate.Instance, 1);
             }
-            
+
             PipelineLayout pipelineLayout = new(logicalDevice, setLayout, pushConstantsBuffer.Slice(0, pushConstantsCount));
 
             //todo: find the exact entry point string from the shader
@@ -589,7 +587,7 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Material `{material}` references entity `{componentEntity}` for a missing component `{dataType.ToString(world.Schema)}`");
                 }
 
-                uint componentHash = GetComponentHash(material, binding);
+                uint componentHash = GetComponentHash(material.value, binding);
                 if (!components.TryGetValue(componentHash, out CompiledComponentBuffer componentBuffer))
                 {
                     ushort componentSize = dataType.size;
@@ -617,7 +615,7 @@ namespace Rendering.Vulkan
                     throw new InvalidOperationException($"Material `{material}` references entity `{textureEntity}` that doesn't qualify as a texture");
                 }
 
-                uint textureHash = GetTextureHash(material, binding);
+                uint textureHash = GetTextureHash(material.value, binding);
                 if (!images.TryGetValue(textureHash, out CompiledImage compiledImage))
                 {
                     compiledImage = CompileImage(material, binding, textureComponent);
@@ -633,7 +631,7 @@ namespace Rendering.Vulkan
             World world = destination.world;
             uint depth = 1;
             VkImageUsageFlags usage = VkImageUsageFlags.TransferDst | VkImageUsageFlags.Sampled;
-            //VkFormat format = VkFormat.R8G8B8A8Srgb; //todo: why is this commented out again? i forget
+            //VkFormat format = VkFormat.R8G8B8A8Srgb; //todo: why is this commented out again? i forget = gamma
             VkFormat format = VkFormat.R8G8B8A8Unorm;
             uint textureEntity = binding.Entity;
             bool isCubemap = world.ContainsTag<IsCubemapTexture>(textureEntity);
@@ -871,6 +869,7 @@ namespace Rendering.Vulkan
         {
             World world = destination.world;
             int textureBindingType = world.Schema.GetArrayType<TextureBinding>();
+            int materialType = world.Schema.GetComponentType<IsMaterial>();
             Material material = new Entity(world, materialData.entity).As<Material>();
             Mesh mesh = new Entity(world, meshData.entity).As<Mesh>();
             uint vertexShaderEntity = vertexShader.entity;
@@ -907,7 +906,7 @@ namespace Rendering.Vulkan
 
             //make sure a processed mesh exists for this combination of shader entity and mesh entity, also rebuild it when it changes
             bool meshChanged = false;
-            RendererKey key = new(material, mesh);
+            RendererKey key = new(materialData.entity, meshData.entity);
             ref CompiledMesh compiledMesh = ref meshes.TryGetValue(key, out bool containsMesh);
             if (!containsMesh)
             {
@@ -932,7 +931,7 @@ namespace Rendering.Vulkan
             {
                 Trace.WriteLine($"Creating pipeline for material `{material}` and mesh `{mesh}` for the first time");
                 compiledPipeline = ref pipelines.Add(key);
-                compiledPipeline = CompilePipeline(world, material, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
+                compiledPipeline = CompilePipeline(world, material, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh, materialType);
                 pipelineKeys.Add(key);
             }
 
@@ -942,7 +941,7 @@ namespace Rendering.Vulkan
             for (int i = 0; i < textureBindings.Length; i++)
             {
                 ref TextureBinding textureBinding = ref textureBindings[i];
-                uint textureHash = GetTextureHash(material, textureBinding);
+                uint textureHash = GetTextureHash(materialData.entity, textureBinding);
                 if (images.ContainsKey(textureHash))
                 {
                     ref CompiledImage image = ref images[textureHash];
@@ -980,7 +979,7 @@ namespace Rendering.Vulkan
 
                 Trace.WriteLine($"Rebuilding pipeline for material `{material}` with and mesh `{mesh}`");
                 compiledPipeline.Dispose();
-                compiledPipeline = CompilePipeline(world, material, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
+                compiledPipeline = CompilePipeline(world, material, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh, materialType);
             }
 
             //update descriptor sets if needed
@@ -1018,9 +1017,9 @@ namespace Rendering.Vulkan
             commandBuffer.BindVertexBuffer(compiledMesh.vertexBuffer);
             if (compiledShader.isInstanced)
             {
-                
+
             }
-            
+
             commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
 
             if (knownPushConstants.TryGetValue(material, out Array<CompiledPushConstant> pushConstants))
@@ -1291,9 +1290,9 @@ namespace Rendering.Vulkan
             previouslyRenderedEntities.Clear();
         }
 
-        private readonly void UpdateDescriptorSet(Material material, DescriptorSet descriptorSet,
-            CompiledPipeline pipeline)
+        private readonly void UpdateDescriptorSet(Material material, DescriptorSet descriptorSet, CompiledPipeline pipeline)
         {
+            uint materialEntity = material.value;
             byte set = 0;
             foreach (VkDescriptorSetLayoutBinding descriptorBinding in pipeline.DescriptorBindings)
             {
@@ -1302,14 +1301,14 @@ namespace Rendering.Vulkan
                 if (descriptorBinding.descriptorType == VkDescriptorType.CombinedImageSampler)
                 {
                     TextureBinding textureBinding = material.GetTextureBinding(key);
-                    uint textureHash = GetTextureHash(material, textureBinding);
+                    uint textureHash = GetTextureHash(materialEntity, textureBinding);
                     ref CompiledImage image = ref images[textureHash];
                     descriptorSet.Update(image.imageView, image.sampler, binding);
                 }
                 else if (descriptorBinding.descriptorType == VkDescriptorType.UniformBuffer)
                 {
                     EntityComponentBinding componentBinding = material.GetComponentBinding(key, ShaderType.Vertex);
-                    uint componentHash = GetComponentHash(material, componentBinding);
+                    uint componentHash = GetComponentHash(materialEntity, componentBinding);
                     ref CompiledComponentBuffer componentBuffer = ref components[componentHash];
                     descriptorSet.Update(componentBuffer.buffer.buffer, binding);
                 }
@@ -1320,24 +1319,24 @@ namespace Rendering.Vulkan
             }
         }
 
-        private static uint GetTextureHash(Material material, TextureBinding binding)
+        private static uint GetTextureHash(uint materialEntity, TextureBinding binding)
         {
             unchecked
             {
                 int hash = 17;
-                hash = hash * 31 + (int)material.value;
+                hash = hash * 31 + (int)materialEntity;
                 hash = hash * 31 + binding.key.GetHashCode();
                 hash = hash * 31 + (int)binding.Entity;
                 return (uint)hash;
             }
         }
 
-        private static uint GetComponentHash(Material material, EntityComponentBinding binding)
+        private static uint GetComponentHash(uint materialEntity, EntityComponentBinding binding)
         {
             unchecked
             {
                 int hash = 17;
-                hash = hash * 31 + (int)material.value;
+                hash = hash * 31 + (int)materialEntity;
                 hash = hash * 31 + binding.GetHashCode();
                 return (uint)hash;
             }
