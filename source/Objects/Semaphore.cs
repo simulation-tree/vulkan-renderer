@@ -26,7 +26,7 @@ namespace Vulkan
 
         [Obsolete("Default constructor not supported", true)]
         public Semaphore()
-        { 
+        {
             throw new NotImplementedException();
         }
 

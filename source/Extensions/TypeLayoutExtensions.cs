@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Numerics;
-using Types;
 using Vortice.Vulkan;
 
 namespace Rendering.Vulkan

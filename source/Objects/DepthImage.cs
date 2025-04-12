@@ -18,7 +18,7 @@ namespace Vulkan
             image = new(swapchain.device, swapchain.width, swapchain.height, 1, depthFormat, VkImageUsageFlags.DepthStencilAttachment);
             imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
             imageView = new(image, VkImageAspectFlags.Depth);
-            
+
             using CommandPool tempPool = new(graphics, true);
             using CommandBuffer commandBuffer = tempPool.CreateCommandBuffer();
             commandBuffer.Begin();

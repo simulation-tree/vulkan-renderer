@@ -37,7 +37,7 @@ namespace Vulkan
         {
             if (IsDisposed)
             {
-                throw  new ObjectDisposedException(nameof(Surface));
+                throw new ObjectDisposedException(nameof(Surface));
             }
         }
 

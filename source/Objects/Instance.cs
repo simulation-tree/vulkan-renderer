@@ -1,4 +1,5 @@
 ﻿using Collections.Generic;
+using Rendering;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -86,7 +87,7 @@ namespace Vulkan
             }
         }
 
-        internal Instance(Library library, ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<ASCIIText256> extensions)
+        internal Instance(Library library, ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<DestinationExtension> extensions)
         {
             using List<ASCIIText256> inputLayers = new();
 
@@ -156,16 +157,16 @@ namespace Vulkan
 #endif
 
             using Array<ASCIIText256> globalExtensions = library.GetGlobalExtensions();
-            using List<ASCIIText256> inputExtensions = new(extensions);
+            using List<DestinationExtension> inputExtensions = new(extensions);
             foreach (ASCIIText256 extensionName in globalExtensions)
             {
                 if (extensionName == new ASCIIText256(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
                 {
-                    inputExtensions.Add(extensionName);
+                    inputExtensions.Add(new(extensionName));
                 }
                 else if (extensionName == new ASCIIText256(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME))
                 {
-                    inputExtensions.Add(extensionName);
+                    inputExtensions.Add(new(extensionName));
                 }
             }
 
@@ -202,9 +203,9 @@ namespace Vulkan
             }
 
             using List<VkUtf8String> vkInstanceExtensions = new(inputExtensions.Count);
-            foreach (ASCIIText256 instanceExtension in inputExtensions)
+            foreach (DestinationExtension instanceExtension in inputExtensions)
             {
-                int byteLength = instanceExtension.CopyTo(nameBuffer) + 1;
+                int byteLength = instanceExtension.value.CopyTo(nameBuffer) + 1;
                 MemoryAddress newAllocation = MemoryAddress.Allocate(byteLength);
                 newAllocation.CopyFrom(nameBuffer.Slice(0, byteLength));
                 vkInstanceExtensions.Add(new(newAllocation.Pointer));

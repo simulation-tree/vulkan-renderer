@@ -11,9 +11,9 @@ public unsafe struct InstanceBuffer : IDisposable
 
     public InstanceBuffer(Queue graphicsQueue, CommandPool commandPool, ReadOnlySpan<float> data)
     {
-            
+
     }
-        
+
     public readonly void Dispose()
     {
         bufferDeviceMemory.Dispose();

@@ -1,4 +1,5 @@
 ﻿using Collections.Generic;
+using Rendering;
 using System;
 using Unmanaged;
 using Vortice.Vulkan;
@@ -46,12 +47,12 @@ namespace Vulkan
             name.Dispose();
         }
 
-        public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<ASCIIText256> extensions)
+        public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<DestinationExtension> extensions)
         {
             return new(this, applicationName, engineName, extensions);
         }
 
-        public readonly Instance CreateInstance(string applicationName, string engineName, ReadOnlySpan<ASCIIText256> extensions)
+        public readonly Instance CreateInstance(string applicationName, string engineName, ReadOnlySpan<DestinationExtension> extensions)
         {
             return CreateInstance(applicationName.AsSpan(), engineName.AsSpan(), extensions);
         }

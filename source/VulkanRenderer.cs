@@ -1071,7 +1071,7 @@ namespace Rendering.Vulkan
             }
 
             previouslyRenderedEntities.AddRange(renderEntities);
-            previouslyRenderedGroups.TryAdd(new(material.value, mesh.value, vertexShaderEntity, fragmentShaderEntity));
+            previouslyRenderedGroups.TryAdd(new(materialData.entity, meshData.entity, vertexShader.entity, fragmentShader.entity));
         }
 
         public void EndRender()
@@ -1111,7 +1111,7 @@ namespace Rendering.Vulkan
                 bool used = false;
                 foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
-                    if (combination.material == component.material.value)
+                    if (combination.materialEntity == component.material.value)
                     {
                         used = true;
                         break;
@@ -1147,7 +1147,7 @@ namespace Rendering.Vulkan
                 bool used = false;
                 foreach (RendererCombination combination in previouslyRenderedGroups)
                 {
-                    if (combination.material == image.material.value)
+                    if (combination.materialEntity == image.material.value)
                     {
                         used = true;
                         break;
@@ -1239,9 +1239,11 @@ namespace Rendering.Vulkan
                 for (int i = 0; i < removeCount; i++)
                 {
                     RendererKey key = toRemoveKeys[i];
-                    meshes.Remove(key, out CompiledMesh mesh);
-                    meshKeys.TryRemoveBySwapping(key);
-                    mesh.Dispose();
+                    if (meshes.TryRemove(key, out CompiledMesh mesh))
+                    {
+                        meshKeys.TryRemoveBySwapping(key);
+                        mesh.Dispose();
+                    }
                 }
 
                 removeCount = 0;
@@ -1278,9 +1280,11 @@ namespace Rendering.Vulkan
                 for (int i = 0; i < removeCount; i++)
                 {
                     RendererKey key = toRemoveKeys[i];
-                    pipelines.Remove(key, out CompiledPipeline pipeline);
-                    pipelineKeys.TryRemoveBySwapping(key);
-                    pipeline.Dispose();
+                    if (pipelines.TryRemove(key, out CompiledPipeline pipeline))
+                    {
+                        pipelineKeys.TryRemoveBySwapping(key);
+                        pipeline.Dispose();
+                    }
                 }
 
                 removeCount = 0;

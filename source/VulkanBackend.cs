@@ -22,7 +22,7 @@ namespace Rendering.Vulkan
             library = new();
         }
 
-        (MemoryAddress renderer, MemoryAddress instance) IRenderingBackend.Create(in Destination destination, in ReadOnlySpan<ASCIIText256> extensionNames)
+        (MemoryAddress renderer, MemoryAddress instance) IRenderingBackend.Create(in Destination destination, in ReadOnlySpan<DestinationExtension> extensionNames)
         {
             Instance instance = library.CreateInstance("Game", "Engine", extensionNames);
             VulkanRenderer renderer = new(destination, instance);
