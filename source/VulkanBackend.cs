@@ -49,10 +49,10 @@ namespace Rendering.Vulkan
             return vulkanRenderer.BeginRender(clearColor);
         }
 
-        void IRenderingBackend.Render(in MemoryAddress machine, in uint materialEntity, in ushort materialVersion, in ReadOnlySpan<RenderEntity> entities)
+        void IRenderingBackend.Render(in MemoryAddress machine, in sbyte renderGroup, in ReadOnlySpan<RenderEntity> entities)
         {
             ref VulkanRenderer vulkanRenderer = ref machine.Read<VulkanRenderer>();
-            vulkanRenderer.Render(materialEntity, materialVersion, entities);
+            vulkanRenderer.Render(renderGroup, entities);
         }
 
         void IRenderingBackend.EndRender(in MemoryAddress machine)
