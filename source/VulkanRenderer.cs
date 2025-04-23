@@ -415,10 +415,10 @@ namespace Rendering.Vulkan
                 ref ShaderVertexInputAttribute shaderVertexAttribute = ref shaderVertexAttributes[i];
                 ref VkVertexInputAttributeDescription vulkanVertexAttribute = ref vertexAttributes[i];
                 vulkanVertexAttribute.location = shaderVertexAttribute.location;
-                vulkanVertexAttribute.format = shaderVertexAttribute.Type.GetFormat();
+                vulkanVertexAttribute.format = shaderVertexAttribute.type.GetFormat();
                 vulkanVertexAttribute.binding = shaderVertexAttribute.binding;
                 vulkanVertexAttribute.offset = offset;
-                offset += shaderVertexAttribute.size;
+                offset += shaderVertexAttribute.type.Size;
             }
 
             Material material = Entity.Get<Material>(world, materialEntity);

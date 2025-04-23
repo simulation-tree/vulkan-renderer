@@ -24,20 +24,20 @@ namespace Vulkan
             this.size = size;
         }
 
-        public VertexInputAttribute(byte location, byte binding, Type type, byte size)
+        public VertexInputAttribute(byte location, byte binding, TypeMetadata type)
         {
             this.location = location;
             this.binding = binding;
             this.format = type.GetFormat();
-            this.size = size;
+            this.size = (byte)type.Size;
         }
 
         public VertexInputAttribute(ShaderVertexInputAttribute shaderVertexAttribute)
         {
             location = shaderVertexAttribute.location;
             binding = shaderVertexAttribute.binding;
-            format = shaderVertexAttribute.Type.GetFormat();
-            size = shaderVertexAttribute.size;
+            format = shaderVertexAttribute.type.GetFormat();
+            size = (byte)shaderVertexAttribute.type.Size;
         }
     }
 }
