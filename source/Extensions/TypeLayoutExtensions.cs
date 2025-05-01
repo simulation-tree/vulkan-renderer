@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Numerics;
+using Types;
 using Vortice.Vulkan;
 
 namespace Rendering.Vulkan
 {
     public static class TypeLayoutExtensions
     {
-        public static VkFormat GetFormat(this Types.Type type)
+        public static VkFormat GetFormat(this TypeMetadata type)
         {
             if (type.Is<Vector2>())
             {

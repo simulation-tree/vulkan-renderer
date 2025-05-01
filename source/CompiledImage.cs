@@ -1,5 +1,4 @@
-﻿using Materials;
-using Materials.Components;
+﻿using Materials.Components;
 using System;
 using Vulkan;
 
@@ -7,17 +6,17 @@ namespace Rendering.Vulkan
 {
     public readonly struct CompiledImage : IDisposable
     {
-        public readonly Material material;
-        public readonly uint textureVersion;
+        public readonly uint materialEntity;
+        public readonly ushort textureVersion;
         public readonly TextureBinding binding;
         public readonly Image image;
         public readonly ImageView imageView;
         public readonly DeviceMemory imageMemory;
         public readonly Sampler sampler;
 
-        public CompiledImage(Material material, uint textureVersion, TextureBinding binding, Image image, ImageView imageView, DeviceMemory imageMemory, Sampler sampler)
+        public CompiledImage(uint materialEntity, ushort textureVersion, TextureBinding binding, Image image, ImageView imageView, DeviceMemory imageMemory, Sampler sampler)
         {
-            this.material = material;
+            this.materialEntity = materialEntity;
             this.textureVersion = textureVersion;
             this.binding = binding;
             this.image = image;
