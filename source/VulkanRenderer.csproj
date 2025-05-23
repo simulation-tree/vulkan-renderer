@@ -14,20 +14,16 @@
         <Authors>popcron</Authors>
         <Company>simulation-tree</Company>
         <RepositoryUrl>https://github.com/simulation-tree/vulkan-renderer</RepositoryUrl>
-        <PackageId/>
+        <PackageId />
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Vortice.Vulkan" Version="2.1.1"/>
+        <PackageReference Include="Vortice.Vulkan" Version="2.1.1" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\rendering-systems\source\Rendering.Systems.csproj"/>
-        <ProjectReference Include="..\..\textures\source\Textures.csproj"/>
-        <ProjectReference Include="..\..\rendering-systems\generator\Rendering.Systems.Generator.csproj">
-            <OutputItemType>Analyzer</OutputItemType>
-            <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-        </ProjectReference>
+        <ProjectReference Include="..\..\rendering-systems\source\Rendering.Systems.csproj" />
+        <ProjectReference Include="..\..\textures\source\Textures.csproj" />
     </ItemGroup>
 
 </Project>

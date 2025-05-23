@@ -1,64 +1,30 @@
-﻿using Simulation;
+﻿using Rendering.Systems;
 using System;
-using System.Numerics;
-using Unmanaged;
 using Vulkan;
 
 namespace Rendering.Vulkan
 {
-    public readonly partial struct VulkanBackend : IRenderingBackend
+    public class VulkanBackend : RenderingBackend
     {
         private static Library library;
 
-        readonly ASCIIText256 IRenderingBackend.Label => "vulkan";
+        public override ReadOnlySpan<char> Label => "vulkan";
 
-        void IRenderingBackend.Finish()
-        {
-            library.Dispose();
-        }
-
-        void IRenderingBackend.Start()
+        public VulkanBackend()
         {
             library = new();
         }
 
-        (MemoryAddress machine, MemoryAddress instance) IRenderingBackend.Create(in Destination destination, in ReadOnlySpan<DestinationExtension> extensionNames)
+        public override void Dispose()
         {
+            library.Dispose();
+        }
+
+        public override RenderingMachine CreateRenderingMachine(Destination destination)
+        {
+            ReadOnlySpan<DestinationExtension> extensionNames = destination.Extensions;
             Instance instance = library.CreateInstance("Game", "Engine", extensionNames);
-            VulkanRenderer machine = new(destination, instance);
-            MemoryAddress instanceAddress = new(instance.Value.Handle);
-            return (MemoryAddress.AllocateValue(machine), instanceAddress);
-        }
-
-        void IRenderingBackend.Dispose(in MemoryAddress machine, in MemoryAddress instance)
-        {
-            ref VulkanRenderer vulkanRenderer = ref machine.Read<VulkanRenderer>();
-            vulkanRenderer.Dispose();
-            machine.Dispose();
-        }
-
-        void IRenderingBackend.SurfaceCreated(in MemoryAddress machine, MemoryAddress surface)
-        {
-            ref VulkanRenderer vulkanRenderer = ref machine.Read<VulkanRenderer>();
-            vulkanRenderer.SurfaceCreated(surface);
-        }
-
-        StatusCode IRenderingBackend.BeginRender(in MemoryAddress machine, in Vector4 clearColor)
-        {
-            ref VulkanRenderer vulkanRenderer = ref machine.Read<VulkanRenderer>();
-            return vulkanRenderer.BeginRender(clearColor);
-        }
-
-        void IRenderingBackend.Render(in MemoryAddress machine, in sbyte renderGroup, in ReadOnlySpan<RenderEntity> entities)
-        {
-            ref VulkanRenderer vulkanRenderer = ref machine.Read<VulkanRenderer>();
-            vulkanRenderer.Render(renderGroup, entities);
-        }
-
-        void IRenderingBackend.EndRender(in MemoryAddress machine)
-        {
-            ref VulkanRenderer vulkanRenderer = ref machine.Read<VulkanRenderer>();
-            vulkanRenderer.EndRender();
+            return new VulkanRenderer(destination, instance);
         }
     }
 }

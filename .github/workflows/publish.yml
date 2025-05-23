@@ -15,19 +15,19 @@ jobs:
         with:
           path: ${{ github.event.repository.name }}
             
-      - name: Checkout `rendering-systems`
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: simulation-tree/rendering-systems
-          token: ${{ secrets.PAT }}
-          path: rendering-systems
-      
       - name: Checkout `textures`
         uses: actions/checkout@v4.1.2
         with:
           repository: simulation-tree/textures
           token: ${{ secrets.PAT }}
           path: textures
+      
+      - name: Checkout `rendering-systems`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: simulation-tree/rendering-systems
+          token: ${{ secrets.PAT }}
+          path: rendering-systems
       
       - name: Checkout `worlds`
         uses: actions/checkout@v4.1.2
@@ -36,12 +36,12 @@ jobs:
           token: ${{ secrets.PAT }}
           path: worlds
       
-      - name: Checkout `types`
+      - name: Checkout `simulation`
         uses: actions/checkout@v4.1.2
         with:
-          repository: simulation-tree/types
+          repository: simulation-tree/simulation
           token: ${{ secrets.PAT }}
-          path: types
+          path: simulation
       
       - name: Checkout `unmanaged`
         uses: actions/checkout@v4.1.2
@@ -49,27 +49,6 @@ jobs:
           repository: simulation-tree/unmanaged
           token: ${{ secrets.PAT }}
           path: unmanaged
-      
-      - name: Checkout `bin-packer`
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: simulation-tree/bin-packer
-          token: ${{ secrets.PAT }}
-          path: bin-packer
-      
-      - name: Checkout `collections`
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: simulation-tree/collections
-          token: ${{ secrets.PAT }}
-          path: collections
-      
-      - name: Checkout `simulation`
-        uses: actions/checkout@v4.1.2
-        with:
-          repository: simulation-tree/simulation
-          token: ${{ secrets.PAT }}
-          path: simulation
       
       - name: Checkout `shaders`
         uses: actions/checkout@v4.1.2
@@ -99,12 +78,33 @@ jobs:
           token: ${{ secrets.PAT }}
           path: materials
       
+      - name: Checkout `collections`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: simulation-tree/collections
+          token: ${{ secrets.PAT }}
+          path: collections
+      
+      - name: Checkout `types`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: simulation-tree/types
+          token: ${{ secrets.PAT }}
+          path: types
+      
       - name: Checkout `data`
         uses: actions/checkout@v4.1.2
         with:
           repository: simulation-tree/data
           token: ${{ secrets.PAT }}
           path: data
+      
+      - name: Checkout `bin-packer`
+        uses: actions/checkout@v4.1.2
+        with:
+          repository: simulation-tree/bin-packer
+          token: ${{ secrets.PAT }}
+          path: bin-packer
             
       - name: Setup
         uses: actions/setup-dotnet@v4
