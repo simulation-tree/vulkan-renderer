@@ -44,6 +44,10 @@ namespace Rendering.Vulkan
         private readonly Array<Vector4> scissors;
         private readonly Stack<uint> stack;
         private readonly Array<IsTexture> textureComponents;
+        private readonly int textureType;
+        private readonly int materialType;
+        private readonly int worldRendererScissorType;
+        private readonly int textureBindingType;
 
         private Array<ImageView> surfaceImageViews;
         private Array<Framebuffer> swapChainFramebuffers;
@@ -99,6 +103,12 @@ namespace Rendering.Vulkan
             scissors = new();
             stack = new();
             textureComponents = new();
+
+            Schema schema = destination.world.Schema;
+            textureType = schema.GetComponentType<IsTexture>();
+            materialType = schema.GetComponentType<IsMaterial>();
+            worldRendererScissorType = schema.GetComponentType<WorldRendererScissor>();
+            textureBindingType = schema.GetArrayType<TextureBinding>();
         }
 
         /// <summary>
@@ -405,7 +415,7 @@ namespace Rendering.Vulkan
             return new(mesh.Version, (uint)indexCount, vertexBuffer, indexBuffer, shaderVertexAttributes);
         }
 
-        private CompiledPipeline CompilePipeline(World world, uint materialEntity, uint vertexShaderEntity, uint fragmentShaderEntity, CompiledShader compiledShader, CompiledMesh compiledMesh, int materialType)
+        private CompiledPipeline CompilePipeline(World world, uint materialEntity, uint vertexShaderEntity, uint fragmentShaderEntity, CompiledShader compiledShader, CompiledMesh compiledMesh)
         {
             Span<ShaderVertexInputAttribute> shaderVertexAttributes = compiledMesh.VertexAttributes;
             Span<VkVertexInputAttributeDescription> vertexAttributes = stackalloc VkVertexInputAttributeDescription[shaderVertexAttributes.Length];
@@ -759,15 +769,14 @@ namespace Rendering.Vulkan
             Vector4 scissor = new(0, 0, framebuffer.width, framebuffer.height);
             commandBuffer.SetScissor(scissor);
 
-            int textureType = world.Schema.GetComponentType<IsTexture>();
-            CollectComponents(world, textureType);
+            CollectComponents(world);
             UpdateComponentBuffers(world);
             UpdateTextureBuffers(world);
             ReadScissorValues(world, area);
             return true;
         }
 
-        private void CollectComponents(World world, int textureType)
+        private void CollectComponents(World world)
         {
             int capacity = (world.MaxEntityValue + 1).GetNextPowerOf2();
             if (textureComponents.Length < capacity)
@@ -801,12 +810,11 @@ namespace Rendering.Vulkan
             scissors.Fill(area);
             stack.Clear(capacity);
 
-            int worldScissorType = world.Schema.GetComponentType<WorldRendererScissor>();
             Span<Chunk> chunks = stackalloc Chunk[64]; //todo: fault: this can possibly fail if there are more than 64 chunks that fit the requirement
             int chunkCount = 0;
             foreach (Chunk chunk in world.Chunks)
             {
-                if (chunk.Definition.ContainsComponent(worldScissorType))
+                if (chunk.Definition.ContainsComponent(worldRendererScissorType))
                 {
                     chunks[chunkCount++] = chunk;
                 }
@@ -817,7 +825,7 @@ namespace Rendering.Vulkan
             {
                 Chunk chunk = chunks[c];
                 ReadOnlySpan<uint> entities = chunk.Entities;
-                ComponentEnumerator<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldScissorType);
+                ComponentEnumerator<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldRendererScissorType);
                 for (int i = 0; i < entities.Length; i++)
                 {
                     ref WorldRendererScissor scissor = ref components[i];
@@ -854,7 +862,7 @@ namespace Rendering.Vulkan
             {
                 Chunk chunk = chunks[c];
                 ReadOnlySpan<uint> entities = chunk.Entities;
-                ComponentEnumerator<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldScissorType);
+                ComponentEnumerator<WorldRendererScissor> components = chunk.GetComponents<WorldRendererScissor>(worldRendererScissorType);
                 for (int i = 0; i < entities.Length; i++)
                 {
                     ref WorldRendererScissor scissor = ref components[i];
@@ -867,8 +875,6 @@ namespace Rendering.Vulkan
         public override void Render(sbyte renderGroup, ReadOnlySpan<RenderEntity> renderEntities)
         {
             World world = destination.world;
-            int materialType = world.Schema.GetComponentType<IsMaterial>();
-            int textureBindingType = world.Schema.GetArrayType<TextureBinding>();
             bool deviceWaited = false;
 
             void TryWait(LogicalDevice logicalDevice)
@@ -979,7 +985,7 @@ namespace Rendering.Vulkan
                     //todo: pipeline should be rebuilt if the mesh attribute layout changes
                     Trace.WriteLine($"Creating pipeline for material `{materialEntity}` and mesh `{meshEntity}` for the first time");
                     compiledPipeline = ref pipelines.Add(key);
-                    compiledPipeline = CompilePipeline(world, materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh, materialType);
+                    compiledPipeline = CompilePipeline(world, materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
                     pipelineKeys.Add(key);
                 }
 
