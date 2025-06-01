@@ -23,7 +23,7 @@ namespace Rendering.Vulkan
     {
         private const int MaxFramesInFlight = 2;
 
-        private readonly Instance instance;
+        public readonly Instance vulkanInstance;
         private readonly PhysicalDevice physicalDevice;
         private readonly Dictionary<(uint, uint), CompiledShader> shaders;
         private readonly Dictionary<uint, InstanceBuffer> instanceBuffers;
@@ -64,18 +64,16 @@ namespace Rendering.Vulkan
         private uint destinationWidth;
         private uint destinationHeight;
 
-        public override MemoryAddress Instance => new(instance.Address);
-
-        public VulkanRenderer(Destination destination, Instance instance) : base(destination)
+        public VulkanRenderer(Destination destination, Instance vulkanInstance) : base(destination, new(vulkanInstance.Address))
         {
-            this.instance = instance;
+            this.vulkanInstance = vulkanInstance;
 
-            if (instance.PhysicalDevices.Length == 0)
+            if (vulkanInstance.PhysicalDevices.Length == 0)
             {
                 throw new InvalidOperationException("No physical devices found");
             }
 
-            if (instance.TryGetBestPhysicalDevice(["VK_KHR_swapchain"], out physicalDevice))
+            if (vulkanInstance.TryGetBestPhysicalDevice(["VK_KHR_swapchain"], out physicalDevice))
             {
                 Trace.WriteLine($"Vulkan instance created for `{destination}`");
             }
@@ -114,7 +112,7 @@ namespace Rendering.Vulkan
         /// <summary>
         /// Cleans up everything that the vulkan renderer created.
         /// </summary>
-        public override void Dispose()
+        public void Dispose()
         {
             textureComponents.Dispose();
             stack.Dispose();
@@ -153,7 +151,6 @@ namespace Rendering.Vulkan
                 surface.Dispose();
             }
 
-            instance.Dispose();
             Trace.WriteLine($"Vulkan instance finished for `{destination}`");
         }
 
@@ -276,7 +273,7 @@ namespace Rendering.Vulkan
 
         public override void SurfaceCreated(MemoryAddress surface)
         {
-            this.surface = new(instance, surface);
+            this.surface = new(vulkanInstance, surface);
             (uint graphicsFamily, uint presentationFamily) = physicalDevice.GetQueueFamilies(this.surface);
             logicalDevice = new(physicalDevice, [graphicsFamily, presentationFamily], ["VK_KHR_swapchain"]);
             graphicsQueue = new(logicalDevice, graphicsFamily, 0);

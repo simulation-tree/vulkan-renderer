@@ -39,8 +39,6 @@ namespace Vulkan
 
         private readonly Array<PhysicalDevice> physicalDevices;
         private readonly VkInstance value;
-        private readonly Text applicationName;
-        private readonly Text engineName;
         private bool valid;
 
         public readonly VkInstance Value
@@ -65,26 +63,10 @@ namespace Vulkan
             }
         }
 
-        public readonly bool IsDisposed => !valid;
-
-        public readonly ReadOnlySpan<char> ApplicationName
+        internal Instance(MemoryAddress existingValue)
         {
-            get
-            {
-                ThrowIfDisposed();
-
-                return applicationName.AsSpan();
-            }
-        }
-
-        public readonly ReadOnlySpan<char> EngineName
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return engineName.AsSpan();
-            }
+            this.value = new(existingValue.Address);
+            valid = true;
         }
 
         internal Instance(Library library, ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<DestinationExtension> extensions)
@@ -244,8 +226,6 @@ namespace Vulkan
                 allocation.Dispose();
             }
 
-            this.applicationName = new(applicationName);
-            this.engineName = new(engineName);
             vkLoadInstanceOnly(value);
             valid = true;
 
@@ -289,8 +269,6 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            applicationName.Dispose();
-            engineName.Dispose();
             physicalDevices.Dispose();
 
             if (debugMessenger != default(VkDebugUtilsMessengerEXT))
