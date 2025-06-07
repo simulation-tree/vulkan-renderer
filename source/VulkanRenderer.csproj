@@ -1,29 +1,38 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
-        <RootNamespace>VulkanRenderer</RootNamespace>
-        <ImplicitUsings>disable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-        <IsTrimmable>True</IsTrimmable>
-        <IsAotCompatible>True</IsAotCompatible>
-        <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-        <WarningLevel>9999</WarningLevel>
-        <Title>Vulkan Renderer</Title>
-        <Authors>popcron</Authors>
-        <Company>simulation-tree</Company>
-        <RepositoryUrl>https://github.com/simulation-tree/vulkan-renderer</RepositoryUrl>
-        <PackageId />
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>VulkanRenderer</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <IsTrimmable>True</IsTrimmable>
+    <IsAotCompatible>True</IsAotCompatible>
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+    <WarningLevel>9999</WarningLevel>
+    <Title>Vulkan Renderer</Title>
+    <Authors>popcron</Authors>
+    <Company>simulation-tree</Company>
+    <RepositoryUrl>https://github.com/simulation-tree/vulkan-renderer</RepositoryUrl>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Vortice.Vulkan" Version="2.1.1" />
-    </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Vortice.Vulkan" Version="2.1.1"/>
+  </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\..\rendering-systems\source\Rendering.Systems.csproj" />
-        <ProjectReference Include="..\..\textures\source\Textures.csproj" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\rendering-systems\source\Rendering.Systems.csproj"/>
+    <ProjectReference Include="..\..\textures\source\Textures.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="bin/Debug/net9.0/VulkanRenderer.dll" Pack="true" PackagePath="tools/debug/VulkanRenderer.dll" Visible="false"/>
+    <Content Include="bin/Debug/net9.0/VulkanRenderer.xml" Pack="true" PackagePath="tools/debug/VulkanRenderer.xml" Visible="false"/>
+    <Content Include="bin/Release/net9.0/VulkanRenderer.dll" Pack="true" PackagePath="tools/release/VulkanRenderer.dll" Visible="false"/>
+    <Content Include="bin/Release/net9.0/VulkanRenderer.xml" Pack="true" PackagePath="tools/release/VulkanRenderer.xml" Visible="false"/>
+    <Content Include="build/VulkanRenderer.targets" Pack="true" PackagePath="build/VulkanRenderer.targets" Visible="false"/>
+  </ItemGroup>
 
 </Project>
