@@ -435,14 +435,16 @@ namespace Rendering.Vulkan
             ReadOnlySpan<PushConstantBinding> pushBindings = material.PushConstants;
             ReadOnlySpan<EntityComponentBinding> uniformBindings = material.ComponentBindings;
             ReadOnlySpan<TextureBinding> textureBindings = material.TextureBindings;
+            ReadOnlySpan<StorageBufferBinding> storageBufferBindings = material.StorageBuffers;
             Span<ShaderPushConstant> pushConstants = world.GetArray<ShaderPushConstant>(vertexShaderEntity);
             Span<ShaderUniformProperty> uniformProperties = world.GetArray<ShaderUniformProperty>(vertexShaderEntity);
             Span<ShaderSamplerProperty> samplerProperties = world.GetArray<ShaderSamplerProperty>(fragmentShaderEntity);
+            Span<ShaderStorageBuffer> vertexStorageBuffers = world.GetArray<ShaderStorageBuffer>(vertexShaderEntity);
 
             //collect information to build the set layout
-            int totalCount = uniformBindings.Length + textureBindings.Length;
+            int totalCount = uniformBindings.Length + textureBindings.Length + vertexStorageBuffers.Length;
             Span<DescriptorSetLayoutBinding> setLayoutBindings = stackalloc DescriptorSetLayoutBinding[totalCount];
-            int bindingCount = 0;
+            int setLayoutBindingCount = 0;
             Span<PipelineLayout.PushConstant> pushConstantsBuffer = stackalloc PipelineLayout.PushConstant[pushConstants.Length];
             int pushConstantsCount = 0;
 
@@ -490,7 +492,7 @@ namespace Rendering.Vulkan
                     {
                         containsBinding = true;
                         DescriptorSetLayoutBinding binding = new(uniformBinding.key.Binding, VkDescriptorType.UniformBuffer, 1, shaderStage);
-                        setLayoutBindings[bindingCount++] = binding;
+                        setLayoutBindings[setLayoutBindingCount++] = binding;
                         break;
                     }
                 }
@@ -512,7 +514,7 @@ namespace Rendering.Vulkan
                     {
                         containsBinding = true;
                         DescriptorSetLayoutBinding binding = new(textureBinding.key.Binding, VkDescriptorType.CombinedImageSampler, 1, VkShaderStageFlags.Fragment);
-                        setLayoutBindings[bindingCount++] = binding;
+                        setLayoutBindings[setLayoutBindingCount++] = binding;
                         break;
                     }
                 }
@@ -523,8 +525,31 @@ namespace Rendering.Vulkan
                 }
             }
 
+            for (int s = 0; s < vertexStorageBuffers.Length; s++)
+            {
+                ShaderStorageBuffer storageBuffer = vertexStorageBuffers[s];
+                bool containsBinding = false;
+                for (int b = 0; b < storageBufferBindings.Length; b++)
+                {
+                    StorageBufferBinding storageBufferBinding = storageBufferBindings[b];
+                    VkShaderStageFlags shaderStage = storageBufferBinding.stage.GetShaderStage();
+                    if (storageBufferBinding.key.Binding == storageBuffer.binding && storageBufferBinding.key.Set == storageBuffer.set)
+                    {
+                        containsBinding = true;
+                        DescriptorSetLayoutBinding binding = new(storageBuffer.binding, VkDescriptorType.StorageBuffer, 1, shaderStage);
+                        setLayoutBindings[setLayoutBindingCount++] = binding;
+                        break;
+                    }
+                }
+
+                if (!containsBinding)
+                {
+                    throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(StorageBufferBinding).Name}` to bind a storage buffer to property at `{storageBuffer.label}`({storageBuffer.binding})");
+                }
+            }
+
             //create pipeline
-            DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings.Slice(0, bindingCount));
+            DescriptorSetLayout setLayout = new(logicalDevice, setLayoutBindings.Slice(0, setLayoutBindingCount));
             PipelineCreateInput pipelineCreation = new(renderPass, compiledShader.vertexShader, compiledShader.fragmentShader);
             IsMaterial component = material.GetComponent<IsMaterial>(materialType);
             pipelineCreation.blendSettings = component.blendSettings;
@@ -553,6 +578,11 @@ namespace Rendering.Vulkan
             if (samplerProperties.Length > 0)
             {
                 poolSizes[poolCount++] = new(VkDescriptorType.CombinedImageSampler, (uint)samplerProperties.Length);
+            }
+
+            if (vertexStorageBuffers.Length > 0)
+            {
+                poolSizes[poolCount++] = new(VkDescriptorType.StorageBuffer, (uint)vertexStorageBuffers.Length);
             }
 
             //remember which bindings are push constants
@@ -629,7 +659,7 @@ namespace Rendering.Vulkan
                 }
             }
 
-            return new(pipeline, pipelineLayout, poolSizes.Slice(0, poolCount), setLayout, setLayoutBindings.Slice(0, bindingCount));
+            return new(pipeline, pipelineLayout, poolSizes.Slice(0, poolCount), setLayout, setLayoutBindings.Slice(0, setLayoutBindingCount));
         }
 
         private CompiledImage CompileImage(uint materialEntity, TextureBinding binding, IsTexture component)
