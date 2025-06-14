@@ -357,7 +357,7 @@ namespace Rendering.Vulkan
             Shader fragment = Entity.Get<Shader>(world, fragmentShaderEntity);
             ShaderModule vertexModule = new(logicalDevice, vertex.Bytes);
             ShaderModule fragmentModule = new(logicalDevice, fragment.Bytes);
-            return new(vertexShaderVersion, fragmentShaderVersion, vertexModule, fragmentModule, vertex.IsInstanced);
+            return new(vertexShaderVersion, fragmentShaderVersion, vertexModule, fragmentModule);
         }
 
         private CompiledMesh CompileMesh(uint meshEntity, uint vertexShaderEntity)
@@ -486,7 +486,7 @@ namespace Rendering.Vulkan
                 {
                     EntityComponentBinding uniformBinding = uniformBindings[b];
                     VkShaderStageFlags shaderStage = uniformBinding.stage.GetShaderStage();
-                    if (uniformBinding.key == new DescriptorResourceKey(uniformProperty.binding, uniformProperty.set))
+                    if (uniformBinding.key.Binding == uniformProperty.binding && uniformBinding.key.Set == uniformProperty.set)
                     {
                         containsBinding = true;
                         DescriptorSetLayoutBinding binding = new(uniformBinding.key.Binding, VkDescriptorType.UniformBuffer, 1, shaderStage);
@@ -508,7 +508,7 @@ namespace Rendering.Vulkan
                 for (int b = 0; b < textureBindings.Length; b++)
                 {
                     TextureBinding textureBinding = textureBindings[b];
-                    if (textureBinding.key == new DescriptorResourceKey(samplerProperty.binding, samplerProperty.set))
+                    if (textureBinding.key.Binding == samplerProperty.binding && textureBinding.key.Set == samplerProperty.set)
                     {
                         containsBinding = true;
                         DescriptorSetLayoutBinding binding = new(textureBinding.key.Binding, VkDescriptorType.CombinedImageSampler, 1, VkShaderStageFlags.Fragment);
@@ -532,10 +532,10 @@ namespace Rendering.Vulkan
 
             Span<VertexInputBindingDescription> vertexBindings = stackalloc VertexInputBindingDescription[1];
             vertexBindings[0] = new(0, offset, VkVertexInputRate.Vertex);
-            if (compiledShader.isInstanced)
-            {
-                //vertexBindings[1] = new(instanceSize, VkVertexInputRate.Instance, 1);
-            }
+            //if (compiledShader.isInstanced)
+            //{
+            //    //vertexBindings[1] = new(instanceSize, VkVertexInputRate.Instance, 1);
+            //}
 
             PipelineLayout pipelineLayout = new(logicalDevice, setLayout, pushConstantsBuffer.Slice(0, pushConstantsCount));
 
@@ -1012,14 +1012,8 @@ namespace Rendering.Vulkan
                 }
 
                 //finally submit the command to draw
-
                 commandBuffer.BindPipeline(compiledPipeline.pipeline, VkPipelineBindPoint.Graphics);
                 commandBuffer.BindVertexBuffer(compiledMesh.vertexBuffer);
-                if (compiledShader.isInstanced)
-                {
-
-                }
-
                 commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
 
                 if (knownPushConstants.TryGetValue(materialEntity, out Array<CompiledPushConstant> pushConstants))

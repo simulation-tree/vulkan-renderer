@@ -16,6 +16,7 @@ namespace Vulkan
             this.descriptorType = descriptorType;
             this.descriptorCount = descriptorCount;
             this.shaderFlags = shaderFlags;
+            immutableSamplers = default;
         }
     }
 }

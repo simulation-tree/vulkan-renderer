@@ -11,25 +11,25 @@ namespace Vulkan
     /// </summary>
     public readonly struct VertexInputAttribute
     {
-        public readonly byte location;
-        public readonly byte binding;
-        public readonly byte size;
+        public readonly uint location;
+        public readonly uint binding;
+        public readonly uint byteLength;
         public readonly VkFormat format;
 
-        public VertexInputAttribute(byte location, byte binding, byte size, VkFormat format)
+        public VertexInputAttribute(uint location, uint binding, uint byteLength, VkFormat format)
         {
             this.location = location;
             this.binding = binding;
             this.format = format;
-            this.size = size;
+            this.byteLength = byteLength;
         }
 
-        public VertexInputAttribute(byte location, byte binding, TypeMetadata type)
+        public VertexInputAttribute(uint location, uint binding, TypeMetadata type)
         {
             this.location = location;
             this.binding = binding;
             this.format = type.GetFormat();
-            this.size = (byte)type.Size;
+            this.byteLength = (byte)type.Size;
         }
 
         public VertexInputAttribute(ShaderVertexInputAttribute shaderVertexAttribute)
@@ -37,7 +37,7 @@ namespace Vulkan
             location = shaderVertexAttribute.location;
             binding = shaderVertexAttribute.binding;
             format = shaderVertexAttribute.type.GetFormat();
-            size = (byte)shaderVertexAttribute.type.Size;
+            byteLength = (byte)shaderVertexAttribute.type.Size;
         }
     }
 }

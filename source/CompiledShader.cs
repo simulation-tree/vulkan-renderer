@@ -5,15 +5,13 @@ namespace Rendering.Vulkan
 {
     public readonly struct CompiledShader : IDisposable, IEquatable<CompiledShader>
     {
-        public readonly bool isInstanced;
         public readonly ushort vertexVersion;
         public readonly ushort fragmentVersion;
         public readonly ShaderModule vertexShader;
         public readonly ShaderModule fragmentShader;
 
-        public CompiledShader(ushort vertexVersion, ushort fragmentVersion, ShaderModule vertexShader, ShaderModule fragmentShader, bool isInstanced)
+        public CompiledShader(ushort vertexVersion, ushort fragmentVersion, ShaderModule vertexShader, ShaderModule fragmentShader)
         {
-            this.isInstanced = isInstanced;
             this.vertexVersion = vertexVersion;
             this.fragmentVersion = fragmentVersion;
             this.vertexShader = vertexShader;
