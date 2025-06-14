@@ -10,26 +10,14 @@ namespace Vulkan
     {
         public readonly Instance instance;
 
-        private readonly VkSurfaceKHR value;
-        private bool valid;
+        internal VkSurfaceKHR value;
 
-        public readonly VkSurfaceKHR Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         public Surface(Instance instance, MemoryAddress existingValue)
         {
             this.instance = instance;
             value = new((ulong)existingValue.Address);
-            valid = true;
         }
 
         [Conditional("DEBUG")]
@@ -45,8 +33,8 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            valid = false;
-            vkDestroySurfaceKHR(instance.Value, value);
+            vkDestroySurfaceKHR(instance.value, value);
+            value = default;
         }
 
         public readonly SwapchainCapabilities GetSwapchainInfo(PhysicalDevice physicalDevice)
@@ -102,17 +90,12 @@ namespace Vulkan
 
         public readonly bool Equals(Surface other)
         {
-            if (IsDisposed && other.IsDisposed)
-            {
-                return true;
-            }
-
             return value.Equals(other.value);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
         }
 
         public static bool operator ==(Surface left, Surface right)

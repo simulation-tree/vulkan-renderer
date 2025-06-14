@@ -7,25 +7,18 @@ namespace Vulkan
     {
         public readonly BufferDeviceMemory bufferDeviceMemory;
 
-        /// <summary>
-        /// Amount of bytes stored in the buffer.
-        /// </summary>
-        public readonly uint Size => bufferDeviceMemory.buffer.size;
-
-        public readonly LogicalDevice Device => bufferDeviceMemory.LogicalDevice;
-
         public IndexBuffer(Queue graphicsQueue, CommandPool commandPool, ReadOnlySpan<uint> data)
         {
-            uint byteCount = (uint)data.Length * sizeof(uint);
+            uint byteLength = (uint)data.Length * sizeof(uint);
             VkPhysicalDeviceLimits limits = graphicsQueue.logicalDevice.physicalDevice.GetLimits();
-            byteCount = (uint)(Math.Ceiling(byteCount / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
-            using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);
+            byteLength = (uint)(Math.Ceiling(byteLength / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
+            using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteLength, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);
 
-            Span<uint> destinationData = stagingBuffer.Map<uint>();
+            Span<uint> destinationData = stagingBuffer.memory.Map<uint>(stagingBuffer.buffer.byteLength);
             data.CopyTo(destinationData);
-            stagingBuffer.Unmap();
+            stagingBuffer.memory.Unmap();
 
-            bufferDeviceMemory = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer, VkMemoryPropertyFlags.DeviceLocal);
+            bufferDeviceMemory = new(graphicsQueue.logicalDevice, byteLength, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.IndexBuffer, VkMemoryPropertyFlags.DeviceLocal);
 
             using CommandBuffer tempCommandBuffer = commandPool.CreateCommandBuffer();
             tempCommandBuffer.Begin();

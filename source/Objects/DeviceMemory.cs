@@ -9,90 +9,46 @@ namespace Vulkan
     public unsafe struct DeviceMemory : IDisposable, IEquatable<DeviceMemory>
     {
         public readonly LogicalDevice logicalDevice;
-        public readonly ulong size;
+        public readonly ulong byteLength;
+        public readonly VkMemoryPropertyFlags memoryFlags;
 
-        private readonly VkDeviceMemory value;
-        private bool valid;
+        private VkDeviceMemory value;
 
-        public readonly VkDeviceMemory Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         public DeviceMemory(Buffer buffer, VkMemoryPropertyFlags memoryFlags)
         {
             this.logicalDevice = buffer.logicalDevice;
-            vkGetBufferMemoryRequirements(logicalDevice.Value, buffer.Value, out VkMemoryRequirements memRequirements);
-            size = memRequirements.size;
-
-            int memoryTypeIndex = -1;
-            vkGetPhysicalDeviceMemoryProperties(logicalDevice.physicalDevice.Value, out VkPhysicalDeviceMemoryProperties memProperties);
-            for (int i = 0; i < memProperties.memoryTypeCount; i++)
-            {
-                int x = 1 << i;
-                bool containsProperty = (memProperties.memoryTypes[i].propertyFlags & memoryFlags) == memoryFlags;
-                bool containsType = (memRequirements.memoryTypeBits & x) == x;
-                if (containsType && containsProperty)
-                {
-                    memoryTypeIndex = i;
-                    break;
-                }
-            }
-
-            if (memoryTypeIndex == -1)
-            {
-                throw new InvalidOperationException("No suitable memory found");
-            }
+            this.memoryFlags = memoryFlags;
+            vkGetBufferMemoryRequirements(logicalDevice.value, buffer.value, out VkMemoryRequirements memoryRequirements);
+            byteLength = memoryRequirements.size;
 
             VkMemoryAllocateInfo allocInfo = new();
-            allocInfo.allocationSize = memRequirements.size;
-            allocInfo.memoryTypeIndex = (uint)memoryTypeIndex;
+            allocInfo.allocationSize = memoryRequirements.size;
+            allocInfo.memoryTypeIndex = logicalDevice.GetMemoryTypeIndex(memoryRequirements, memoryFlags);
 
-            VkResult result = vkAllocateMemory(logicalDevice.Value, &allocInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Unable to allocate memory");
-            }
+            VkResult result = vkAllocateMemory(logicalDevice.value, &allocInfo, null, out value);
+            ThrowIfUnableToAllocate(result);
 
-            result = vkBindBufferMemory(logicalDevice.Value, buffer.Value, value, 0);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Unable to bind buffer memory");
-            }
-
-            valid = true;
+            result = vkBindBufferMemory(logicalDevice.value, buffer.value, value, 0);
+            ThrowIfUnableToBind(result);
         }
 
         public DeviceMemory(Image image, VkMemoryPropertyFlags memoryFlags)
         {
             this.logicalDevice = image.logicalDevice;
-            vkGetImageMemoryRequirements(logicalDevice.Value, image.Value, out VkMemoryRequirements requirements);
+            vkGetImageMemoryRequirements(logicalDevice.value, image.value, out VkMemoryRequirements memoryRequirements);
+            byteLength = memoryRequirements.size;
 
-            VkMemoryAllocateInfo allocInfo = new();
-            allocInfo.allocationSize = requirements.size;
-            allocInfo.memoryTypeIndex = logicalDevice.GetMemoryTypeIndex(requirements.memoryTypeBits, memoryFlags);
+            VkMemoryAllocateInfo allocateInfo = new();
+            allocateInfo.allocationSize = memoryRequirements.size;
+            allocateInfo.memoryTypeIndex = logicalDevice.GetMemoryTypeIndex(memoryRequirements, memoryFlags);
 
-            VkResult result = vkAllocateMemory(logicalDevice.Value, &allocInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Unable to allocate memory");
-            }
+            VkResult result = vkAllocateMemory(logicalDevice.value, &allocateInfo, null, out value);
+            ThrowIfUnableToAllocate(result);
 
-            result = vkBindImageMemory(logicalDevice.Value, image.Value, value, 0);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Unable to bind image memory");
-            }
-
-            size = requirements.size;
-            valid = true;
+            result = vkBindImageMemory(logicalDevice.value, image.value, value, 0);
+            ThrowIfUnableToBind(result);
         }
 
         [Conditional("DEBUG")]
@@ -104,39 +60,97 @@ namespace Vulkan
             }
         }
 
-        [Conditional("DEBUG")]
-        private readonly void ThrowIfUnableToMap(VkResult result)
-        {
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Unable to map memory");
-            }
-        }
-
         public void Dispose()
         {
             ThrowIfDisposed();
 
-            vkFreeMemory(logicalDevice.Value, value);
-            valid = false;
+            vkFreeMemory(logicalDevice.value, value);
+            value = default;
         }
 
         public readonly MemoryAddress Map()
         {
             ThrowIfDisposed();
 
-            void* data;
-            VkResult result = vkMapMemory(logicalDevice.Value, value, 0, size, 0, &data);
+            void* byteData;
+            VkResult result = vkMapMemory(logicalDevice.value, value, 0, byteLength, 0, &byteData);
             ThrowIfUnableToMap(result);
 
-            return new(data);
+            return new(byteData);
+        }
+
+        public readonly Span<T> Map<T>(int length) where T : unmanaged
+        {
+            ThrowIfDisposed();
+
+            void* byteData;
+            VkResult result = vkMapMemory(logicalDevice.value, value, 0, byteLength, 0, &byteData);
+            ThrowIfUnableToMap(result);
+
+            return new(byteData, length);
+        }
+
+        public readonly Span<T> Map<T>(uint length) where T : unmanaged
+        {
+            ThrowIfDisposed();
+
+            void* byteData;
+            VkResult result = vkMapMemory(logicalDevice.value, value, 0, byteLength, 0, &byteData);
+            ThrowIfUnableToMap(result);
+
+            return new(byteData, (int)length);
         }
 
         public readonly void Unmap()
         {
             ThrowIfDisposed();
 
-            vkUnmapMemory(logicalDevice.Value, value);
+            vkUnmapMemory(logicalDevice.value, value);
+        }
+
+        /// <summary>
+        /// Copies the given <paramref name="sourceData"/> into the buffer.
+        /// </summary>
+        public readonly void CopyFrom<T>(ReadOnlySpan<T> sourceData) where T : unmanaged
+        {
+            ThrowIfDisposed();
+
+            void* byteData;
+            VkResult result = vkMapMemory(logicalDevice.value, value, 0, byteLength, 0, &byteData);
+            ThrowIfUnableToMap(result);
+
+            sourceData.CopyTo(new Span<T>(byteData, sourceData.Length));
+            vkUnmapMemory(logicalDevice.value, value);
+        }
+
+        /// <summary>
+        /// Copies the given <paramref name="sourceData"/> into the buffer.
+        /// </summary>
+        public readonly void CopyFrom<T>(Span<T> sourceData) where T : unmanaged
+        {
+            ThrowIfDisposed();
+
+            void* byteData;
+            VkResult result = vkMapMemory(logicalDevice.value, value, 0, byteLength, 0, &byteData);
+            ThrowIfUnableToMap(result);
+
+            sourceData.CopyTo(new Span<T>(byteData, sourceData.Length));
+            vkUnmapMemory(logicalDevice.value, value);
+        }
+
+        /// <summary>
+        /// Copies the given <paramref name="sourceData"/>.
+        /// </summary>
+        public readonly void CopyFrom(MemoryAddress sourceData, int sourceByteLength)
+        {
+            ThrowIfDisposed();
+
+            void* byteData;
+            VkResult result = vkMapMemory(logicalDevice.value, value, 0, byteLength, 0, &byteData);
+            ThrowIfUnableToMap(result);
+
+            new Span<byte>(sourceData.Pointer, sourceByteLength).CopyTo(new Span<byte>(byteData, sourceByteLength));
+            vkUnmapMemory(logicalDevice.value, value);
         }
 
         public readonly override bool Equals(object? obj)
@@ -152,6 +166,33 @@ namespace Vulkan
         public readonly override int GetHashCode()
         {
             return HashCode.Combine(value);
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToMap(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Unable to map memory");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToBind(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Unable to bind memory");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToAllocate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Unable to allocate memory");
+            }
         }
 
         public static bool operator ==(DeviceMemory left, DeviceMemory right)

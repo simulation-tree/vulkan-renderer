@@ -8,56 +8,42 @@ namespace Vulkan
     public unsafe struct Buffer : IDisposable, IEquatable<Buffer>
     {
         public readonly LogicalDevice logicalDevice;
+        public readonly uint byteLength;
+        public readonly VkBufferUsageFlags usage;
 
-        /// <summary>
-        /// Size of the allocated buffer in bytes.
-        /// </summary>
-        public readonly uint size;
+        internal VkBuffer value;
 
-        private readonly VkBuffer buffer;
-        private bool valid;
+        public readonly bool IsDisposed => value.IsNull;
 
-        public readonly bool IsDisposed => !valid;
-
-        public readonly VkBuffer Value
+        public Buffer(LogicalDevice logicalDevice, uint byteLength, VkBufferUsageFlags usage, VkSharingMode sharing = VkSharingMode.Exclusive)
         {
-            get
+            if (byteLength == 0)
             {
-                ThrowIfDisposed();
-
-                return buffer;
-            }
-        }
-
-        public Buffer(LogicalDevice logicalDevice, uint size, VkBufferUsageFlags usage)
-        {
-            if (size == 0)
-            {
-                size = 2;
+                byteLength = 2;
                 //throw new Exception("Buffer size cannot be zero!");
             }
 
             VkBufferCreateInfo bufferInfo = new()
             {
-                size = size,
+                size = byteLength,
                 usage = usage,
-                sharingMode = VkSharingMode.Exclusive
+                sharingMode = sharing
             };
 
-            VkResult result = vkCreateBuffer(logicalDevice.Value, &bufferInfo, null, out buffer);
+            VkResult result = vkCreateBuffer(logicalDevice.value, &bufferInfo, null, out value);
             ThrowIfFailedToCreate(result);
 
             this.logicalDevice = logicalDevice;
-            this.size = size;
-            valid = true;
+            this.byteLength = byteLength;
+            this.usage = usage;
         }
 
         public void Dispose()
         {
             ThrowIfDisposed();
 
-            vkDestroyBuffer(logicalDevice.Value, buffer);
-            valid = false;
+            vkDestroyBuffer(logicalDevice.value, value);
+            value = default;
         }
 
         [Conditional("DEBUG")]
@@ -69,15 +55,6 @@ namespace Vulkan
             }
         }
 
-        [Conditional("DEBUG")]
-        private static void ThrowIfFailedToCreate(VkResult result)
-        {
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create buffer: {result}");
-            }
-        }
-
         public readonly override bool Equals(object? obj)
         {
             return obj is Buffer buffer && Equals(buffer);
@@ -85,12 +62,21 @@ namespace Vulkan
 
         public readonly bool Equals(Buffer other)
         {
-            return buffer.Equals(other.buffer);
+            return value.Equals(other.value);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(buffer);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create buffer: {result}");
+            }
         }
 
         public static bool operator ==(Buffer left, Buffer right)

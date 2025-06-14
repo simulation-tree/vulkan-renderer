@@ -27,7 +27,7 @@ namespace Rendering.Vulkan
         public readonly Instance vulkanInstance;
         private readonly PhysicalDevice physicalDevice;
         private readonly Dictionary<(uint, uint), CompiledShader> shaders;
-        private readonly Dictionary<uint, InstanceBuffer> instanceBuffers;
+        private readonly Dictionary<uint, CompiledStorageBuffer> storageBuffers;
         private readonly Dictionary<uint, Array<CompiledPushConstant>> knownPushConstants;
         private readonly List<CompiledRenderer> renderers;
         private readonly Dictionary<RendererKey, CompiledPipeline> pipelines;
@@ -86,7 +86,7 @@ namespace Rendering.Vulkan
 
             images = new();
             shaders = new();
-            instanceBuffers = new();
+            storageBuffers = new();
             knownPushConstants = new();
             renderers = new();
             pipelines = new();
@@ -203,12 +203,12 @@ namespace Rendering.Vulkan
 
         private void DisposeInstanceBuffers()
         {
-            foreach (InstanceBuffer instanceBuffer in instanceBuffers.Values)
+            foreach (CompiledStorageBuffer instanceBuffer in storageBuffers.Values)
             {
                 instanceBuffer.Dispose();
             }
 
-            instanceBuffers.Dispose();
+            storageBuffers.Dispose();
         }
 
         private void DisposeComponentBuffers()
@@ -432,7 +432,7 @@ namespace Rendering.Vulkan
             }
 
             Material material = Entity.Get<Material>(world, materialEntity);
-            ReadOnlySpan<InstanceDataBinding> pushBindings = material.InstanceBindings;
+            ReadOnlySpan<PushConstantBinding> pushBindings = material.PushConstants;
             ReadOnlySpan<EntityComponentBinding> uniformBindings = material.ComponentBindings;
             ReadOnlySpan<TextureBinding> textureBindings = material.TextureBindings;
             Span<ShaderPushConstant> pushConstants = world.GetArray<ShaderPushConstant>(vertexShaderEntity);
@@ -441,9 +441,8 @@ namespace Rendering.Vulkan
 
             //collect information to build the set layout
             int totalCount = uniformBindings.Length + textureBindings.Length;
-            Span<VkDescriptorSetLayoutBinding> setLayoutBindings = stackalloc VkDescriptorSetLayoutBinding[totalCount];
+            Span<DescriptorSetLayoutBinding> setLayoutBindings = stackalloc DescriptorSetLayoutBinding[totalCount];
             int bindingCount = 0;
-
             Span<PipelineLayout.PushConstant> pushConstantsBuffer = stackalloc PipelineLayout.PushConstant[pushConstants.Length];
             int pushConstantsCount = 0;
 
@@ -461,7 +460,7 @@ namespace Rendering.Vulkan
                     bool containsPush = false;
                     for (int p = 0; p < pushBindings.Length; p++)
                     {
-                        InstanceDataBinding pushBinding = pushBindings[p];
+                        PushConstantBinding pushBinding = pushBindings[p];
                         ushort componentSize = pushBinding.componentType.size;
                         if (componentSize == pushConstant.size && pushBinding.start == pushConstant.offset)
                         {
@@ -472,7 +471,7 @@ namespace Rendering.Vulkan
 
                     if (!containsPush)
                     {
-                        throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(InstanceDataBinding)}` to bind a push constant named `{pushConstant.memberName}`");
+                        throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(PushConstantBinding)}` to bind a push constant named `{pushConstant.memberName}`");
                     }
                 }
 
@@ -490,11 +489,7 @@ namespace Rendering.Vulkan
                     if (uniformBinding.key == new DescriptorResourceKey(uniformProperty.binding, uniformProperty.set))
                     {
                         containsBinding = true;
-                        VkDescriptorSetLayoutBinding binding = default;
-                        binding.descriptorType = VkDescriptorType.UniformBuffer;
-                        binding.binding = uniformBinding.key.Binding;
-                        binding.descriptorCount = 1;
-                        binding.stageFlags = shaderStage;
+                        DescriptorSetLayoutBinding binding = new(uniformBinding.key.Binding, VkDescriptorType.UniformBuffer, 1, shaderStage);
                         setLayoutBindings[bindingCount++] = binding;
                         break;
                     }
@@ -516,11 +511,7 @@ namespace Rendering.Vulkan
                     if (textureBinding.key == new DescriptorResourceKey(samplerProperty.binding, samplerProperty.set))
                     {
                         containsBinding = true;
-                        VkDescriptorSetLayoutBinding binding = default;
-                        binding.descriptorType = VkDescriptorType.CombinedImageSampler;
-                        binding.binding = textureBinding.key.Binding;
-                        binding.descriptorCount = 1;
-                        binding.stageFlags = VkShaderStageFlags.Fragment;
+                        DescriptorSetLayoutBinding binding = new(textureBinding.key.Binding, VkDescriptorType.CombinedImageSampler, 1, VkShaderStageFlags.Fragment);
                         setLayoutBindings[bindingCount++] = binding;
                         break;
                     }
@@ -539,8 +530,8 @@ namespace Rendering.Vulkan
             pipelineCreation.blendSettings = component.blendSettings;
             pipelineCreation.depthSettings = component.depthSettings;
 
-            Span<VkVertexInputBindingDescription> vertexBindings = stackalloc VkVertexInputBindingDescription[1];
-            vertexBindings[0] = new(offset, VkVertexInputRate.Vertex, 0);
+            Span<VertexInputBindingDescription> vertexBindings = stackalloc VertexInputBindingDescription[1];
+            vertexBindings[0] = new(0, offset, VkVertexInputRate.Vertex);
             if (compiledShader.isInstanced)
             {
                 //vertexBindings[1] = new(instanceSize, VkVertexInputRate.Instance, 1);
@@ -552,16 +543,16 @@ namespace Rendering.Vulkan
             Pipeline pipeline = new(pipelineCreation, pipelineLayout, vertexBindings, vertexAttributes, "main");
 
             //create descriptor pool
-            Span<(VkDescriptorType, uint)> poolTypes = stackalloc (VkDescriptorType, uint)[2];
+            Span<DescriptorPoolSize> poolSizes = stackalloc DescriptorPoolSize[8];
             int poolCount = 0;
             if (uniformProperties.Length > 0)
             {
-                poolTypes[poolCount++] = (VkDescriptorType.UniformBuffer, (uint)uniformProperties.Length);
+                poolSizes[poolCount++] = new(VkDescriptorType.UniformBuffer, (uint)uniformProperties.Length);
             }
 
             if (samplerProperties.Length > 0)
             {
-                poolTypes[poolCount++] = (VkDescriptorType.CombinedImageSampler, (uint)samplerProperties.Length);
+                poolSizes[poolCount++] = new(VkDescriptorType.CombinedImageSampler, (uint)samplerProperties.Length);
             }
 
             //remember which bindings are push constants
@@ -576,7 +567,7 @@ namespace Rendering.Vulkan
                 Span<CompiledPushConstant> buffer = stackalloc CompiledPushConstant[pushBindings.Length];
                 for (int i = 0; i < pushBindings.Length; i++)
                 {
-                    InstanceDataBinding binding = pushBindings[i];
+                    PushConstantBinding binding = pushBindings[i];
                     buffer[i] = new(binding.componentType, binding.stage, binding.stage.GetShaderStage());
                 }
 
@@ -605,10 +596,10 @@ namespace Rendering.Vulkan
                 if (!components.TryGetValue(componentHash, out CompiledComponentBuffer componentBuffer))
                 {
                     ushort componentSize = dataType.size;
-                    uint bufferSize = (uint)(Math.Ceiling(componentSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
+                    uint byteLength = (uint)(Math.Ceiling(componentSize / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
                     VkBufferUsageFlags usage = VkBufferUsageFlags.UniformBuffer;
                     VkMemoryPropertyFlags propertyFlags = VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent;
-                    BufferDeviceMemory buffer = new(logicalDevice, bufferSize, usage, propertyFlags);
+                    BufferDeviceMemory buffer = new(logicalDevice, byteLength, usage, propertyFlags);
                     componentBuffer = new(material, binding.entity, dataType, buffer);
                     components.Add(componentHash, componentBuffer);
                 }
@@ -638,7 +629,7 @@ namespace Rendering.Vulkan
                 }
             }
 
-            return new(pipeline, pipelineLayout, poolTypes.Slice(0, poolCount), setLayout, setLayoutBindings.Slice(0, bindingCount));
+            return new(pipeline, pipelineLayout, poolSizes.Slice(0, poolCount), setLayout, setLayoutBindings.Slice(0, bindingCount));
         }
 
         private CompiledImage CompileImage(uint materialEntity, TextureBinding binding, IsTexture component)
@@ -667,7 +658,7 @@ namespace Rendering.Vulkan
 
             //copy pixels from the entity, into the temporary buffer, then temporary buffer copies into the buffer... yada yada yada
             using BufferDeviceMemory tempStagingBuffer = new(logicalDevice, (uint)pixels.Length * 4, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostCoherent | VkMemoryPropertyFlags.HostVisible);
-            tempStagingBuffer.CopyFrom(pixels.AsSpan());
+            tempStagingBuffer.memory.CopyFrom(pixels.AsSpan());
             VkImageLayout imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
             using CommandPool tempPool = new(graphicsQueue, true);
             using CommandBuffer tempBuffer = tempPool.CreateCommandBuffer();
@@ -716,7 +707,7 @@ namespace Rendering.Vulkan
                 }
 
                 MemoryAddress component = world.GetComponent(entity, dataType.index, out int componentSize);
-                componentBuffer.buffer.CopyFrom(component, componentSize);
+                componentBuffer.buffer.memory.CopyFrom(component, componentSize);
             }
         }
 
@@ -821,7 +812,7 @@ namespace Rendering.Vulkan
 
             Span<Vector4> scissorsSpan = scissors.AsSpan();
             ReadOnlySpan<Chunk> chunks = world.Chunks;
-            Span<Chunk> chunksWithScissors = stackalloc Chunk[64]; //todo: fault: this can possibly fail if there are more than 64 chunks that fit the requirement
+            Span<Chunk> chunksWithScissors = stackalloc Chunk[world.CountChunksWithComponent(worldRendererScissorType)];
             int chunkCount = 0;
             for (int c = 0; c < chunks.Length; c++)
             {
@@ -1100,12 +1091,17 @@ namespace Rendering.Vulkan
             //dispose unusued buffers
             Span<uint> toRemove = stackalloc uint[512]; //todo: this can crash if not enough space
             int removeCount = 0;
+            Span<RendererCombination> previouslyRenderedGroups = this.previouslyRenderedGroups.AsSpan();
+            Span<uint> previouslyRenderedEntities = this.previouslyRenderedEntities.AsSpan();
+            Span<RendererKey> pipelineKeys = this.pipelineKeys.AsSpan();
+            Span<RendererKey> meshKeys = this.meshKeys.AsSpan();
+            Span<CompiledRenderer> renderers = this.renderers.AsSpan();
             foreach ((uint componentHash, CompiledComponentBuffer component) in components)
             {
                 bool used = false;
-                foreach (RendererCombination combination in previouslyRenderedGroups)
+                for (int c = 0; c < previouslyRenderedGroups.Length; c++)
                 {
-                    if (combination.materialEntity == component.material.value)
+                    if (previouslyRenderedGroups[c].materialEntity == component.material.value)
                     {
                         used = true;
                         break;
@@ -1139,9 +1135,9 @@ namespace Rendering.Vulkan
             foreach ((uint textureHash, CompiledImage image) in images)
             {
                 bool used = false;
-                foreach (RendererCombination combination in previouslyRenderedGroups)
+                for (int c = 0; c < previouslyRenderedGroups.Length; c++)
                 {
-                    if (combination.materialEntity == image.materialEntity)
+                    if (previouslyRenderedGroups[c].materialEntity == image.materialEntity)
                     {
                         used = true;
                         break;
@@ -1172,7 +1168,7 @@ namespace Rendering.Vulkan
             }
 
             //dispose unused renderers
-            for (uint e = 1; e < renderers.Count; e++)
+            for (uint e = 1; e < renderers.Length; e++)
             {
                 if (renderers[(int)e] != default)
                 {
@@ -1203,13 +1199,13 @@ namespace Rendering.Vulkan
 
             //dispose unused meshes
             Span<RendererKey> toRemoveKeys = stackalloc RendererKey[256];
-            for (int i = 0; i < meshKeys.Count; i++)
+            for (int i = 0; i < meshKeys.Length; i++)
             {
                 RendererKey key = meshKeys[i];
                 bool used = false;
-                foreach (RendererCombination combination in previouslyRenderedGroups)
+                for (int c = 0; c < previouslyRenderedGroups.Length; c++)
                 {
-                    if (combination.Key == key.value)
+                    if (previouslyRenderedGroups[c].Key == key.value)
                     {
                         used = true;
                         break;
@@ -1235,7 +1231,7 @@ namespace Rendering.Vulkan
                     RendererKey key = toRemoveKeys[i];
                     if (meshes.TryRemove(key, out CompiledMesh mesh))
                     {
-                        meshKeys.TryRemoveBySwapping(key);
+                        this.meshKeys.TryRemoveBySwapping(key);
                         mesh.Dispose();
                     }
                 }
@@ -1244,13 +1240,13 @@ namespace Rendering.Vulkan
             }
 
             //dispose unused pipelines
-            for (int i = 0; i < pipelineKeys.Count; i++)
+            for (int i = 0; i < pipelineKeys.Length; i++)
             {
                 RendererKey key = pipelineKeys[i];
                 bool used = false;
-                foreach (RendererCombination combination in previouslyRenderedGroups)
+                for (int c = 0; c < previouslyRenderedGroups.Length; c++)
                 {
-                    if (combination.Key == key.value)
+                    if (previouslyRenderedGroups[c].Key == key.value)
                     {
                         used = true;
                         break;
@@ -1276,7 +1272,7 @@ namespace Rendering.Vulkan
                     RendererKey key = toRemoveKeys[i];
                     if (pipelines.TryRemove(key, out CompiledPipeline pipeline))
                     {
-                        pipelineKeys.TryRemoveBySwapping(key);
+                        this.pipelineKeys.TryRemoveBySwapping(key);
                         pipeline.Dispose();
                     }
                 }
@@ -1284,33 +1280,33 @@ namespace Rendering.Vulkan
                 removeCount = 0;
             }
 
-            previouslyRenderedGroups.Clear();
-            previouslyRenderedEntities.Clear();
+            this.previouslyRenderedGroups.Clear();
+            this.previouslyRenderedEntities.Clear();
         }
 
         private void UpdateDescriptorSet(uint materialEntity, DescriptorSet descriptorSet, CompiledPipeline pipeline)
         {
             Material material = Entity.Get<Material>(world, materialEntity);
             byte set = 0;
-            Span<VkDescriptorSetLayoutBinding> descriptorBindings = pipeline.DescriptorBindings;
+            Span<DescriptorSetLayoutBinding> descriptorBindings = pipeline.DescriptorBindings;
             for (int b = 0; b < descriptorBindings.Length; b++)
             {
-                VkDescriptorSetLayoutBinding descriptorBinding = descriptorBindings[b];
-                byte binding = (byte)descriptorBinding.binding;
-                DescriptorResourceKey key = new(binding, set);
+                DescriptorSetLayoutBinding descriptorBinding = descriptorBindings[b];
+                uint binding = descriptorBinding.binding;
+                DescriptorResourceKey key = new((byte)binding, set);
                 if (descriptorBinding.descriptorType == VkDescriptorType.CombinedImageSampler)
                 {
                     TextureBinding textureBinding = material.GetTextureBinding(key);
                     uint textureHash = GetTextureHash(materialEntity, textureBinding);
                     ref CompiledImage image = ref images[textureHash];
-                    descriptorSet.Update(image.imageView, image.sampler, binding);
+                    descriptorSet.Update(image.imageView, image.sampler, descriptorBinding.descriptorType, binding);
                 }
                 else if (descriptorBinding.descriptorType == VkDescriptorType.UniformBuffer)
                 {
                     EntityComponentBinding componentBinding = material.GetComponentBinding(key, ShaderType.Vertex);
                     uint componentHash = GetComponentHash(materialEntity, componentBinding);
                     ref CompiledComponentBuffer componentBuffer = ref components[componentHash];
-                    descriptorSet.Update(componentBuffer.buffer.buffer, binding);
+                    descriptorSet.Update(componentBuffer.buffer.buffer, descriptorBinding.descriptorType, binding);
                 }
                 else
                 {

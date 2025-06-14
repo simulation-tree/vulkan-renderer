@@ -14,20 +14,9 @@ namespace Vulkan
     {
         public readonly LogicalDevice logicalDevice;
 
-        private readonly VkRenderPass value;
-        private bool valid;
+        internal VkRenderPass value;
 
-        public readonly VkRenderPass Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         public RenderPass(LogicalDevice logicalDevice, Span<Attachment> attachments)
         {
@@ -82,21 +71,16 @@ namespace Vulkan
                 pDependencies = dependencies.GetPointer()
             };
 
-            VkResult result = vkCreateRenderPass(logicalDevice.Value, &renderPassCreateInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create render pass: {result}");
-            }
-
-            valid = true;
+            VkResult result = vkCreateRenderPass(logicalDevice.value, &renderPassCreateInfo, null, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         public void Dispose()
         {
             ThrowIfDisposed();
 
-            vkDestroyRenderPass(logicalDevice.Value, value);
-            valid = false;
+            vkDestroyRenderPass(logicalDevice.value, value);
+            value = default;
         }
 
         [Conditional("DEBUG")]
@@ -105,6 +89,15 @@ namespace Vulkan
             if (IsDisposed)
             {
                 throw new ObjectDisposedException(nameof(RenderPass));
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create render pass: {result}");
             }
         }
 

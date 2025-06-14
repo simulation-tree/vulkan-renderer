@@ -9,20 +9,9 @@ namespace Vulkan
     {
         public readonly LogicalDevice logicalDevice;
 
-        private readonly VkShaderModule value;
-        private bool valid;
+        internal VkShaderModule value;
 
-        public readonly VkShaderModule Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         /// <summary>
         /// Creates a shader module from the given SPV bytecode.
@@ -30,18 +19,16 @@ namespace Vulkan
         public unsafe ShaderModule(LogicalDevice logicalDevice, ReadOnlySpan<byte> code)
         {
             this.logicalDevice = logicalDevice;
-            VkResult result = vkCreateShaderModule(logicalDevice.Value, code, null, out value);
+            VkResult result = vkCreateShaderModule(logicalDevice.value, code, null, out value);
             ThrowIfFailedToCreate(result);
-
-            valid = true;
         }
 
         public unsafe void Dispose()
         {
             ThrowIfDisposed();
 
-            vkDestroyShaderModule(logicalDevice.Value, value);
-            valid = false;
+            vkDestroyShaderModule(logicalDevice.value, value);
+            value = default;
         }
 
         [Conditional("DEBUG")]
@@ -53,15 +40,6 @@ namespace Vulkan
             }
         }
 
-        [Conditional("DEBUG")]
-        private static void ThrowIfFailedToCreate(VkResult result)
-        {
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create shader module: {result}");
-            }
-        }
-
         public readonly override bool Equals(object? obj)
         {
             return obj is ShaderModule module && Equals(module);
@@ -69,17 +47,21 @@ namespace Vulkan
 
         public readonly bool Equals(ShaderModule other)
         {
-            if (IsDisposed && other.IsDisposed)
-            {
-                return true;
-            }
-
             return value.Equals(other.value);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create shader module: {result}");
+            }
         }
 
         public static bool operator ==(ShaderModule left, ShaderModule right)

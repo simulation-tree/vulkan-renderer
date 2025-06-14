@@ -9,32 +9,21 @@ namespace Vulkan
     [SkipLocalsInit]
     public unsafe struct Swapchain : IDisposable, IEquatable<Swapchain>
     {
-        public readonly LogicalDevice device;
+        public readonly LogicalDevice logicalDevice;
         public readonly uint width;
         public readonly uint height;
         public readonly VkFormat format;
-        private bool valid;
 
-        private readonly VkSwapchainKHR value;
+        internal VkSwapchainKHR value;
 
-        public readonly VkSwapchainKHR Value
+        public readonly bool IsDisposed => value.IsNull;
+
+        public Swapchain(LogicalDevice logicalDevice, Surface surface, uint width, uint height)
         {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
-
-        public Swapchain(LogicalDevice device, Surface surface, uint width, uint height)
-        {
-            this.device = device;
+            this.logicalDevice = logicalDevice;
             this.width = width;
             this.height = height;
-            SwapchainCapabilities swapchainInfo = surface.GetSwapchainInfo(device.physicalDevice);
+            SwapchainCapabilities swapchainInfo = surface.GetSwapchainInfo(logicalDevice.physicalDevice);
             VkSurfaceFormatKHR surfaceFormat = swapchainInfo.ChooseSwapSurfaceFormat();
             VkPresentModeKHR presentMode = swapchainInfo.ChooseSwapPresentMode();
             format = surfaceFormat.format;
@@ -46,7 +35,7 @@ namespace Vulkan
 
             VkSwapchainCreateInfoKHR swapchainCreateInfo = new()
             {
-                surface = surface.Value,
+                surface = surface.value,
                 minImageCount = imageCount,
                 imageFormat = format,
                 imageColorSpace = surfaceFormat.colorSpace,
@@ -55,7 +44,7 @@ namespace Vulkan
                 imageUsage = VkImageUsageFlags.ColorAttachment
             };
 
-            (uint graphics, uint present) = device.physicalDevice.GetQueueFamilies(surface);
+            (uint graphics, uint present) = logicalDevice.physicalDevice.GetQueueFamilies(surface);
             if (graphics != present)
             {
                 Span<uint> queueFamilies = stackalloc uint[2] { graphics, present };
@@ -73,21 +62,16 @@ namespace Vulkan
             swapchainCreateInfo.presentMode = presentMode;
             swapchainCreateInfo.clipped = true;
 
-            VkResult result = vkCreateSwapchainKHR(device.Value, &swapchainCreateInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create swap chain: {result}");
-            }
-
-            valid = true;
+            VkResult result = vkCreateSwapchainKHR(logicalDevice.value, &swapchainCreateInfo, null, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         public void Dispose()
         {
             ThrowIfDisposed();
 
-            vkDestroySwapchainKHR(device.Value, value);
-            valid = false;
+            vkDestroySwapchainKHR(logicalDevice.value, value);
+            value = default;
         }
 
         [Conditional("DEBUG")]
@@ -103,10 +87,10 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            ReadOnlySpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(device.Value, value);
+            ReadOnlySpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(logicalDevice.value, value);
             for (int i = 0; i < imageSpan.Length; i++)
             {
-                Image image = new(device, imageSpan[i], width, height, format);
+                Image image = new(logicalDevice, imageSpan[i], width, height, format);
                 destination[i] = image;
             }
 
@@ -120,17 +104,21 @@ namespace Vulkan
 
         public readonly bool Equals(Swapchain other)
         {
-            if (!other.valid && !valid)
-            {
-                return true;
-            }
-
             return value.Equals(other.value);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException($"Failed to create swapchain: {result}");
+            }
         }
 
         public static bool operator ==(Swapchain left, Swapchain right)

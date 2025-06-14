@@ -9,30 +9,19 @@ namespace Vulkan
     [SkipLocalsInit]
     public unsafe struct Pipeline : IDisposable, IEquatable<Pipeline>
     {
-        private readonly VkPipeline value;
+        internal VkPipeline value;
         private readonly LogicalDevice logicalDevice;
-        private bool valid;
 
-        public readonly VkPipeline Value
-        {
-            get
-            {
-                ThrowIfDisposed();
+        public readonly bool IsDisposed => value.IsNull;
 
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
-
-        public Pipeline(PipelineCreateInput input, PipelineLayout layout, ReadOnlySpan<VkVertexInputBindingDescription> vertexBindings, ReadOnlySpan<VkVertexInputAttributeDescription> vertexAttributes, string entryPoint)
+        public Pipeline(PipelineCreateInput input, PipelineLayout layout, ReadOnlySpan<VertexInputBindingDescription> vertexBindings, ReadOnlySpan<VkVertexInputAttributeDescription> vertexAttributes, string entryPoint)
             : this(input, layout, vertexBindings, vertexAttributes, entryPoint.AsSpan())
         {
         }
 
-        public Pipeline(PipelineCreateInput input, PipelineLayout layout, ReadOnlySpan<VkVertexInputBindingDescription> vertexBindings, ReadOnlySpan<VkVertexInputAttributeDescription> vertexAttributes, ReadOnlySpan<char> entryPoint)
+        public Pipeline(PipelineCreateInput input, PipelineLayout layout, ReadOnlySpan<VertexInputBindingDescription> vertexBindings, ReadOnlySpan<VkVertexInputAttributeDescription> vertexAttributes, ReadOnlySpan<char> entryPoint)
         {
-            logicalDevice = input.LogicalDevice;
+            logicalDevice = input.renderPass.logicalDevice;
             Span<byte> nameBuffer = stackalloc byte[entryPoint.Length + 1];
             for (int i = 0; i < entryPoint.Length; i++)
             {
@@ -44,21 +33,21 @@ namespace Vulkan
             shaderStages[0] = new()
             {
                 stage = VkShaderStageFlags.Vertex,
-                module = input.vertexShader.Value,
+                module = input.vertexShader.value,
                 pName = nameBuffer.GetPointer()
             };
 
             shaderStages[1] = new()
             {
                 stage = VkShaderStageFlags.Fragment,
-                module = input.fragmentShader.Value,
+                module = input.fragmentShader.value,
                 pName = nameBuffer.GetPointer()
             };
 
             VkPipelineVertexInputStateCreateInfo vertexInputState = new()
             {
                 vertexBindingDescriptionCount = (uint)vertexBindings.Length,
-                pVertexBindingDescriptions = vertexBindings.GetPointer(),
+                pVertexBindingDescriptions = (VkVertexInputBindingDescription*)vertexBindings.GetPointer(),
                 vertexAttributeDescriptionCount = (uint)vertexAttributes.Length,
                 pVertexAttributeDescriptions = vertexAttributes.GetPointer()
             };
@@ -139,17 +128,12 @@ namespace Vulkan
                 pDepthStencilState = &depthStencilState,
                 pColorBlendState = &colorBlending,
                 pDynamicState = &dynamicState,
-                layout = layout.Value,
-                renderPass = input.renderPass.Value
+                layout = layout.value,
+                renderPass = input.renderPass.value
             };
 
-            VkResult result = vkCreateGraphicsPipeline(logicalDevice.Value, pipelineCreateInfo, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create graphics pipeline: {result}");
-            }
-
-            valid = true;
+            VkResult result = vkCreateGraphicsPipeline(logicalDevice.value, pipelineCreateInfo, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         [Conditional("DEBUG")]
@@ -165,8 +149,8 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            vkDestroyPipeline(logicalDevice.Value, value);
-            valid = false;
+            vkDestroyPipeline(logicalDevice.value, value);
+            value = default;
         }
 
         public readonly override bool Equals(object? obj)
@@ -176,17 +160,21 @@ namespace Vulkan
 
         public readonly bool Equals(Pipeline other)
         {
-            if (IsDisposed && other.IsDisposed)
-            {
-                return true;
-            }
-
             return value.Equals(other.value);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create graphics pipeline: {result}");
+            }
         }
 
         public static bool operator ==(Pipeline left, Pipeline right)

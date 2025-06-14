@@ -1,80 +1,25 @@
 ﻿using System;
-using System.Runtime.CompilerServices;
-using Unmanaged;
 using Vortice.Vulkan;
 
 namespace Vulkan
 {
-    public readonly unsafe struct BufferDeviceMemory : IDisposable, IEquatable<BufferDeviceMemory>
+    public unsafe struct BufferDeviceMemory : IDisposable, IEquatable<BufferDeviceMemory>
     {
-        public readonly Buffer buffer;
-        public readonly DeviceMemory memory;
+        public Buffer buffer;
+        public DeviceMemory memory;
 
-        public readonly LogicalDevice LogicalDevice => buffer.logicalDevice;
-
-        public BufferDeviceMemory(LogicalDevice device, uint size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
+        public BufferDeviceMemory(LogicalDevice device, uint byteLength, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryFlags)
         {
-            buffer = new(device, size, usage);
-            memory = new(buffer, properties);
+            buffer = new(device, byteLength, usage);
+            memory = new(buffer, memoryFlags);
         }
 
-        public readonly void Dispose()
+        public void Dispose()
         {
             memory.Dispose();
             buffer.Dispose();
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly MemoryAddress Map()
-        {
-            return memory.Map();
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void Unmap()
-        {
-            memory.Unmap();
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly Span<T> Map<T>() where T : unmanaged
-        {
-            MemoryAddress memoryPointer = Map();
-            return new(memoryPointer.Pointer, (int)buffer.size);
-        }
-
-        /// <summary>
-        /// Maps the memory and copies the <paramref name="data"/> to it,
-        /// then unmaps it.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void CopyFrom(MemoryAddress data, int byteLength)
-        {
-            MemoryAddress memoryPointer = Map();
-            memoryPointer.CopyFrom(data, byteLength);
-            Unmap();
-        }
-
-        /// <summary>
-        /// Maps the memory and copies the data from the given span then unmaps it.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void CopyFrom<T>(ReadOnlySpan<T> data) where T : unmanaged
-        {
-            MemoryAddress memoryPointer = Map();
-            memoryPointer.CopyFrom(data.GetPointer(), (int)buffer.size);
-            Unmap();
-        }
-
-        /// <summary>
-        /// Maps the memory and copies the data from the given span then unmaps it.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void CopyFrom<T>(Span<T> data) where T : unmanaged
-        {
-            MemoryAddress memoryPointer = Map();
-            memoryPointer.CopyFrom(data.GetPointer(), (int)buffer.size);
-            Unmap();
+            memory = default;
+            buffer = default;
         }
 
         public readonly override bool Equals(object? obj)
@@ -89,7 +34,21 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(buffer, memory);
+            return buffer.GetHashCode() ^ memory.GetHashCode();
+        }
+
+        /// <summary>
+        /// Resizes the buffer and memory to the new size,
+        /// without copying old data.
+        /// </summary>
+        public void Resize(uint newByteLength)
+        {
+            VkBufferUsageFlags usage = buffer.usage;
+            VkMemoryPropertyFlags memoryFlags = memory.memoryFlags;
+            buffer.Dispose();
+            memory.Dispose();
+            buffer = new(buffer.logicalDevice, newByteLength, usage);
+            memory = new(buffer, memoryFlags);
         }
 
         public static bool operator ==(BufferDeviceMemory left, BufferDeviceMemory right)

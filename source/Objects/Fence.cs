@@ -9,20 +9,9 @@ namespace Vulkan
     {
         public readonly LogicalDevice logicalDevice;
 
-        private readonly VkFence value;
-        private bool valid;
+        internal VkFence value;
 
-        public readonly VkFence Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         [Obsolete("Default constructor not supported", true)]
         public Fence()
@@ -30,16 +19,11 @@ namespace Vulkan
             throw new NotImplementedException();
         }
 
-        public Fence(LogicalDevice logicalDevice, bool isSignaled = true)
+        public Fence(LogicalDevice logicalDevice, VkFenceCreateFlags fenceFlags = VkFenceCreateFlags.Signaled)
         {
             this.logicalDevice = logicalDevice;
-            VkResult result = vkCreateFence(logicalDevice.Value, isSignaled ? VkFenceCreateFlags.Signaled : VkFenceCreateFlags.None, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception(result.ToString());
-            }
-
-            valid = true;
+            VkResult result = vkCreateFence(logicalDevice.value, fenceFlags, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         [Conditional("DEBUG")]
@@ -55,8 +39,8 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            vkDestroyFence(logicalDevice.Value, value);
-            valid = false;
+            vkDestroyFence(logicalDevice.value, value);
+            value = default;
         }
 
         /// <summary>
@@ -65,9 +49,10 @@ namespace Vulkan
         public readonly void Wait(ulong timeout = ulong.MaxValue)
         {
             ThrowIfDisposed();
+
             fixed (VkFence* pFence = &value)
             {
-                vkWaitForFences(logicalDevice.Value, 1, pFence, true, timeout);
+                vkWaitForFences(logicalDevice.value, 1, pFence, true, timeout);
             }
         }
 
@@ -77,9 +62,10 @@ namespace Vulkan
         public readonly void Reset()
         {
             ThrowIfDisposed();
+
             fixed (VkFence* pFence = &value)
             {
-                vkResetFences(logicalDevice.Value, 1, pFence);
+                vkResetFences(logicalDevice.value, 1, pFence);
             }
         }
 
@@ -90,17 +76,21 @@ namespace Vulkan
 
         public readonly bool Equals(Fence other)
         {
-            if (IsDisposed && other.IsDisposed)
-            {
-                return true;
-            }
-
             return value.Equals(other.value);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException($"Unable to create fence: {result}");
+            }
         }
 
         public static bool operator ==(Fence left, Fence right)

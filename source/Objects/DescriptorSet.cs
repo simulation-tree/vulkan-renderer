@@ -11,36 +11,14 @@ namespace Vulkan
     {
         public readonly DescriptorPool pool;
 
-        private readonly VkDescriptorSet value;
-        private bool valid;
+        internal VkDescriptorSet value;
 
-        public readonly VkDescriptorSet Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly LogicalDevice LogicalDevice
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return pool.logicalDevice;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         internal DescriptorSet(DescriptorPool pool, VkDescriptorSet value)
         {
             this.pool = pool;
             this.value = value;
-            valid = true;
         }
 
         [Conditional("DEBUG")]
@@ -55,14 +33,14 @@ namespace Vulkan
         /// <summary>
         /// Updates the contents of the descriptor set with the buffer data.
         /// </summary>
-        public readonly void Update(Buffer buffer, byte binding = 0)
+        public readonly void Update(Buffer buffer, VkDescriptorType descriptorType, uint binding = 0)
         {
             ThrowIfDisposed();
 
             VkDescriptorBufferInfo bufferInfo = new();
-            bufferInfo.buffer = buffer.Value;
+            bufferInfo.buffer = buffer.value;
             bufferInfo.offset = 0;
-            bufferInfo.range = buffer.size;
+            bufferInfo.range = buffer.byteLength;
 
             Span<VkWriteDescriptorSet> descriptorWrite = stackalloc VkWriteDescriptorSet[1];
             descriptorWrite[0] = new()
@@ -70,25 +48,25 @@ namespace Vulkan
                 dstSet = value,
                 dstBinding = binding,
                 dstArrayElement = 0,
-                descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                descriptorType = descriptorType,
                 descriptorCount = 1,
                 pBufferInfo = &bufferInfo
             };
 
-            vkUpdateDescriptorSets(pool.logicalDevice.Value, 1, descriptorWrite.GetPointer(), 0, null);
+            vkUpdateDescriptorSets(pool.logicalDevice.value, 1, descriptorWrite.GetPointer(), 0, null);
         }
 
         /// <summary>
         /// Updates the contents of the descriptor set with the image data.
         /// </summary>
-        public readonly void Update(ImageView imageView, Sampler sampler, byte binding = 0)
+        public readonly void Update(ImageView imageView, Sampler sampler, VkDescriptorType descriptorType, uint binding = 0)
         {
             ThrowIfDisposed();
 
             VkDescriptorImageInfo imageInfo = new();
-            imageInfo.imageView = imageView.Value;
+            imageInfo.imageView = imageView.value;
             imageInfo.imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
-            imageInfo.sampler = sampler.Value;
+            imageInfo.sampler = sampler.value;
 
             Span<VkWriteDescriptorSet> descriptorWrite = stackalloc VkWriteDescriptorSet[1];
             descriptorWrite[0] = new()
@@ -96,12 +74,12 @@ namespace Vulkan
                 dstSet = value,
                 dstBinding = binding,
                 dstArrayElement = 0,
-                descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                descriptorType = descriptorType,
                 descriptorCount = 1,
                 pImageInfo = &imageInfo
             };
 
-            vkUpdateDescriptorSets(pool.logicalDevice.Value, 1, descriptorWrite.GetPointer(), 0, null);
+            vkUpdateDescriptorSets(pool.logicalDevice.value, 1, descriptorWrite.GetPointer(), 0, null);
         }
 
         /// <summary>
@@ -116,9 +94,9 @@ namespace Vulkan
             {
                 Buffer buffer = buffers[i];
                 VkDescriptorBufferInfo bufferInfo = new();
-                bufferInfo.buffer = buffer.Value;
+                bufferInfo.buffer = buffer.value;
                 bufferInfo.offset = 0;
-                bufferInfo.range = buffer.size;
+                bufferInfo.range = buffer.byteLength;
 
                 descriptorWrite[i] = new()
                 {
@@ -133,7 +111,7 @@ namespace Vulkan
                 startBinding++;
             }
 
-            vkUpdateDescriptorSets(pool.logicalDevice.Value, (uint)buffers.Length, descriptorWrite.GetPointer(), 0, null);
+            vkUpdateDescriptorSets(pool.logicalDevice.value, (uint)buffers.Length, descriptorWrite.GetPointer(), 0, null);
         }
 
         /// <summary>
@@ -147,9 +125,9 @@ namespace Vulkan
             for (int i = 0; i < imageViews.Length; i++)
             {
                 VkDescriptorImageInfo imageInfo = new();
-                imageInfo.imageView = imageViews[i].Value;
+                imageInfo.imageView = imageViews[i].value;
                 imageInfo.imageLayout = VkImageLayout.ShaderReadOnlyOptimal;
-                imageInfo.sampler = samplers[i].Value;
+                imageInfo.sampler = samplers[i].value;
 
                 descriptorWrite[i] = new()
                 {
@@ -164,15 +142,15 @@ namespace Vulkan
                 startBinding++;
             }
 
-            vkUpdateDescriptorSets(pool.logicalDevice.Value, (uint)imageViews.Length, descriptorWrite.GetPointer(), 0, null);
+            vkUpdateDescriptorSets(pool.logicalDevice.value, (uint)imageViews.Length, descriptorWrite.GetPointer(), 0, null);
         }
 
         public void Dispose()
         {
             ThrowIfDisposed();
 
-            vkFreeDescriptorSets(pool.logicalDevice.Value, pool.Value, value);
-            valid = false;
+            vkFreeDescriptorSets(pool.logicalDevice.value, pool.value, value);
+            value = default;
         }
 
         public readonly override bool Equals(object? obj)
@@ -182,28 +160,12 @@ namespace Vulkan
 
         public readonly bool Equals(DescriptorSet other)
         {
-            if (!valid && !other.valid)
-            {
-                return true;
-            }
-            else if (valid != other.valid)
-            {
-                return false;
-            }
-
             return value == other.value;
         }
 
         public readonly override int GetHashCode()
         {
-            if (valid)
-            {
-                return value.GetHashCode();
-            }
-            else
-            {
-                return 0;
-            }
+            return value.GetHashCode();
         }
 
         public static bool operator ==(DescriptorSet left, DescriptorSet right)

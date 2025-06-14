@@ -7,20 +7,18 @@ namespace Vulkan
     {
         public readonly BufferDeviceMemory bufferDeviceMemory;
 
-        public readonly LogicalDevice LogicalDevice => bufferDeviceMemory.LogicalDevice;
-
         public VertexBuffer(Queue graphicsQueue, CommandPool commandPool, ReadOnlySpan<float> data)
         {
-            uint byteCount = (uint)data.Length * sizeof(float);
+            uint byteLength = (uint)data.Length * sizeof(float);
             VkPhysicalDeviceLimits limits = graphicsQueue.logicalDevice.physicalDevice.GetLimits();
-            byteCount = (uint)(Math.Ceiling(byteCount / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
+            byteLength = (uint)(Math.Ceiling(byteLength / (float)limits.minUniformBufferOffsetAlignment) * limits.minUniformBufferOffsetAlignment);
 
-            using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);
-            Span<float> destinationData = stagingBuffer.Map<float>();
+            using BufferDeviceMemory stagingBuffer = new(graphicsQueue.logicalDevice, byteLength, VkBufferUsageFlags.TransferSrc, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent);
+            Span<float> destinationData = stagingBuffer.memory.Map<float>(stagingBuffer.buffer.byteLength);
             data.CopyTo(destinationData);
-            stagingBuffer.Unmap();
+            stagingBuffer.memory.Unmap();
 
-            bufferDeviceMemory = new(graphicsQueue.logicalDevice, byteCount, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, VkMemoryPropertyFlags.DeviceLocal);
+            bufferDeviceMemory = new(graphicsQueue.logicalDevice, byteLength, VkBufferUsageFlags.TransferDst | VkBufferUsageFlags.VertexBuffer, VkMemoryPropertyFlags.DeviceLocal);
 
             using CommandBuffer tempCommandBuffer = commandPool.CreateCommandBuffer();
             tempCommandBuffer.Begin();

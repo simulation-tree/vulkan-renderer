@@ -38,18 +38,7 @@ namespace Vulkan
         public readonly VkDebugUtilsMessengerEXT debugMessenger;
 
         private readonly Array<PhysicalDevice> physicalDevices;
-        private readonly VkInstance value;
-        private bool valid;
-
-        public readonly VkInstance Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
+        internal VkInstance value;
 
         public readonly nint Address => value.Handle;
 
@@ -63,10 +52,11 @@ namespace Vulkan
             }
         }
 
+        public readonly bool IsDisposed => value.IsNull;
+
         internal Instance(MemoryAddress existingValue)
         {
-            this.value = new(existingValue.Address);
-            valid = true;
+            value = new(existingValue.Address);
         }
 
         internal Instance(Library library, ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<DestinationExtension> extensions)
@@ -216,10 +206,7 @@ namespace Vulkan
 
             //create vulkan instance
             VkResult result = vkCreateInstance(&createInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create instance: {result}");
-            }
+            ThrowIfUnableToCreate(result);
 
             foreach (MemoryAddress allocation in tempAllocations)
             {
@@ -227,37 +214,22 @@ namespace Vulkan
             }
 
             vkLoadInstanceOnly(value);
-            valid = true;
 
             if (inputLayers.Count > 0)
             {
                 result = vkCreateDebugUtilsMessengerEXT(value, &debugUtilsCreateInfo, null, out debugMessenger);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception($"Failed to create debug messenger: {result}");
-                }
+                ThrowIfUnableToCreateDebugMessenger(result);
             }
 
             //find physical devices
             uint physicalDeviceCount = 0;
             result = vkEnumeratePhysicalDevices(value, &physicalDeviceCount, null);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to enumerate physical devices: {result}");
-            }
-
-            if (physicalDeviceCount == 0)
-            {
-                throw new PlatformNotSupportedException("No physical devices found to render to");
-            }
+            ThrowIfUnableToEnumerateDevices(result, physicalDeviceCount);
 
             physicalDevices = new((int)physicalDeviceCount);
             VkPhysicalDevice* physicalDevicesPointer = stackalloc VkPhysicalDevice[(int)physicalDeviceCount];
             result = vkEnumeratePhysicalDevices(value, &physicalDeviceCount, physicalDevicesPointer);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to enumerate physical devices: {result}");
-            }
+            ThrowIfUnableToEnumerateDevices(result, physicalDeviceCount);
 
             for (int i = 0; i < physicalDeviceCount; i++)
             {
@@ -276,14 +248,14 @@ namespace Vulkan
                 vkDestroyDebugUtilsMessengerEXT(value, debugMessenger);
             }
 
-            valid = false;
             vkDestroyInstance(value);
+            value = default;
         }
 
         [Conditional("DEBUG")]
         private readonly void ThrowIfDisposed()
         {
-            if (!valid)
+            if (IsDisposed)
             {
                 throw new ObjectDisposedException(nameof(Instance));
             }
@@ -373,7 +345,39 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create instance: {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreateDebugMessenger(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create debug messenger: {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToEnumerateDevices(VkResult result, uint physicalDeviceCount)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to enumerate physical devices: {result}");
+            }
+
+            if (physicalDeviceCount == 0)
+            {
+                throw new PlatformNotSupportedException("No physical devices found to render to");
+            }
         }
 
         public static bool operator ==(Instance left, Instance right)

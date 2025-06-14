@@ -11,32 +11,16 @@ namespace Vulkan
     {
         public readonly LogicalDevice logicalDevice;
 
-        private readonly VkPipelineLayout value;
-        private bool valid;
+        internal VkPipelineLayout value;
 
-        public readonly VkPipelineLayout Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         public PipelineLayout(LogicalDevice device)
         {
             this.logicalDevice = device;
             VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = new();
-            VkResult result = vkCreatePipelineLayout(device.Value, &pipelineLayoutCreateInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create pipeline layout: {result}");
-            }
-
-            valid = true;
+            VkResult result = vkCreatePipelineLayout(device.value, &pipelineLayoutCreateInfo, null, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         public PipelineLayout(LogicalDevice device, DescriptorSetLayout setLayout, ReadOnlySpan<PushConstant> pushConstants) : this(device, [setLayout], pushConstants)
@@ -53,7 +37,7 @@ namespace Vulkan
                 Span<VkDescriptorSetLayout> layouts = stackalloc VkDescriptorSetLayout[setLayouts.Length];
                 for (int i = 0; i < setLayouts.Length; i++)
                 {
-                    layouts[i] = setLayouts[i].Value;
+                    layouts[i] = setLayouts[i].value;
                 }
 
                 pipelineLayoutCreateInfo.pSetLayouts = layouts.GetPointer();
@@ -78,13 +62,8 @@ namespace Vulkan
                 pipelineLayoutCreateInfo.pushConstantRangeCount = (uint)pushConstants.Length;
             }
 
-            VkResult result = vkCreatePipelineLayout(device.Value, &pipelineLayoutCreateInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create pipeline layout: {result}");
-            }
-
-            valid = true;
+            VkResult result = vkCreatePipelineLayout(device.value, &pipelineLayoutCreateInfo, null, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         [Conditional("DEBUG")]
@@ -100,8 +79,17 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            vkDestroyPipelineLayout(logicalDevice.Value, value);
-            valid = false;
+            vkDestroyPipelineLayout(logicalDevice.value, value);
+            value = default;
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create pipeline layout: {result}");
+            }
         }
 
         public readonly struct PushConstant

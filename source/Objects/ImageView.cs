@@ -10,20 +10,9 @@ namespace Vulkan
         public readonly VkImageAspectFlags aspects;
         public readonly LogicalDevice logicalDevice;
 
-        private readonly VkImageView value;
-        private bool valid;
+        internal VkImageView value;
 
-        public readonly VkImageView Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         public ImageView(Image image, VkImageAspectFlags aspects = VkImageAspectFlags.Color, bool isCubemap = false)
         {
@@ -32,14 +21,9 @@ namespace Vulkan
             this.logicalDevice = image.logicalDevice;
             VkImageViewType viewType = isCubemap ? VkImageViewType.ImageCube : VkImageViewType.Image2D;
             VkImageSubresourceRange range = new(aspects, 0, mipLevels, 0, isCubemap ? 6u : 1u);
-            VkImageViewCreateInfo imageCreateInfo = new(image.Value, viewType, image.format, VkComponentMapping.Rgba, range);
-            VkResult result = vkCreateImageView(logicalDevice.Value, &imageCreateInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create image view: {result}");
-            }
-
-            valid = true;
+            VkImageViewCreateInfo imageCreateInfo = new(image.value, viewType, image.format, VkComponentMapping.Rgba, range);
+            VkResult result = vkCreateImageView(logicalDevice.value, &imageCreateInfo, null, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         [Conditional("DEBUG")]
@@ -55,8 +39,8 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            vkDestroyImageView(logicalDevice.Value, value);
-            valid = false;
+            vkDestroyImageView(logicalDevice.value, value);
+            value = default;
         }
 
         public readonly override bool Equals(object? obj)
@@ -76,7 +60,16 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create image view: {result}");
+            }
         }
 
         public static bool operator ==(ImageView left, ImageView right)

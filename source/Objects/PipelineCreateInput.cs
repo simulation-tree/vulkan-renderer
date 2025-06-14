@@ -12,8 +12,6 @@ namespace Vulkan
         public BlendSettings blendSettings;
         public DepthSettings depthSettings;
 
-        public readonly LogicalDevice LogicalDevice => renderPass.logicalDevice;
-
         [Obsolete("Default constructor not supported", true)]
         public PipelineCreateInput()
         {

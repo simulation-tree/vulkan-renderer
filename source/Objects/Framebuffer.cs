@@ -16,20 +16,9 @@ namespace Vulkan
         public readonly uint width;
         public readonly uint height;
 
-        private readonly VkFramebuffer value;
-        private bool valid;
+        internal VkFramebuffer value;
 
-        public readonly VkFramebuffer Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         public Framebuffer(RenderPass renderPass, ImageView imageView, uint width, uint height) : this(renderPass, [imageView], width, height)
         {
@@ -45,32 +34,27 @@ namespace Vulkan
             Span<VkImageView> images = stackalloc VkImageView[imageViews.Length];
             for (int i = 0; i < imageViews.Length; i++)
             {
-                images[i] = imageViews[i].Value;
+                images[i] = imageViews[i].value;
             }
 
             VkFramebufferCreateInfo createInfo = new();
-            createInfo.renderPass = renderPass.Value;
+            createInfo.renderPass = renderPass.value;
             createInfo.attachmentCount = (uint)imageViews.Length;
             createInfo.pAttachments = images.GetPointer();
             createInfo.width = width;
             createInfo.height = height;
             createInfo.layers = 1;
 
-            VkResult result = vkCreateFramebuffer(logicalDevice.Value, &createInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create framebuffer: {result}");
-            }
-
-            valid = true;
+            VkResult result = vkCreateFramebuffer(logicalDevice.value, &createInfo, null, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         public void Dispose()
         {
             ThrowIfDisposed();
 
-            vkDestroyFramebuffer(logicalDevice.Value, value);
-            valid = false;
+            vkDestroyFramebuffer(logicalDevice.value, value);
+            value = default;
         }
 
         [Conditional("DEBUG")]
@@ -79,6 +63,15 @@ namespace Vulkan
             if (IsDisposed)
             {
                 throw new ObjectDisposedException(nameof(Framebuffer));
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create framebuffer: {result}");
             }
         }
     }

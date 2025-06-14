@@ -9,20 +9,9 @@ namespace Vulkan
     {
         public readonly LogicalDevice logicalDevice;
 
-        private readonly VkSemaphore value;
-        private bool valid;
+        internal VkSemaphore value;
 
-        public readonly VkSemaphore Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         [Obsolete("Default constructor not supported", true)]
         public Semaphore()
@@ -33,13 +22,8 @@ namespace Vulkan
         public Semaphore(LogicalDevice logicalDevice)
         {
             this.logicalDevice = logicalDevice;
-            VkResult result = vkCreateSemaphore(logicalDevice.Value, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception(result.ToString());
-            }
-
-            valid = true;
+            VkResult result = vkCreateSemaphore(logicalDevice.value, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         [Conditional("DEBUG")]
@@ -55,8 +39,8 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            vkDestroySemaphore(logicalDevice.Value, value);
-            valid = false;
+            vkDestroySemaphore(logicalDevice.value, value);
+            value = default;
         }
 
         public readonly override bool Equals(object? obj)
@@ -76,7 +60,16 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value, IsDisposed);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to create semaphore: {result}");
+            }
         }
 
         public static bool operator ==(Semaphore left, Semaphore right)

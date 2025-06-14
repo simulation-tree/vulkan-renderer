@@ -7,11 +7,11 @@ using static Vortice.Vulkan.Vulkan;
 
 namespace Vulkan
 {
-    public readonly unsafe struct Library : IDisposable, IEquatable<Library>
+    public unsafe struct Library : IDisposable, IEquatable<Library>
     {
         public readonly VkVersion version;
 
-        private readonly Text name;
+        private Text name;
 
         public readonly bool IsDisposed => name.IsDisposed;
         public readonly ReadOnlySpan<char> Name => name.AsSpan();
@@ -42,9 +42,10 @@ namespace Vulkan
             }
         }
 
-        public readonly void Dispose()
+        public void Dispose()
         {
             name.Dispose();
+            name = default;
         }
 
         public readonly Instance CreateInstance(ReadOnlySpan<char> applicationName, ReadOnlySpan<char> engineName, ReadOnlySpan<DestinationExtension> extensions)

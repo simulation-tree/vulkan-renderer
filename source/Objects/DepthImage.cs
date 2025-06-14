@@ -9,13 +9,12 @@ namespace Vulkan
         public readonly DeviceMemory imageMemory;
         public readonly ImageView imageView;
 
-        public readonly LogicalDevice Device => image.logicalDevice;
         public readonly bool IsDisposed => image.IsDisposed;
 
         public DepthImage(Swapchain swapchain, Queue graphics)
         {
-            VkFormat depthFormat = swapchain.device.GetDepthFormat();
-            image = new(swapchain.device, swapchain.width, swapchain.height, 1, depthFormat, VkImageUsageFlags.DepthStencilAttachment);
+            VkFormat depthFormat = swapchain.logicalDevice.GetDepthFormat();
+            image = new(swapchain.logicalDevice, swapchain.width, swapchain.height, 1, depthFormat, VkImageUsageFlags.DepthStencilAttachment);
             imageMemory = new(image, VkMemoryPropertyFlags.DeviceLocal);
             imageView = new(image, VkImageAspectFlags.Depth);
 

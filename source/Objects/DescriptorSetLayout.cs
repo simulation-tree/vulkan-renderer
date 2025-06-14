@@ -11,33 +11,20 @@ namespace Vulkan
     {
         public readonly LogicalDevice logicalDevice;
 
-        private readonly VkDescriptorSetLayout value;
-        private bool valid;
+        internal VkDescriptorSetLayout value;
 
-        public readonly VkDescriptorSetLayout Value
-        {
-            get
-            {
-                ThrowIfDisposed();
+        public readonly bool IsDisposed => value.IsNull;
 
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
-
-        public DescriptorSetLayout(LogicalDevice logicalDevice, ReadOnlySpan<VkDescriptorSetLayoutBinding> bindings)
+        public DescriptorSetLayout(LogicalDevice logicalDevice, ReadOnlySpan<DescriptorSetLayoutBinding> bindings)
         {
             this.logicalDevice = logicalDevice;
 
             VkDescriptorSetLayoutCreateInfo createInfo = new();
             createInfo.bindingCount = (uint)bindings.Length;
-            createInfo.pBindings = bindings.GetPointer();
+            createInfo.pBindings = (VkDescriptorSetLayoutBinding*)bindings.GetPointer();
 
-            VkResult result = vkCreateDescriptorSetLayout(logicalDevice.Value, &createInfo, null, out value);
+            VkResult result = vkCreateDescriptorSetLayout(logicalDevice.value, &createInfo, null, out value);
             ThrowIfFailedToCreate(result);
-
-            valid = true;
         }
 
         public DescriptorSetLayout(LogicalDevice logicalDevice, uint binding, VkDescriptorType type, VkShaderStageFlags stageFlags)
@@ -56,10 +43,8 @@ namespace Vulkan
             createInfo.bindingCount = 1;
             createInfo.pBindings = &layoutBinding;
 
-            VkResult result = vkCreateDescriptorSetLayout(logicalDevice.Value, &createInfo, null, out value);
+            VkResult result = vkCreateDescriptorSetLayout(logicalDevice.value, &createInfo, null, out value);
             ThrowIfFailedToCreate(result);
-
-            valid = true;
         }
 
         [Conditional("DEBUG")]
@@ -71,21 +56,12 @@ namespace Vulkan
             }
         }
 
-        [Conditional("DEBUG")]
-        private readonly void ThrowIfFailedToCreate(VkResult result)
-        {
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Failed to create descriptor set layout");
-            }
-        }
-
         public void Dispose()
         {
             ThrowIfDisposed();
 
-            vkDestroyDescriptorSetLayout(logicalDevice.Value, value);
-            valid = false;
+            vkDestroyDescriptorSetLayout(logicalDevice.value, value);
+            value = default;
         }
 
         public readonly override bool Equals(object? obj)
@@ -100,7 +76,16 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException("Failed to create descriptor set layout");
+            }
         }
 
         public static bool operator ==(DescriptorSetLayout left, DescriptorSetLayout right)

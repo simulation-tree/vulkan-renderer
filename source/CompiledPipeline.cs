@@ -1,6 +1,5 @@
 ﻿using Collections.Generic;
 using System;
-using Vortice.Vulkan;
 using Vulkan;
 
 namespace Rendering.Vulkan
@@ -13,19 +12,19 @@ namespace Rendering.Vulkan
         public readonly PipelineLayout pipelineLayout;
         public readonly DescriptorSetLayout setLayout;
 
-        private readonly Array<(VkDescriptorType, uint)> poolTypes;
-        private readonly Array<VkDescriptorSetLayoutBinding> descriptorBindings;
+        private readonly Array<DescriptorPoolSize> poolSizes;
+        private readonly Array<DescriptorSetLayoutBinding> descriptorSetLayoutBindings;
         private readonly List<DescriptorPool> pools;
 
-        public readonly Span<VkDescriptorSetLayoutBinding> DescriptorBindings => descriptorBindings.AsSpan();
+        public readonly Span<DescriptorSetLayoutBinding> DescriptorBindings => descriptorSetLayoutBindings.AsSpan();
 
-        public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, ReadOnlySpan<(VkDescriptorType, uint)> poolTypes, DescriptorSetLayout setLayout, ReadOnlySpan<VkDescriptorSetLayoutBinding> descriptorBindings)
+        public CompiledPipeline(Pipeline pipeline, PipelineLayout pipelineLayout, ReadOnlySpan<DescriptorPoolSize> poolSizes, DescriptorSetLayout setLayout, ReadOnlySpan<DescriptorSetLayoutBinding> descriptorSetLayoutBindings)
         {
             this.pipeline = pipeline;
             this.pipelineLayout = pipelineLayout;
-            this.poolTypes = new(poolTypes);
+            this.poolSizes = new(poolSizes);
             this.setLayout = setLayout;
-            this.descriptorBindings = new(descriptorBindings);
+            this.descriptorSetLayoutBindings = new(descriptorSetLayoutBindings);
             pools = new();
             CreateNewPool();
         }
@@ -38,30 +37,32 @@ namespace Rendering.Vulkan
             }
 
             pools.Dispose();
-            descriptorBindings.Dispose();
+            descriptorSetLayoutBindings.Dispose();
             setLayout.Dispose();
-            poolTypes.Dispose();
+            poolSizes.Dispose();
             pipeline.Dispose();
             pipelineLayout.Dispose();
         }
 
-        private readonly void CreateNewPool()
+        private readonly DescriptorPool CreateNewPool()
         {
-            pools.Add(new DescriptorPool(pipelineLayout.logicalDevice, poolTypes.AsSpan(), DescriptorSets));
+            DescriptorPool newPool = new(pipelineLayout.logicalDevice, poolSizes.AsSpan(), DescriptorSets);
+            pools.Add(newPool);
+            return newPool;
         }
 
         public readonly DescriptorSet Allocate()
         {
-            DescriptorPool lastPool = pools[pools.Count - 1];
-            if (lastPool.TryAllocate(setLayout, out DescriptorSet descriptorSet))
+            Span<DescriptorPool> pools = this.pools.AsSpan();
+            DescriptorPool pool = pools[pools.Length - 1];
+            if (pool.TryAllocate(setLayout, out DescriptorSet descriptorSet))
             {
                 return descriptorSet;
             }
             else
             {
-                CreateNewPool();
-                lastPool = pools[pools.Count - 1];
-                return lastPool.Allocate(setLayout);
+                pool = CreateNewPool();
+                return pool.Allocate(setLayout);
             }
         }
     }

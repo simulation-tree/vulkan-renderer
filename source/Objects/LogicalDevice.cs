@@ -20,19 +20,9 @@ namespace Vulkan
 
         public readonly PhysicalDevice physicalDevice;
 
-        private readonly VkDevice value;
-        private bool valid;
+        internal VkDevice value;
 
-        public readonly VkDevice Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         public LogicalDevice(PhysicalDevice physicalDevice, Span<uint> queueFamilies, Span<ASCIIText256> deviceExtensions)
         {
@@ -76,13 +66,9 @@ namespace Vulkan
 #endif
             };
 
-            VkResult result = vkCreateDevice(physicalDevice.Value, &createInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create logical device: {result}");
-            }
+            VkResult result = vkCreateDevice(physicalDevice.value, &createInfo, null, out value);
+            ThrowIfUnableToCreate(result);
 
-            valid = true;
             vkLoadDevice(value);
         }
 
@@ -98,8 +84,9 @@ namespace Vulkan
         public void Dispose()
         {
             ThrowIfDisposed();
+
             vkDestroyDevice(value);
-            valid = false;
+            value = default;
         }
 
         /// <summary>
@@ -109,6 +96,7 @@ namespace Vulkan
         public readonly void Wait()
         {
             ThrowIfDisposed();
+
             vkDeviceWaitIdle(value);
         }
 
@@ -121,10 +109,11 @@ namespace Vulkan
         public readonly VkFormat GetSupportedFormat(ReadOnlySpan<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
         {
             ThrowIfDisposed();
+
             foreach (VkFormat format in candidates)
             {
                 VkFormatProperties properties;
-                vkGetPhysicalDeviceFormatProperties(physicalDevice.Value, format, &properties);
+                vkGetPhysicalDeviceFormatProperties(physicalDevice.value, format, &properties);
 
                 if (tiling == VkImageTiling.Linear && (properties.linearTilingFeatures & features) == features)
                 {
@@ -139,16 +128,22 @@ namespace Vulkan
             throw new InvalidOperationException("Failed to find supported format");
         }
 
-        public readonly uint GetMemoryTypeIndex(uint typeFilter, VkMemoryPropertyFlags properties)
+        /// <summary>
+        /// Retrieves the index for a suitable memory type based on the given
+        /// <paramref name="memoryRequirements"/> and <paramref name="propertyFlags"/>.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
+        public readonly uint GetMemoryTypeIndex(VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags propertyFlags)
         {
             ThrowIfDisposed();
-            vkGetPhysicalDeviceMemoryProperties(physicalDevice.Value, out VkPhysicalDeviceMemoryProperties memoryProperties);
-            for (uint i = 0; i < memoryProperties.memoryTypeCount; i++)
+
+            vkGetPhysicalDeviceMemoryProperties(physicalDevice.value, out VkPhysicalDeviceMemoryProperties memoryProperties);
+            for (int i = 0; i < memoryProperties.memoryTypeCount; i++)
             {
-                VkMemoryType memoryType = memoryProperties.memoryTypes[(int)i];
-                if ((typeFilter & (1 << (int)i)) != 0 && (memoryType.propertyFlags & properties) == properties)
+                if ((memoryRequirements.memoryTypeBits & (1 << i)) != 0 && (memoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
                 {
-                    return i;
+                    //contains the type and the properties
+                    return (uint)i;
                 }
             }
 
@@ -163,13 +158,14 @@ namespace Vulkan
 
         public readonly VkResult TryAcquireNextImage(Swapchain swapchain, Semaphore pullSemaphore, Fence fence, out uint imageIndex)
         {
-            return TryAcquireNextImage(swapchain, ulong.MaxValue, pullSemaphore, fence, out imageIndex);
+            ThrowIfDisposed();
+            return vkAcquireNextImageKHR(value, swapchain.value, ulong.MaxValue, pullSemaphore.value, fence.value, out imageIndex);
         }
 
         public readonly VkResult TryAcquireNextImage(Swapchain swapchain, ulong timeout, Semaphore pullSemaphore, Fence fence, out uint imageIndex)
         {
             ThrowIfDisposed();
-            return vkAcquireNextImageKHR(value, swapchain.Value, timeout, pullSemaphore.IsDisposed ? VkSemaphore.Null : pullSemaphore.Value, fence.IsDisposed ? VkFence.Null : fence.Value, out imageIndex);
+            return vkAcquireNextImageKHR(value, swapchain.value, timeout, pullSemaphore.value, fence.value, out imageIndex);
         }
 
         public readonly override bool Equals(object? obj)
@@ -185,6 +181,15 @@ namespace Vulkan
         public readonly override int GetHashCode()
         {
             return HashCode.Combine(value);
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException($"Unable to create logical device: {result}");
+            }
         }
 
         public static bool operator ==(LogicalDevice left, LogicalDevice right)

@@ -7,24 +7,13 @@ namespace Vulkan
 {
     public unsafe struct Sampler : IDisposable, IEquatable<Sampler>
     {
-        public readonly LogicalDevice device;
+        public readonly LogicalDevice logicalDevice;
 
-        private readonly VkSampler value;
-        private bool valid;
+        internal VkSampler value;
 
-        public readonly VkSampler Value
-        {
-            get
-            {
-                ThrowIfDisposed();
+        public readonly bool IsDisposed => value.IsNull;
 
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
-
-        public Sampler(LogicalDevice device, SamplerCreateParameters createInfo)
+        public Sampler(LogicalDevice logicalDevice, SamplerCreateParameters createInfo)
         {
             VkSamplerCreateInfo vkCreateInfo = new();
             vkCreateInfo.magFilter = createInfo.magFilter;
@@ -35,7 +24,7 @@ namespace Vulkan
             vkCreateInfo.addressModeW = createInfo.addressModeW;
             vkCreateInfo.anisotropyEnable = createInfo.anisotropy;
 
-            VkPhysicalDeviceProperties properties = device.physicalDevice.GetProperties();
+            VkPhysicalDeviceProperties properties = logicalDevice.physicalDevice.GetProperties();
             vkCreateInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
             vkCreateInfo.borderColor = VkBorderColor.IntOpaqueBlack;
             vkCreateInfo.unnormalizedCoordinates = false;
@@ -45,22 +34,18 @@ namespace Vulkan
             vkCreateInfo.minLod = createInfo.minLod;
             vkCreateInfo.maxLod = createInfo.maxLod;
 
-            VkResult result = vkCreateSampler(device.Value, &vkCreateInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to create sampler: {result}");
-            }
+            VkResult result = vkCreateSampler(logicalDevice.value, &vkCreateInfo, null, out value);
+            ThrowIfUnableToCreate(result);
 
-            this.device = device;
-            valid = true;
+            this.logicalDevice = logicalDevice;
         }
 
         public void Dispose()
         {
             ThrowIfDisposed();
 
-            vkDestroySampler(device.Value, value);
-            valid = false;
+            vkDestroySampler(logicalDevice.value, value);
+            value = default;
         }
 
         [Conditional("DEBUG")]
@@ -79,17 +64,21 @@ namespace Vulkan
 
         public readonly bool Equals(Sampler other)
         {
-            if (IsDisposed && other.IsDisposed)
-            {
-                return true;
-            }
-
             return value.Equals(other.value);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException($"Failed to create sampler: {result}");
+            }
         }
 
         public static bool operator ==(Sampler left, Sampler right)

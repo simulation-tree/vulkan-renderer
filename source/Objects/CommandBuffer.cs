@@ -16,26 +16,14 @@ namespace Vulkan
     {
         public readonly CommandPool commandPool;
 
-        private readonly VkCommandBuffer value;
-        private bool valid;
+        internal VkCommandBuffer value;
 
-        public readonly VkCommandBuffer Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         internal CommandBuffer(CommandPool commandPool, VkCommandBuffer value)
         {
             this.commandPool = commandPool;
             this.value = value;
-            valid = true;
         }
 
         [Conditional("DEBUG")]
@@ -47,39 +35,12 @@ namespace Vulkan
             }
         }
 
-        [Conditional("DEBUG")]
-        private static void ThrowIfFailedToReset(VkResult result)
-        {
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to reset command buffer: {result}");
-            }
-        }
-
-        [Conditional("DEBUG")]
-        private static void ThrowIfFailedToBegin(VkResult result)
-        {
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to begin command buffer: {result}");
-            }
-        }
-
-        [Conditional("DEBUG")]
-        private static void ThrowIfFailedToEnd(VkResult result)
-        {
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to end command buffer: {result}");
-            }
-        }
-
         public void Dispose()
         {
             ThrowIfDisposed();
 
-            vkFreeCommandBuffers(commandPool.logicalDevice.Value, commandPool.Value, value);
-            valid = false;
+            vkFreeCommandBuffers(commandPool.logicalDevice.value, commandPool.value, value);
+            value = default;
         }
 
         /// <summary>
@@ -156,7 +117,7 @@ namespace Vulkan
                 newLayout = newLayout,
                 srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                image = image.Value,
+                image = image.value,
                 subresourceRange = new VkImageSubresourceRange(aspects, 0, 1, 0, layerCount)
             };
 
@@ -211,8 +172,8 @@ namespace Vulkan
             clearValue[1].depthStencil = new VkClearDepthStencilValue(1.0f, 0);
             VkRenderPassBeginInfo renderPassBeginInfo = new()
             {
-                renderPass = renderPass.Value,
-                framebuffer = framebuffer.Value,
+                renderPass = renderPass.value,
+                framebuffer = framebuffer.value,
                 renderArea = new VkRect2D((int)area.X, (int)area.Y, (uint)area.Z, (uint)area.W),
                 clearValueCount = 2,
                 pClearValues = clearValue.GetPointer()
@@ -232,21 +193,21 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            vkCmdBindPipeline(value, point, pipeline.Value);
+            vkCmdBindPipeline(value, point, pipeline.value);
         }
 
         public readonly void BindVertexBuffer(VertexBuffer vertexBuffer, uint binding = 0, uint offset = 0)
         {
             ThrowIfDisposed();
 
-            vkCmdBindVertexBuffer(value, binding, vertexBuffer.bufferDeviceMemory.buffer.Value, offset);
+            vkCmdBindVertexBuffer(value, binding, vertexBuffer.bufferDeviceMemory.buffer.value, offset);
         }
 
         public readonly void BindIndexBuffer(IndexBuffer indexBuffer, uint offset = 0)
         {
             ThrowIfDisposed();
 
-            vkCmdBindIndexBuffer(value, indexBuffer.bufferDeviceMemory.buffer.Value, offset, VkIndexType.Uint32);
+            vkCmdBindIndexBuffer(value, indexBuffer.bufferDeviceMemory.buffer.value, offset, VkIndexType.Uint32);
         }
 
         public readonly void BindDescriptorSets(PipelineLayout layout, Span<DescriptorSet> descriptorSets, uint set = 0)
@@ -256,10 +217,10 @@ namespace Vulkan
             Span<VkDescriptorSet> descriptorSetValue = stackalloc VkDescriptorSet[descriptorSets.Length];
             for (int i = 0; i < descriptorSets.Length; i++)
             {
-                descriptorSetValue[i] = descriptorSets[i].Value;
+                descriptorSetValue[i] = descriptorSets[i].value;
             }
 
-            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue.GetPointer(), descriptorSets.Length));
+            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue.GetPointer(), descriptorSets.Length));
         }
 
         public readonly void BindDescriptorSet(PipelineLayout layout, DescriptorSet descriptorSet, uint set = 0)
@@ -267,22 +228,22 @@ namespace Vulkan
             ThrowIfDisposed();
 
             Span<VkDescriptorSet> descriptorSetValue = stackalloc VkDescriptorSet[1];
-            descriptorSetValue[0] = descriptorSet.Value;
-            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.Value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue.GetPointer(), 1));
+            descriptorSetValue[0] = descriptorSet.value;
+            vkCmdBindDescriptorSets(value, VkPipelineBindPoint.Graphics, layout.value, set, new ReadOnlySpan<VkDescriptorSet>(descriptorSetValue.GetPointer(), 1));
         }
 
         public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags stage, Span<byte> data, uint offset = 0)
         {
             ThrowIfDisposed();
 
-            vkCmdPushConstants(value, layout.Value, stage, offset, (uint)data.Length, data.GetPointer());
+            vkCmdPushConstants(value, layout.value, stage, offset, (uint)data.Length, data.GetPointer());
         }
 
         public unsafe readonly void PushConstants(PipelineLayout layout, VkShaderStageFlags flags, MemoryAddress data, uint byteLength, uint offset = 0)
         {
             ThrowIfDisposed();
 
-            vkCmdPushConstants(value, layout.Value, flags, offset, byteLength, data.Pointer);
+            vkCmdPushConstants(value, layout.value, flags, offset, byteLength, data.Pointer);
         }
 
         public readonly void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)
@@ -304,8 +265,8 @@ namespace Vulkan
             VkBufferCopy region = default;
             region.dstOffset = 0;
             region.srcOffset = 0;
-            region.size = (uint)source.size;
-            vkCmdCopyBuffer(value, source.Value, destination.Value, 1, &region);
+            region.size = source.byteLength;
+            vkCmdCopyBuffer(value, source.value, destination.value, 1, &region);
         }
 
         /// <summary>
@@ -325,7 +286,7 @@ namespace Vulkan
                 imageExtent = new VkExtent3D(destinationImage.width, destinationImage.height, depth)
             };
 
-            vkCmdCopyBufferToImage(value, sourceBuffer.Value, destinationImage.Value, VkImageLayout.TransferDstOptimal, 1, &region);
+            vkCmdCopyBufferToImage(value, sourceBuffer.value, destinationImage.value, VkImageLayout.TransferDstOptimal, 1, &region);
         }
 
         /// <summary>
@@ -348,7 +309,7 @@ namespace Vulkan
                 imageExtent = new VkExtent3D(destinationImage.width, destinationImage.height, depth)
             };
 
-            vkCmdCopyBufferToImage(value, sourceBuffer.Value, destinationImage.Value, VkImageLayout.TransferDstOptimal, 1, &bufferImageCopy);
+            vkCmdCopyBufferToImage(value, sourceBuffer.value, destinationImage.value, VkImageLayout.TransferDstOptimal, 1, &bufferImageCopy);
         }
 
         public readonly void CopyBufferTo(BufferDeviceMemory source, BufferDeviceMemory destination)
@@ -358,8 +319,8 @@ namespace Vulkan
             VkBufferCopy region = default;
             region.dstOffset = 0;
             region.srcOffset = 0;
-            region.size = (uint)source.buffer.size;
-            vkCmdCopyBuffer(value, source.buffer.Value, destination.buffer.Value, 1, &region);
+            region.size = source.buffer.byteLength;
+            vkCmdCopyBuffer(value, source.buffer.value, destination.buffer.value, 1, &region);
         }
 
         public readonly void CopyBufferTo(Buffer source, Buffer destination, ulong size)
@@ -370,7 +331,7 @@ namespace Vulkan
             region.dstOffset = 0;
             region.srcOffset = 0;
             region.size = size;
-            vkCmdCopyBuffer(value, source.Value, destination.Value, 1, &region);
+            vkCmdCopyBuffer(value, source.value, destination.value, 1, &region);
         }
 
         public readonly void CopyBufferTo(BufferDeviceMemory source, BufferDeviceMemory destination, ulong size)
@@ -381,7 +342,7 @@ namespace Vulkan
             region.dstOffset = 0;
             region.srcOffset = 0;
             region.size = size;
-            vkCmdCopyBuffer(value, source.buffer.Value, destination.buffer.Value, 1, &region);
+            vkCmdCopyBuffer(value, source.buffer.value, destination.buffer.value, 1, &region);
         }
 
         public readonly override bool Equals(object? obj)
@@ -391,17 +352,39 @@ namespace Vulkan
 
         public readonly bool Equals(CommandBuffer other)
         {
-            if (IsDisposed && other.IsDisposed)
-            {
-                return true;
-            }
-
             return value.Equals(other.value);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToReset(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to reset command buffer: {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToBegin(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to begin command buffer: {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToEnd(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to end command buffer: {result}");
+            }
         }
 
         public static bool operator ==(CommandBuffer left, CommandBuffer right)

@@ -12,20 +12,9 @@ namespace Vulkan
         public readonly uint height;
         public readonly VkFormat format;
 
-        private readonly VkImage value;
-        private bool valid;
+        internal VkImage value;
 
-        public readonly VkImage Value
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return value;
-            }
-        }
-
-        public readonly bool IsDisposed => !valid;
+        public readonly bool IsDisposed => value.IsNull;
 
         internal Image(LogicalDevice logicalDevice, VkImage existingImage, uint width, uint height, VkFormat format)
         {
@@ -34,7 +23,6 @@ namespace Vulkan
             this.width = width;
             this.height = height;
             value = existingImage;
-            valid = true;
         }
 
         public Image(LogicalDevice logicalDevice, uint width, uint height, uint depth, VkFormat format, VkImageUsageFlags usage, bool isCubemap = false)
@@ -59,13 +47,8 @@ namespace Vulkan
             createInfo.samples = VkSampleCountFlags.Count1;
             createInfo.sharingMode = VkSharingMode.Exclusive;
 
-            VkResult result = vkCreateImage(logicalDevice.Value, &createInfo, null, out value);
-            if (result != VkResult.Success)
-            {
-                throw new InvalidOperationException("Failed to create image");
-            }
-
-            valid = true;
+            VkResult result = vkCreateImage(logicalDevice.value, &createInfo, null, out value);
+            ThrowIfUnableToCreate(result);
         }
 
         public void Dispose()
@@ -73,8 +56,8 @@ namespace Vulkan
             ThrowIfDisposed();
 
             logicalDevice.Wait();
-            vkDestroyImage(logicalDevice.Value, value);
-            valid = false;
+            vkDestroyImage(logicalDevice.value, value);
+            value = default;
         }
 
         [Conditional("DEBUG")]
@@ -93,17 +76,21 @@ namespace Vulkan
 
         public readonly bool Equals(Image other)
         {
-            if (IsDisposed && other.IsDisposed)
-            {
-                return true;
-            }
-
             return value.Equals(other.value);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfUnableToCreate(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException($"Failed to create image: {result}");
+            }
         }
 
         public static bool operator ==(Image left, Image right)

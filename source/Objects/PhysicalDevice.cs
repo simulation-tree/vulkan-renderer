@@ -6,9 +6,7 @@ namespace Vulkan
 {
     public readonly struct PhysicalDevice : IEquatable<PhysicalDevice>
     {
-        private readonly VkPhysicalDevice value;
-
-        public readonly VkPhysicalDevice Value => value;
+        internal readonly VkPhysicalDevice value;
 
         internal PhysicalDevice(VkPhysicalDevice value)
         {
@@ -44,7 +42,7 @@ namespace Vulkan
         public unsafe readonly VkSurfaceCapabilitiesKHR GetSurfaceCapabilities(Surface surface)
         {
             VkSurfaceCapabilitiesKHR capabilities = default;
-            VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(value, surface.Value, &capabilities);
+            VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(value, surface.value, &capabilities);
             if (result != VkResult.Success)
             {
                 throw new Exception($"Failed to get physical device surface capabilities: {result}");
@@ -55,12 +53,12 @@ namespace Vulkan
 
         public readonly ReadOnlySpan<VkSurfaceFormatKHR> GetSurfaceFormats(Surface surface)
         {
-            return vkGetPhysicalDeviceSurfaceFormatsKHR(value, surface.Value);
+            return vkGetPhysicalDeviceSurfaceFormatsKHR(value, surface.value);
         }
 
         public readonly ReadOnlySpan<VkPresentModeKHR> GetSurfacePresentModes(Surface surface)
         {
-            return vkGetPhysicalDeviceSurfacePresentModesKHR(value, surface.Value);
+            return vkGetPhysicalDeviceSurfacePresentModesKHR(value, surface.value);
         }
 
         public readonly VkPhysicalDeviceLimits GetLimits()
@@ -91,7 +89,7 @@ namespace Vulkan
                     continue;
                 }
 
-                vkGetPhysicalDeviceSurfaceSupportKHR(value, i, surface.Value, out VkBool32 supportsPresenting);
+                vkGetPhysicalDeviceSurfaceSupportKHR(value, i, surface.value, out VkBool32 supportsPresenting);
                 if (supportsPresenting)
                 {
                     presentFamily = i;
