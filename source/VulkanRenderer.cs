@@ -499,7 +499,7 @@ namespace Rendering.Vulkan
 
                 if (!containsBinding)
                 {
-                    throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(EntityComponentBinding).Name}` to bind a component to property at `{uniformProperty.label}`({uniformProperty.binding})");
+                    throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(EntityComponentBinding).Name}` to bind a component to property at `{uniformProperty.name}`({uniformProperty.binding})");
                 }
             }
 
@@ -544,7 +544,7 @@ namespace Rendering.Vulkan
 
                 if (!containsBinding)
                 {
-                    throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(StorageBufferBinding).Name}` to bind a storage buffer to property at `{storageBuffer.label}`({storageBuffer.binding})");
+                    throw new InvalidOperationException($"Material `{material}` is missing a `{typeof(StorageBufferBinding).Name}` to bind a storage buffer to property at `{storageBuffer.name}`({storageBuffer.binding})");
                 }
             }
 
