@@ -50,6 +50,7 @@ namespace Rendering.Vulkan
         private readonly int meshType;
         private readonly int worldRendererScissorType;
         private readonly int textureBindingType;
+        private readonly int shaderVertexInputAttributeType;
 
         private Array<ImageView> surfaceImageViews;
         private Array<Framebuffer> swapChainFramebuffers;
@@ -110,6 +111,7 @@ namespace Rendering.Vulkan
             meshType = schema.GetComponentType<IsMesh>();
             worldRendererScissorType = schema.GetComponentType<WorldRendererScissor>();
             textureBindingType = schema.GetArrayType<TextureBinding>();
+            shaderVertexInputAttributeType = schema.GetArrayType<ShaderVertexInputAttribute>();
         }
 
         /// <summary>
@@ -364,11 +366,11 @@ namespace Rendering.Vulkan
         {
             IsMesh mesh = world.GetComponent<IsMesh>(meshEntity, meshType);
             int vertexCount = mesh.vertexCount;
-            Values<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetArray<ShaderVertexInputAttribute>(vertexShaderEntity);
+            Span<ShaderVertexInputAttribute> shaderVertexAttributes = world.GetArray<ShaderVertexInputAttribute>(vertexShaderEntity, shaderVertexInputAttributeType);
             Span<MeshChannel> channels = stackalloc MeshChannel[shaderVertexAttributes.Length];
             for (int i = 0; i < shaderVertexAttributes.Length; i++)
             {
-                ref ShaderVertexInputAttribute vertexAttribute = ref shaderVertexAttributes[i];
+                ShaderVertexInputAttribute vertexAttribute = shaderVertexAttributes[i];
                 if (vertexAttribute.TryDeduceMeshChannel(out MeshChannel channel))
                 {
                     if (!mesh.channels.Contains(channel))
@@ -938,9 +940,14 @@ namespace Rendering.Vulkan
             //build and render everything in one go
             Span<IsTexture> textureComponentsSpan = textureComponents.AsSpan();
             ref CommandBuffer commandBuffer = ref commandBuffers[currentFrame];
+            Span<CompiledRenderer> renderersSpan = renderers.AsSpan();
+            Span<Vector4> scissorsSpan = scissors.AsSpan();
+            ReadOnlySpan<Slot> slots = world.Slots;
             for (int i = 0; i < renderEntities.Length; i++)
             {
                 RenderEntity renderEntity = renderEntities[i];
+                uint entity = renderEntity.entity;
+                Slot slot = slots[(int)entity];
 
                 //deal with missing or outdated shaders
                 uint vertexShaderEntity = renderEntity.vertexShaderEntity;
@@ -1023,8 +1030,7 @@ namespace Rendering.Vulkan
                 }
 
                 //deal with missing or outdated renderers
-                uint entity = renderEntity.entity;
-                ref CompiledRenderer compiledRenderer = ref renderers[(int)entity];
+                ref CompiledRenderer compiledRenderer = ref renderersSpan[(int)entity];
                 if (containsPipeline && compiledRenderer != default)
                 {
                     if (textureBindingsChanged || shaderVersionChanged)
@@ -1046,37 +1052,26 @@ namespace Rendering.Vulkan
                 commandBuffer.BindVertexBuffer(compiledMesh.vertexBuffer);
                 commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
 
+                //apply scissor
+                commandBuffer.SetScissor(scissorsSpan[(int)entity]);
+
+                //push constants
                 if (knownPushConstants.TryGetValue(materialEntity, out Array<CompiledPushConstant> pushConstants))
                 {
-                    //apply scissor
-                    ref Vector4 scissor = ref scissors[(int)entity];
-                    commandBuffer.SetScissor(scissor);
-
-                    //push constants
                     int pushOffset = 0;
-                    for (int p = 0; p < pushConstants.Length; p++)
+                    Span<CompiledPushConstant> pushConstantsSpan = pushConstants.AsSpan();
+                    for (int p = 0; p < pushConstantsSpan.Length; p++)
                     {
-                        ref CompiledPushConstant pushConstant = ref pushConstants[p];
+                        ref CompiledPushConstant pushConstant = ref pushConstantsSpan[p];
                         DataType componentType = pushConstant.componentType;
-                        MemoryAddress component = world.GetComponent(entity, componentType.index, out int componentSize);
+                        MemoryAddress component = slot.GetComponent(componentType.index);
                         commandBuffer.PushConstants(compiledPipeline.pipelineLayout, pushConstant.stageFlags, component, pushConstant.componentType.size, (uint)pushOffset);
-                        pushOffset += componentSize;
+                        pushOffset += pushConstant.componentType.size;
                     }
-
-                    ref CompiledRenderer renderer = ref renderers[(int)entity];
-                    commandBuffer.BindDescriptorSet(compiledPipeline.pipelineLayout, renderer.descriptorSet);
-                    commandBuffer.DrawIndexed(compiledMesh.indexCount, 1, 0, 0, 0);
                 }
-                else
-                {
-                    //apply scissor
-                    ref Vector4 scissor = ref scissors[(int)entity];
-                    commandBuffer.SetScissor(scissor);
 
-                    ref CompiledRenderer renderer = ref renderers[(int)entity];
-                    commandBuffer.BindDescriptorSet(compiledPipeline.pipelineLayout, renderer.descriptorSet);
-                    commandBuffer.DrawIndexed(compiledMesh.indexCount, 1, 0, 0, 0);
-                }
+                commandBuffer.BindDescriptorSet(compiledPipeline.pipelineLayout, compiledRenderer.descriptorSet);
+                commandBuffer.DrawIndexed(compiledMesh.indexCount, 1, 0, 0, 0);
 
                 previouslyRenderedEntities.Add(entity);
                 previouslyRenderedGroups.TryAdd(new(materialEntity, meshEntity, vertexShaderEntity, fragmentShaderEntity));
