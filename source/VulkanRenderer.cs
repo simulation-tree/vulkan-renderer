@@ -1217,7 +1217,7 @@ namespace Rendering.Vulkan
             }
 
             //dispose unused meshes
-            Span<RendererKey> toRemoveKeys = stackalloc RendererKey[256];
+            Span<RendererKey> toRemoveKeys = stackalloc RendererKey[Math.Max(pipelineKeys.Length, meshKeys.Length)];
             for (int i = 0; i < meshKeys.Length; i++)
             {
                 RendererKey key = meshKeys[i];
