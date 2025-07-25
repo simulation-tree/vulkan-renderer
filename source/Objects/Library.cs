@@ -1,6 +1,7 @@
 ﻿using Collections.Generic;
 using Rendering;
 using System;
+using System.Diagnostics;
 using Unmanaged;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
@@ -65,19 +66,13 @@ namespace Vulkan
         {
             uint count = 0;
             VkResult result = vkEnumerateInstanceLayerProperties(&count, null);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to enumerate instance layer properties: {result}");
-            }
+            ThrowIfFailedToEnumerateInstanceLayerProperties(result);
 
             if (count > 0)
             {
                 VkLayerProperties* properties = stackalloc VkLayerProperties[(int)count];
                 result = vkEnumerateInstanceLayerProperties(&count, properties);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception($"Failed to enumerate instance layer properties: {result}");
-                }
+                ThrowIfFailedToEnumerateInstanceLayerProperties(result);
 
                 Array<ASCIIText256> availableInstanceLayers = new((int)count);
                 for (int i = 0; i < count; i++)
@@ -100,19 +95,13 @@ namespace Vulkan
         {
             uint count = 0;
             VkResult result = vkEnumerateInstanceExtensionProperties(&count, null);
-            if (result != VkResult.Success)
-            {
-                throw new Exception($"Failed to enumerate instance extension properties: {result}");
-            }
+            ThrowIfFailedToEnumerateInstanceExtensionProperties(result);
 
             if (count > 0)
             {
                 VkExtensionProperties* extensionProperties = stackalloc VkExtensionProperties[(int)count];
                 result = vkEnumerateInstanceExtensionProperties(&count, extensionProperties);
-                if (result != VkResult.Success)
-                {
-                    throw new Exception($"Failed to enumerate instance extension properties: {result}");
-                }
+                ThrowIfFailedToEnumerateInstanceExtensionProperties(result);
 
                 Array<ASCIIText256> availableInstanceExtensions = new((int)count);
                 for (int i = 0; i < count; i++)
@@ -141,6 +130,24 @@ namespace Vulkan
         public readonly override int GetHashCode()
         {
             return HashCode.Combine(version, name);
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToEnumerateInstanceLayerProperties(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to enumerate instance layer properties: {result}");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfFailedToEnumerateInstanceExtensionProperties(VkResult result)
+        {
+            if (result != VkResult.Success)
+            {
+                throw new Exception($"Failed to enumerate instance extension properties: {result}");
+            }
         }
 
         public static bool operator ==(Library left, Library right)
