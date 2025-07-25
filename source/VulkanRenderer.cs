@@ -377,11 +377,14 @@ namespace Rendering.Vulkan
                     {
                         if (channel == MeshChannel.Color)
                         {
-                            //safe to assume (1, 1, 1, 1) is default for colors if needed and its missing
-                            Span<Vector4> defaultColors = world.CreateArray<MeshVertexColor>(meshEntity, vertexCount).AsSpan<Vector4>();
-                            for (int v = 0; v < vertexCount; v++)
+                            if (!world.ContainsArray<MeshVertexColor>(meshEntity))
                             {
-                                defaultColors[v] = new(1, 1, 1, 1);
+                                //safe to assume (1, 1, 1, 1) is default for colors if needed and its missing
+                                Span<Vector4> defaultColors = world.CreateArray<MeshVertexColor>(meshEntity, vertexCount).AsSpan<Vector4>();
+                                for (int v = 0; v < vertexCount; v++)
+                                {
+                                    defaultColors[v] = new(1, 1, 1, 1);
+                                }
                             }
                         }
                         else if (channel == MeshChannel.Normal)
@@ -650,7 +653,8 @@ namespace Rendering.Vulkan
                 IsTexture textureComponent = textureComponents[(int)textureEntity];
                 if (textureComponent == default)
                 {
-                    throw new InvalidOperationException($"Material `{material}` references entity `{textureEntity}` that doesn't qualify as a texture");
+                    Slot textureEntitySlot = world.GetSlot(textureEntity);
+                    throw new InvalidOperationException($"Material `{material}` references texture entity `{textureEntity}`, which doesn't qualify as a texture");
                 }
 
                 uint textureHash = GetTextureHash(materialEntity, binding);
