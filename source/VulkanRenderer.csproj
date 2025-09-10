@@ -19,17 +19,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Vortice.Vulkan" Version="2.2.0"/>
+    <PackageReference Include="Vortice.Vulkan" Version="2.2.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\rendering-systems\source\Rendering.Systems.csproj"/>
-    <ProjectReference Include="..\..\textures\source\Textures.csproj"/>
+    <ProjectReference Include="..\..\rendering-systems\source\Rendering.Systems.csproj" />
+    <ProjectReference Include="..\..\textures\source\Textures.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="bin/**/*" Pack="true" PackagePath="lib" Visible="false"/>
-    <Content Include="buildTransitive/**/*" Pack="true" PackagePath="buildTransitive"/>
+    <Content Include="bin/**/*" Pack="true" PackagePath="lib" Visible="false" />
+    <Content Include="buildTransitive/**/*" Pack="true" PackagePath="buildTransitive" />
   </ItemGroup>
 
 </Project>
