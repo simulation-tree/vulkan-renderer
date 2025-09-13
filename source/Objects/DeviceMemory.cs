@@ -149,7 +149,7 @@ namespace Vulkan
             VkResult result = vkMapMemory(logicalDevice.value, value, 0, byteLength, 0, &byteData);
             ThrowIfUnableToMap(result);
 
-            new Span<byte>(sourceData.Pointer, sourceByteLength).CopyTo(new Span<byte>(byteData, sourceByteLength));
+            new Span<byte>(sourceData.pointer, sourceByteLength).CopyTo(new Span<byte>(byteData, sourceByteLength));
             vkUnmapMemory(logicalDevice.value, value);
         }
 
@@ -165,7 +165,7 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(value);
+            return value.GetHashCode();
         }
 
         [Conditional("DEBUG")]

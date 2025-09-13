@@ -1340,25 +1340,19 @@ namespace Rendering.Vulkan
 
         private static uint GetTextureHash(uint materialEntity, TextureBinding binding)
         {
-            unchecked
-            {
-                int hash = 17;
-                hash = hash * 31 + (int)materialEntity;
-                hash = hash * 31 + binding.key.GetHashCode();
-                hash = hash * 31 + (int)binding.Entity;
-                return (uint)hash;
-            }
+            int hash = 17;
+            hash = hash * 31 + (int)materialEntity;
+            hash = hash * 31 + binding.key.GetHashCode();
+            hash = hash * 31 + (int)binding.Entity;
+            return (uint)hash;
         }
 
         private static uint GetComponentHash(uint materialEntity, EntityComponentBinding binding)
         {
-            unchecked
-            {
-                int hash = 17;
-                hash = hash * 31 + (int)materialEntity;
-                hash = hash * 31 + binding.GetHashCode();
-                return (uint)hash;
-            }
+            int hash = 17;
+            hash = hash * 31 + (int)materialEntity;
+            hash = hash * 31 + binding.GetHashCode();
+            return (uint)hash;
         }
     }
 }

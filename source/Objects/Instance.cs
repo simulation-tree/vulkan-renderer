@@ -169,7 +169,7 @@ namespace Vulkan
                 int byteLength = instanceLayer.CopyTo(nameBuffer) + 1;
                 MemoryAddress newAllocation = MemoryAddress.Allocate(byteLength);
                 newAllocation.CopyFrom(nameBuffer.Slice(0, byteLength));
-                vkInstanceLayers.Add(new(newAllocation.Pointer));
+                vkInstanceLayers.Add(new(newAllocation.pointer));
                 tempAllocations.Add(newAllocation);
                 nameBuffer.Clear();
             }
@@ -180,7 +180,7 @@ namespace Vulkan
                 int byteLength = instanceExtension.value.CopyTo(nameBuffer) + 1;
                 MemoryAddress newAllocation = MemoryAddress.Allocate(byteLength);
                 newAllocation.CopyFrom(nameBuffer.Slice(0, byteLength));
-                vkInstanceExtensions.Add(new(newAllocation.Pointer));
+                vkInstanceExtensions.Add(new(newAllocation.pointer));
                 tempAllocations.Add(newAllocation);
                 nameBuffer.Clear();
             }

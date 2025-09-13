@@ -36,7 +36,12 @@ namespace Rendering.Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(vertexVersion, vertexShader, fragmentShader);
+            int hash = 17;
+            hash = hash * 31 + vertexVersion;
+            hash = hash * 31 + fragmentVersion;
+            hash = hash * 31 + vertexShader.GetHashCode();
+            hash = hash * 31 + fragmentShader.GetHashCode();
+            return hash;
         }
 
         public static bool operator ==(CompiledShader left, CompiledShader right)

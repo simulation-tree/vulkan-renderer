@@ -29,7 +29,7 @@ namespace Rendering.Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(descriptorSet);
+            return descriptorSet.GetHashCode();
         }
 
         public static bool operator ==(CompiledRenderer left, CompiledRenderer right)

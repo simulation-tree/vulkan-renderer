@@ -243,7 +243,7 @@ namespace Vulkan
         {
             ThrowIfDisposed();
 
-            vkCmdPushConstants(value, layout.value, flags, offset, byteLength, data.Pointer);
+            vkCmdPushConstants(value, layout.value, flags, offset, byteLength, data.pointer);
         }
 
         public readonly void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)

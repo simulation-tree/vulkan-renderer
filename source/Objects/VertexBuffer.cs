@@ -45,7 +45,7 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(bufferDeviceMemory);
+            return bufferDeviceMemory.GetHashCode();
         }
 
         public static bool operator ==(VertexBuffer left, VertexBuffer right)

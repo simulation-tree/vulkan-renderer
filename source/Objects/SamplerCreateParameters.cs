@@ -69,23 +69,20 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            unchecked
-            {
-                int hash = 17;
-                hash = hash * 23 + magFilter.GetHashCode();
-                hash = hash * 23 + minFilter.GetHashCode();
-                hash = hash * 23 + mipmapMode.GetHashCode();
-                hash = hash * 23 + anisotropy.GetHashCode();
-                hash = hash * 23 + maxAnisotropy.GetHashCode();
-                hash = hash * 23 + addressModeX.GetHashCode();
-                hash = hash * 23 + addressModeY.GetHashCode();
-                hash = hash * 23 + mipLoadBias.GetHashCode();
-                hash = hash * 23 + minLod.GetHashCode();
-                hash = hash * 23 + maxLod.GetHashCode();
-                hash = hash * 23 + compareOperation.GetHashCode();
-                hash = hash * 23 + compareEnable.GetHashCode();
-                return hash;
-            }
+            int hash = 17;
+            hash = hash * 23 + magFilter.GetHashCode();
+            hash = hash * 23 + minFilter.GetHashCode();
+            hash = hash * 23 + mipmapMode.GetHashCode();
+            hash = hash * 23 + anisotropy.GetHashCode();
+            hash = hash * 23 + maxAnisotropy.GetHashCode();
+            hash = hash * 23 + addressModeX.GetHashCode();
+            hash = hash * 23 + addressModeY.GetHashCode();
+            hash = hash * 23 + mipLoadBias.GetHashCode();
+            hash = hash * 23 + minLod.GetHashCode();
+            hash = hash * 23 + maxLod.GetHashCode();
+            hash = hash * 23 + compareOperation.GetHashCode();
+            hash = hash * 23 + compareEnable.GetHashCode();
+            return hash;
         }
 
         public static bool operator ==(SamplerCreateParameters left, SamplerCreateParameters right)

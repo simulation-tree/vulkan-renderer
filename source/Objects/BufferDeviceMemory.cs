@@ -34,7 +34,10 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return buffer.GetHashCode() ^ memory.GetHashCode();
+            int hash = 17;
+            hash = hash * 31 + buffer.GetHashCode();
+            hash = hash * 31 + memory.GetHashCode();
+            return hash;
         }
 
         /// <summary>

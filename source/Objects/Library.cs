@@ -129,7 +129,10 @@ namespace Vulkan
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(version, name);
+            int hash = 17;
+            hash = hash * 31 + version.GetHashCode();
+            hash = hash * 31 + name.GetHashCode();
+            return hash;
         }
 
         [Conditional("DEBUG")]
