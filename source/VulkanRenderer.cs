@@ -823,7 +823,7 @@ namespace Rendering.Vulkan
             for (int c = 0; c < chunks.Length; c++)
             {
                 Chunk chunk = chunks[c];
-                if (chunk.Definition.ContainsComponent(textureType))
+                if (chunk.componentTypes.Contains(textureType))
                 {
                     ComponentEnumerator<IsTexture> components = chunk.GetComponents<IsTexture>(textureType);
                     ReadOnlySpan<uint> entities = chunk.Entities;
@@ -853,7 +853,7 @@ namespace Rendering.Vulkan
             for (int c = 0; c < chunks.Length; c++)
             {
                 Chunk chunk = chunks[c];
-                if (chunk.Definition.ContainsComponent(worldRendererScissorType))
+                if (chunk.componentTypes.Contains(worldRendererScissorType))
                 {
                     chunksWithScissors[chunkCount++] = chunk;
                 }
