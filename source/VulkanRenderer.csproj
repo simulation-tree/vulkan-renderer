@@ -16,6 +16,7 @@
     <RepositoryUrl>https://github.com/simulation-tree/vulkan-renderer</RepositoryUrl>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <OutDir>bin/$(TargetFramework)/$(Configuration)</OutDir>
+    <PackageId>SimulationTree.VulkanRenderer</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
