@@ -14,23 +14,30 @@ namespace Rendering.Vulkan
         public readonly uint indexCount;
         public readonly VertexBuffer vertexBuffer;
         public readonly IndexBuffer indexBuffer;
+        public readonly BufferDeviceMemory instanceBuffer;
 
         private readonly Array<ShaderVertexInputAttribute> attributeLayout;
 
         public readonly Span<ShaderVertexInputAttribute> VertexAttributes => attributeLayout.AsSpan();
         public readonly bool IsDisposed => attributeLayout.IsDisposed;
 
-        public CompiledMesh(uint meshVersion, uint indexCount, VertexBuffer vertexBuffer, IndexBuffer indexBuffer, ReadOnlySpan<ShaderVertexInputAttribute> attributeLayout)
+        public CompiledMesh(uint meshVersion, uint indexCount, VertexBuffer vertexBuffer, IndexBuffer indexBuffer, ReadOnlySpan<ShaderVertexInputAttribute> attributeLayout, BufferDeviceMemory instanceBuffer)
         {
             this.version = meshVersion;
             this.indexCount = indexCount;
             this.vertexBuffer = vertexBuffer;
             this.indexBuffer = indexBuffer;
             this.attributeLayout = new(attributeLayout);
+            this.instanceBuffer = instanceBuffer;
         }
 
         public readonly void Dispose()
         {
+            if (instanceBuffer != default)
+            {
+                instanceBuffer.Dispose();
+            }
+
             vertexBuffer.Dispose();
             indexBuffer.Dispose();
             attributeLayout.Dispose();
