@@ -342,16 +342,15 @@ namespace Rendering.Vulkan
 
         private void CreateImageViewsAndBuffers(uint width, uint height)
         {
-            Span<Image> images = stackalloc Image[8];
-            int imageCount = swapchain.CopyImagesTo(images);
-            surfaceImageViews = new(imageCount);
-            swapChainFramebuffers = new(imageCount);
-            for (int i = 0; i < imageCount; i++)
+            Span<Image> images = stackalloc Image[swapchain.GetSwapchainImageCount()];
+            swapchain.GetSwapchainImages(images);
+            surfaceImageViews = new(images.Length);
+            swapChainFramebuffers = new(images.Length);
+            for (int i = 0; i < images.Length; i++)
             {
                 ImageView imageView = new(images[i]);
-                Framebuffer framebuffer = new(renderPass, [imageView, depthImage.imageView], width, height);
                 surfaceImageViews[i] = imageView;
-                swapChainFramebuffers[i] = framebuffer;
+                swapChainFramebuffers[i] = new Framebuffer(renderPass, [imageView, depthImage.imageView], width, height);
             }
         }
 
@@ -921,7 +920,11 @@ namespace Rendering.Vulkan
             UpdateComponentBuffers();
             UpdateTextureBuffers(textureComponents.AsSpan());
             ReadScissorValues(width, height);
-            //CollectInstancedMaterials();
+            UpdateRenderResources();
+        }
+
+        private void UpdateRenderResources()
+        {
         }
 
         /// <summary>
@@ -953,7 +956,7 @@ namespace Rendering.Vulkan
             }
         }
 
-        public override void Render(sbyte renderGroup, ReadOnlySpan<RenderEntity> renderEntities)
+        private void PrepareResources(ReadOnlySpan<RenderEntity> renderEntities)
         {
             bool deviceWaited = false;
 
@@ -975,18 +978,16 @@ namespace Rendering.Vulkan
             }
 
             // build and render everything in one go
-            Span<IsTexture> textureComponentsSpan = textureComponents.AsSpan();
             Span<RendererKey> meshKeysSpan = meshKeys.AsSpan();
             Span<ShaderKey> shaderKeySpan = shaderKeys.AsSpan();
+            Span<RendererKey> pipelineKeysSpan = pipelineKeys.AsSpan();
+            Span<IsTexture> textureComponentsSpan = textureComponents.AsSpan();
             ref CommandBuffer commandBuffer = ref commandBuffers[currentFrame];
             Span<CompiledRenderer> renderersSpan = renderers.AsSpan();
-            Span<Vector4> scissorsSpan = scissors.AsSpan();
-            ReadOnlySpan<Slot> slots = world.Slots;
             for (int i = 0; i < renderEntities.Length; i++)
             {
                 RenderEntity renderEntity = renderEntities[i];
                 uint entity = renderEntity.entity;
-                Slot slot = slots[(int)entity];
 
                 // deal with missing or outdated shaders
                 uint vertexShaderEntity = renderEntity.vertexShaderEntity;
@@ -1067,26 +1068,28 @@ namespace Rendering.Vulkan
                 }
 
                 // deal with missing pipelines
-                uint materialEntity = renderEntity.materialEntity;
-                ref CompiledPipeline compiledPipeline = ref pipelines.TryGetValue(key, out bool containsPipeline);
-                if (!containsPipeline)
-                {
-                    // todo: pipeline should be rebuilt if the mesh attribute layout changes
-                    Trace.WriteLine($"Creating pipeline for material `{materialEntity}` and mesh `{meshEntity}` for the first time");
-                    compiledPipeline = ref pipelines.Add(key);
-                    compiledPipeline = CompilePipeline(materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
-                    pipelineKeys.Add(key);
-                }
-
-                // deal with missing or outdated renderers
                 ref CompiledRenderer compiledRenderer = ref renderersSpan[(int)entity];
-                if (containsPipeline && compiledRenderer != default)
+                uint materialEntity = renderEntity.materialEntity;
+                CompiledPipeline compiledPipeline;
+                if (pipelineKeysSpan.Contains(key))
                 {
-                    if (textureBindingsChanged || shaderVersionChanged)
+                    compiledPipeline = pipelines[key];
+                    if (compiledRenderer != default)
                     {
-                        compiledRenderer.Dispose();
-                        compiledRenderer = default;
+                        if (textureBindingsChanged || shaderVersionChanged)
+                        {
+                            compiledRenderer.Dispose();
+                            compiledRenderer = default;
+                        }
                     }
+                }
+                else
+                {
+                    Trace.WriteLine($"Creating pipeline for material `{materialEntity}` and mesh `{meshEntity}` for the first time");
+                    compiledPipeline = CompilePipeline(materialEntity, vertexShaderEntity, fragmentShaderEntity, compiledShader, compiledMesh);
+                    pipelines.Add(key, compiledPipeline);
+                    pipelineKeys.Add(key);
+                    pipelineKeysSpan = pipelineKeys.AsSpan();
                 }
 
                 if (compiledRenderer == default)
@@ -1095,34 +1098,83 @@ namespace Rendering.Vulkan
                     UpdateDescriptorSet(materialEntity, descriptorSet, compiledPipeline);
                     compiledRenderer = new(descriptorSet);
                 }
+            }
+        }
 
-                // finally submit the command to draw
-                commandBuffer.BindPipeline(compiledPipeline.pipeline, VkPipelineBindPoint.Graphics);
-                commandBuffer.BindVertexBuffer(compiledMesh.vertexBuffer);
-                commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
+        public override void Render(sbyte renderGroup, ReadOnlySpan<RenderEntity> renderEntities)
+        {
+            PrepareResources(renderEntities);
 
-                // apply scissor
-                commandBuffer.SetScissor(scissorsSpan[(int)entity]);
+            // render everything in one go
+            ref CommandBuffer commandBuffer = ref commandBuffers[currentFrame];
+            Span<CompiledRenderer> renderersSpan = renderers.AsSpan();
+            Span<Vector4> scissorsSpan = scissors.AsSpan();
+            ReadOnlySpan<Slot> slots = world.Slots;
+            RendererKey currentKey = default;
+            DescriptorSet currentDescriptorSet = default;
+            Vector4 currentScissor = new(-1, -1, -1, -1);
+            CompiledPipeline compiledPipeline = default;
+            CompiledMesh compiledMesh = default;
+            for (int i = 0; i < renderEntities.Length; i++)
+            {
+                RenderEntity renderEntity = renderEntities[i];
+                uint entity = renderEntity.entity;
+                Slot slot = slots[(int)entity];
+                uint vertexShaderEntity = renderEntity.vertexShaderEntity;
+                uint fragmentShaderEntity = renderEntity.fragmentShaderEntity;
+                uint meshEntity = renderEntity.meshEntity;
+                uint materialEntity = renderEntity.materialEntity;
+                RendererKey key = new(materialEntity, meshEntity);
+                ref CompiledRenderer compiledRenderer = ref renderersSpan[(int)entity];
 
-                // push constants
-                if (knownPushConstants.TryGetValue(materialEntity, out Array<CompiledPushConstant> pushConstants))
+                // only bind the pipeline if it changed, as multiple entities can share the same material+mesh combo
+                if (key != currentKey)
                 {
-                    int pushOffset = 0;
-                    Span<CompiledPushConstant> pushConstantsSpan = pushConstants.AsSpan();
-                    for (int p = 0; p < pushConstantsSpan.Length; p++)
-                    {
-                        ref CompiledPushConstant pushConstant = ref pushConstantsSpan[p];
-                        MemoryAddress component = slot.GetComponent(pushConstant.componentType);
-                        commandBuffer.PushConstants(compiledPipeline.pipelineLayout, pushConstant.stageFlags, component, (uint)pushConstant.componentSize, (uint)pushOffset);
-                        pushOffset += pushConstant.componentSize;
-                    }
+                    compiledPipeline = pipelines[key];
+                    compiledMesh = meshes[key];
+                    commandBuffer.BindPipeline(compiledPipeline.pipeline, VkPipelineBindPoint.Graphics);
+                    commandBuffer.BindVertexBuffer(compiledMesh.vertexBuffer);
+                    commandBuffer.BindIndexBuffer(compiledMesh.indexBuffer);
+                    currentKey = key;
                 }
 
-                commandBuffer.BindDescriptorSet(compiledPipeline.pipelineLayout, compiledRenderer.descriptorSet);
+                // only apply the scissor if it changed
+                Vector4 scissor = scissorsSpan[(int)entity];
+                if (scissor != currentScissor)
+                {
+                    commandBuffer.SetScissor(scissor);
+                    currentScissor = scissor;
+                }
+
+                ApplyPushConstants(commandBuffer, slot, compiledPipeline.pipelineLayout, materialEntity);
+
+                // only bind the descriptor set if it changed, as multiple entities can share the same material
+                if (compiledRenderer.descriptorSet != currentDescriptorSet)
+                {
+                    commandBuffer.BindDescriptorSet(compiledPipeline.pipelineLayout, compiledRenderer.descriptorSet);
+                    currentDescriptorSet = compiledRenderer.descriptorSet;
+                }
+
                 commandBuffer.DrawIndexed(compiledMesh.indexCount, 1, 0, 0, 0);
 
                 previouslyRenderedEntities.Add(entity);
                 previouslyRenderedGroups.TryAdd(new(materialEntity, meshEntity, vertexShaderEntity, fragmentShaderEntity));
+            }
+        }
+
+        private void ApplyPushConstants(CommandBuffer commandBuffer, Slot slot, PipelineLayout pipelineLayout, uint materialEntity)
+        {
+            if (knownPushConstants.TryGetValue(materialEntity, out Array<CompiledPushConstant> pushConstants))
+            {
+                int pushOffset = 0;
+                Span<CompiledPushConstant> pushConstantsSpan = pushConstants.AsSpan();
+                for (int p = 0; p < pushConstantsSpan.Length; p++)
+                {
+                    ref CompiledPushConstant pushConstant = ref pushConstantsSpan[p];
+                    MemoryAddress component = slot.GetComponent(pushConstant.componentType);
+                    commandBuffer.PushConstants(pipelineLayout, pushConstant.stageFlags, component, (uint)pushConstant.componentSize, (uint)pushOffset);
+                    pushOffset += pushConstant.componentSize;
+                }
             }
         }
 

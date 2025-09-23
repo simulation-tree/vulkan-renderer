@@ -8,7 +8,7 @@ namespace Rendering.Vulkan
     /// <summary>
     /// A mesh object built from an existing mesh.
     /// </summary>
-    public readonly struct CompiledMesh : IDisposable
+    public readonly struct CompiledMesh : IDisposable, IEquatable<CompiledMesh>
     {
         public readonly uint version;
         public readonly uint indexCount;
@@ -41,6 +41,31 @@ namespace Rendering.Vulkan
             vertexBuffer.Dispose();
             indexBuffer.Dispose();
             attributeLayout.Dispose();
+        }
+
+        public readonly override bool Equals(object? obj)
+        {
+            return obj is CompiledMesh mesh && Equals(mesh);
+        }
+
+        public readonly bool Equals(CompiledMesh other)
+        {
+            return vertexBuffer.Equals(other.vertexBuffer) && indexBuffer.Equals(other.indexBuffer);
+        }
+
+        public readonly override int GetHashCode()
+        {
+            return HashCode.Combine(vertexBuffer, indexBuffer);
+        }
+
+        public static bool operator ==(CompiledMesh left, CompiledMesh right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(CompiledMesh left, CompiledMesh right)
+        {
+            return !(left == right);
         }
     }
 }

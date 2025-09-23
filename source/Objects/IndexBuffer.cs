@@ -3,7 +3,7 @@ using Vortice.Vulkan;
 
 namespace Vulkan
 {
-    public readonly unsafe struct IndexBuffer : IDisposable
+    public readonly unsafe struct IndexBuffer : IDisposable, IEquatable<IndexBuffer>
     {
         public readonly BufferDeviceMemory bufferDeviceMemory;
 
@@ -31,6 +31,31 @@ namespace Vulkan
         public readonly void Dispose()
         {
             bufferDeviceMemory.Dispose();
+        }
+
+        public readonly override bool Equals(object? obj)
+        {
+            return obj is IndexBuffer buffer && Equals(buffer);
+        }
+
+        public readonly bool Equals(IndexBuffer other)
+        {
+            return bufferDeviceMemory.Equals(other.bufferDeviceMemory);
+        }
+
+        public readonly override int GetHashCode()
+        {
+            return bufferDeviceMemory.GetHashCode();
+        }
+
+        public static bool operator ==(IndexBuffer left, IndexBuffer right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(IndexBuffer left, IndexBuffer right)
+        {
+            return !(left == right);
         }
     }
 }

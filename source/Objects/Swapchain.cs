@@ -83,18 +83,34 @@ namespace Vulkan
             }
         }
 
-        public readonly int CopyImagesTo(Span<Image> destination)
+        public readonly int GetSwapchainImageCount()
         {
             ThrowIfDisposed();
 
-            ReadOnlySpan<VkImage> imageSpan = vkGetSwapchainImagesKHR(logicalDevice.value, value);
-            for (int i = 0; i < imageSpan.Length; i++)
+            VkResult result = vkGetSwapchainImagesKHR(logicalDevice.value, value, out uint count);
+            if (result != VkResult.Success)
             {
-                Image image = new(logicalDevice, imageSpan[i], width, height, format);
-                destination[i] = image;
+                throw new InvalidOperationException($"Failed to get swapchain images: {result}");
             }
 
-            return imageSpan.Length;
+            return (int)count;
+        }
+
+        public readonly void GetSwapchainImages(Span<Image> destination)
+        {
+            ThrowIfDisposed();
+
+            Span<VkImage> imageSpan = stackalloc VkImage[destination.Length];
+            VkResult result = vkGetSwapchainImagesKHR(logicalDevice.value, value, imageSpan);
+            if (result != VkResult.Success)
+            {
+                throw new InvalidOperationException($"Failed to get swapchain images: {result}");
+            }
+
+            for (int i = 0; i < imageSpan.Length; i++)
+            {
+                destination[i] = new Image(logicalDevice, imageSpan[i], width, height, format);
+            }
         }
 
         public readonly override bool Equals(object? obj)
